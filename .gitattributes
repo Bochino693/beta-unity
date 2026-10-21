@@ -19,3 +19,5 @@ LEIA-ME.txt text eol=crlf
 *.dex binary
 *.zip binary
 *.apk binary
+*.pdf binary
+*.ino text eol=lf

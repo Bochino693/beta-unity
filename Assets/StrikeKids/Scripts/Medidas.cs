@@ -66,6 +66,10 @@ namespace StrikeKids
         /// <summary>Passos da física por segundo (o mesmo das edições Godot e da calibração).</summary>
         public const int PASSOS_FISICA = 120;
 
+        /// <summary>Versão da física do jogo: MUDE quando mudar pinos, bola, pista ou materiais —
+        /// a próxima geração do APK calibra as jogadas de novo (Editor/Calibrar.cs).</summary>
+        public const int VERSAO_FISICA = 1;
+
         /// <summary>
         /// ATRITO E QUIQUE: a PhysX MULTIPLICA os valores dos dois corpos
         /// (Multiply, como a Bullet da edição Godot 3). Os números de cada corpo
@@ -139,6 +143,7 @@ namespace StrikeKids
             Physics.sleepThreshold = 0.004f;
             Physics.defaultContactOffset = 0.006f;
             Physics.defaultMaxAngularSpeed = 100f;
+            Physics.reuseCollisionCallbacks = true;   // sem lixo para o coletor a cada batida
             int[] todas = { 0, CAMADA_MUNDO, CAMADA_PINOS, CAMADA_BOLA, CAMADA_SO_BOLA, CAMADA_SO_PINOS };
             foreach (int a in todas)
                 foreach (int b in todas)

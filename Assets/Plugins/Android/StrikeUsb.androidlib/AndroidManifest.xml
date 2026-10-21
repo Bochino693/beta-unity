@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AS PEÇAS DO ARDUINO E DA CÂMERA USB (biblioteca Android da Unity 2022.3:
+     a Unity junta este manifesto ao principal no build do APK).
+
+     * As duas atividades invisíveis de ENCAIXE USB: com o filtro de
+       aparelhos (res/xml), a janela de permissão USB do Android mostra a
+       caixa "Usar por padrão" — marcada uma vez, a permissão do Arduino e da
+       webcam fica guardada para sempre. As classes estão em
+       Assets/Plugins/Android (StrikeArduinoAtivo.java, StrikeUsbAtivo.java).
+     * A permissão da CÂMERA (pedida UMA vez pelo jogo, na tela de espera,
+       com o aviso na tela — Fotos.cs) e os recursos opcionais: a TV Box não
+       tem câmera própria nem precisa ter USB para o APK instalar.
+     * unityplayer.SkipPermissionsDialog: a Unity nunca pede permissão
+       sozinha ao abrir o jogo (só o jogo pede, na hora certa). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.lazersport.strikeusb">
+
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.external" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.front" android:required="false" />
+
+    <application>
+        <!-- encaixe do Arduino: "Usar por padrão" guarda a permissão USB -->
+        <activity
+            android:name="com.lazersport.strikekids.StrikeArduinoAtivo"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+                android:resource="@xml/strike_usb_arduino" />
+        </activity>
+
+        <!-- encaixe da webcam: "Usar por padrão" guarda a permissão USB -->
+        <activity
+            android:name="com.lazersport.strikekids.StrikeUsbAtivo"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+                android:resource="@xml/strike_usb_webcam" />
+        </activity>
+
+        <meta-data android:name="unityplayer.SkipPermissionsDialog" android:value="true" />
+    </application>
+</manifest>

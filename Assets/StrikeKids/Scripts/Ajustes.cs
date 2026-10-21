@@ -53,6 +53,7 @@ namespace StrikeKids
             ["video"] = new Dictionary<string, object>
             {
                 ["qualidade"] = "auto",          // auto, alta, media, baixa
+                ["cenario"] = "auto",            // fundo: auto (leve só nas placas de vídeo bem fracas), leve, completo
                 ["nitidez"] = "auto",            // resolução do 3D: auto ou 100%/90%/80%/70%
                 ["fator"] = 1.0,                 // o último fator automático bom (começa dele ao ligar)
                 ["medidor"] = false,             // painel de desempenho na tela (F3 no PC)
@@ -199,6 +200,18 @@ namespace StrikeKids
 
         public static bool ProtecaoCanaleta() => Bool("jogo", "protecao_canaleta");
         public static bool ModoLivre() => Bool("jogo", "modo_livre");
+
+        /// <summary>Cenário leve (menos objetos no fundo)? "auto": só nas placas de vídeo bem
+        /// fracas (Mali-400/450 e parecidas).</summary>
+        public static bool CenarioLeve()
+        {
+            string c = Texto("video", "cenario");
+            if (c == "leve") return true;
+            if (c == "completo") return false;
+            string g = (SystemInfo.graphicsDeviceName ?? "").ToLowerInvariant();
+            return g.Contains("mali-4") || g.Contains("mali-3") || g.Contains("mali-2") || g.Contains("sgx") || g.Contains("videocore")
+                || g.Contains("adreno (tm) 3") || g.Contains("adreno (tm) 2");
+        }
 
         // ------------------------------------------------------------ créditos
         public static int Creditos => _creditos;

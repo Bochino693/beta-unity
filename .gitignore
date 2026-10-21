@@ -8,6 +8,7 @@
 /[Uu]ser[Ss]ettings/
 /[Mm]emoryCaptures/
 /APK-Pronto/
+/PC-Pronto/
 *.csproj
 *.sln
 *.suo

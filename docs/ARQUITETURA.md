@@ -15,9 +15,12 @@ partir da 2023.1 a Unity tirou o OpenGL ES 2.0.
   feitas pelo modelador em Python (`tools/modelador`). Nada de SDF/massinha
   arredondada. Arquivos `.bytes` em `Resources/Malhas` (formato no
   `tools/modelador/formato.py` e em `Scripts/Malhas.cs`).
-* **Tudo montado por código**: uma cena só (`Assets/StrikeKids/Cenas/Principal.unity`,
-  criada pelo script de build) com o objeto `Jogo` (`Principal`). Mundo,
-  pinos, bola, personagens, câmera e telas nascem em `Principal.Awake`.
+* **Tudo montado por código**: uma cena só (`Assets/StrikeKids/Cenas/Jogo.unity`,
+  criada pelo `Editor/Construir.cs` na geração) com o objeto `Jogo`
+  (`Principal` + `AudioListener`). Mundo, pinos, máquina, bola, personagens,
+  câmeras e telas nascem em `Principal.Start`. As sequências (abertura,
+  vez, jogada, replay, fim) são corrotinas canceladas pelo número da
+  sequência (`_seq`), como os `yield` das edições Godot.
 * **Coordenadas**: as do jogo Godot com o **X espelhado** (a Unity é de mão
   esquerda): `x_unity = -x_godot`; ângulos YXZ `(ax, ay, az) -> (ax, -ay, -az)`;
   giro em Y `θ -> -θ`. A pista vai para -Z (pinos em z = -10,5), o jogador
@@ -31,10 +34,18 @@ partir da 2023.1 a Unity tirou o OpenGL ES 2.0.
   tabela `Resources/Dados/tabela_jogadas.json` diz, para cada lançamento,
   quantos pinos caem. Ela é refeita com a física da Unity pelo
   `Editor/Calibrar.cs` (o `GERAR_APK.bat` roda antes do build, se faltar).
-* **Tela girada** (monitor em pé no HDMI deitado): a câmera 3D e a câmera
-  das telas usam `projectionMatrix` girada 90° — sem imagem extra (nada de
-  RenderTexture), o mais leve para a Mali-450. As telas (uGUI) ficam num
-  Canvas "World Space" do tamanho lógico (lado menor = 1080).
+* **Imagem 3D numa textura** (`RenderTexture`, como a Viewport das edições
+  Godot): a câmera 3D desenha na tela LÓGICA, no tamanho da qualidade
+  (alta 1080, média 720, baixa 540 linhas, vezes a nitidez automática de
+  70% a 100%) com antisserrilhado 4x (2x na baixa); a imagem é a primeira
+  peça das telas. Assim o 3D pode PARAR atrás dos modais (a TV Box só
+  desenha o modal) e a resolução muda sem refazer a tela.
+* **Tela girada** (monitor em pé no HDMI deitado): só a câmera das telas
+  gira (`projectionMatrix` girada 90°, `Tela.Ortografica`) — ela leva junto
+  a imagem 3D. As telas (uGUI montado por código, `Ui.cs`) ficam num Canvas
+  "World Space" do tamanho lógico (lado menor = 1080, y das contas para
+  baixo como no Godot), com placas desenhadas por malha (bordas lisas, sem
+  textura por placa) e textos com contorno.
 * **Controles: só o ARDUINO** (sem placa Zero Delay): os 5 sensores da
   pista (jogadas Z X C V B), START, FICHA (crédito) e CONFIGURAÇÃO chegam pelo
   USB serial (`ArduinoBridge` → `Controles.Injetar`). Um teclado também vale
@@ -46,6 +57,16 @@ partir da 2023.1 a Unity tirou o OpenGL ES 2.0.
   (o C# lê os eventos a cada quadro).
 * **Ajustes, recordes, classificação**: JSON em `Application.persistentDataPath`
   (`Json.cs`, sem dependências).
+
+## Geração (Windows)
+
+`GERAR_APK.bat` → `GERAR_APK.ps1`: acha o Unity 2022.3 (Hub), espelha o
+projeto em `C:\StrikeKidsUnity` e roda
+`Unity -batchmode -executeMethod StrikeKids.Editor.Construir.Apk`, que
+configura o projeto (OpenGL ES 2.0 só, Gamma, IL2CPP ARMv7+ARM64, API 22+,
+Android TV, chave `tools/android/strikekids.keystore`), cria a cena, calibra
+as jogadas se a tabela não for da física atual (`Medidas.VERSAO_FISICA`) e
+gera o APK. O giro de fábrica da tela vai em `Resources/Dados/fabrica.json`.
 
 ## Pastas
 

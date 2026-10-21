@@ -1,0 +1,6 @@
+<!-- O que a geração (IL2CPP) não pode cortar: a ponte Java do Arduino e da câmera
+     (achada por reflexão) e o código do jogo (montado por código, sem cena). -->
+<linker>
+  <assembly fullname="UnityEngine.AndroidJNIModule" preserve="all"/>
+  <assembly fullname="Assembly-CSharp" preserve="all"/>
+</linker>

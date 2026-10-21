@@ -49,13 +49,13 @@ namespace StrikeKids
         };
 
         static readonly HashSet<string> _abaixados = new HashSet<string>();
-        static readonly Dictionary<string, float> _ultimoClique = new Dictionary<string, float>();
+        static readonly Dictionary<string, double> _ultimoClique = new Dictionary<string, double>();
         // o que aconteceu NESTE quadro
         static readonly List<string> _cliques = new List<string>();
         static readonly List<Acao> _injetadas = new List<Acao>();
         static readonly List<Acao> _injetadasProximo = new List<Acao>();
         static readonly List<Remoto> _remoto = new List<Remoto>();
-        static readonly Dictionary<Remoto, float> _repete = new Dictionary<Remoto, float>();
+        static readonly Dictionary<Remoto, double> _repete = new Dictionary<Remoto, double>();
         static int _quadro = -1;
 
         static bool PelaAtividade
@@ -88,11 +88,11 @@ namespace StrikeKids
 
         static void Aperto(string codigo, bool apertou)
         {
-            float agora = Time.realtimeSinceStartup;
+            double agora = Time.realtimeSinceStartupAsDouble;   // (em double: a máquina fica ligada dias seguidos)
             if (apertou)
             {
                 bool valido = !_abaixados.Contains(codigo);   // ainda segurado: não é clique novo
-                if (valido && _ultimoClique.TryGetValue(codigo, out float u) && agora - u < INTERVALO_MINIMO_MS / 1000f)
+                if (valido && _ultimoClique.TryGetValue(codigo, out double u) && agora - u < INTERVALO_MINIMO_MS / 1000.0)
                     valido = false;                             // repique
                 _abaixados.Add(codigo);
                 if (valido)
@@ -162,15 +162,15 @@ namespace StrikeKids
             {
                 if (_remoto.Contains(r))
                 {
-                    _repete[r] = Time.realtimeSinceStartup + 0.45f;
+                    _repete[r] = Time.realtimeSinceStartupAsDouble + 0.45;
                     continue;
                 }
-                if (!_repete.TryGetValue(r, out float quando)) continue;
+                if (!_repete.TryGetValue(r, out double quando)) continue;
                 if (!SetaSegurada(r)) { _repete.Remove(r); continue; }
-                if (Time.realtimeSinceStartup >= quando)
+                if (Time.realtimeSinceStartupAsDouble >= quando)
                 {
                     _remoto.Add(r);
-                    _repete[r] = Time.realtimeSinceStartup + 0.11f;
+                    _repete[r] = Time.realtimeSinceStartupAsDouble + 0.11;
                 }
             }
         }

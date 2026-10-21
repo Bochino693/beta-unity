@@ -8,12 +8,16 @@
     xmlns:tools="http://schemas.android.com/tools">
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
-    <uses-feature android:name="android.hardware.gamepad" android:required="false" />
-    <application android:banner="@mipmap/app_icon" android:isGame="true">
+    <!-- ícone, nome, faixa da TV (banner) e "é jogo": a Unity põe sozinha no
+         manifesto do APK (repetir aqui com outro valor quebra a junção) -->
+    <application>
         <activity android:name="com.lazersport.strikekids.StrikeAtividade"
                   android:theme="@style/UnityThemeSelector"
                   android:exported="true"
-                  android:launchMode="singleTask">
+                  android:launchMode="singleTask"
+                  android:hardwareAccelerated="false"
+                  android:resizeableActivity="false"
+                  android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|fontScale|layoutDirection|density">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

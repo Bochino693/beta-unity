@@ -64,7 +64,7 @@ echo "== Assembly-CSharp (PC)"
 "$DOTNET" "$CSC" "${BASE[@]}" -define:"$DEF_COMUM;UNITY_STANDALONE;UNITY_STANDALONE_WIN" -out:"$SAIDA/Assembly-CSharp-PC.dll" "${JOGO[@]}" || falhou=1
 if [ ${#EDITOR[@]} -gt 0 ] && [ $falhou = 0 ]; then
   echo "== Assembly-CSharp-Editor — ${#EDITOR[@]} arquivos"
-  "$DOTNET" "$CSC" "${BASE[@]}" -define:"$DEF_COMUM;UNITY_EDITOR;UNITY_ANDROID" -r:"$SDK/UnityEditor.dll" \
+  "$DOTNET" "$CSC" "${BASE[@]}" -define:"$DEF_COMUM;UNITY_EDITOR;UNITY_ANDROID" -r:"$SDK/UnityEditor.dll" -r:"$MOD/UnityEngine.dll" \
     -r:"$SAIDA/Assembly-CSharp.dll" -out:"$SAIDA/Assembly-CSharp-Editor.dll" "${EDITOR[@]}" || falhou=1
 fi
 [ $falhou = 0 ] && echo "ok: o C# compila" || { echo "ERROS acima" >&2; exit 1; }

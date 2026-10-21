@@ -9,10 +9,11 @@ import com.unity3d.player.UnityPlayerActivity;
 /**
  * A atividade principal do Strike Kids (no lugar da UnityPlayerActivity).
  *
- * Anota TODO aperto e soltura de tecla/botão do Android (código cru do
- * KeyEvent): a placa Zero Delay, o teclado e o controle remoto da TV Box.
- * A Unity não numera alguns botões (BUTTON_1..16 de placas genéricas): o
- * jogo lê a fila crua a cada quadro (Controles.cs, AndroidPonte.cs).
+ * Anota TODO aperto e soltura de tecla do Android (código cru do KeyEvent):
+ * o controle remoto da TV Box (menu do operador) e um teclado de teste. Os
+ * comandos da máquina (START, sensores, ficha, configuração) vêm SÓ do
+ * Arduino, pela USB (StrikeSerial.java). O jogo lê a fila crua a cada
+ * quadro (Controles.cs, AndroidPonte.cs).
  *
  * VOLTAR e MENU do controle remoto nunca fecham o jogo: o jogo trata (abre
  * o menu do operador, volta nos menus).

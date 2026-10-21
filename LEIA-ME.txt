@@ -1,0 +1,154 @@
+STRIKE KIDS - BOLICHE INFANTIL 3D (Bob & Mia) - EDICAO UNITY
+==============================================================
+Feito na UNITY 2022.3 LTS, desenhando com OpenGL ES 2.0 - para TV Box com
+placa de video Mali-400 / Mali-450 (a TX9 "comum": Amlogic S905W/S905X,
+Rockchip RK3229, MXQ, X96...). Roda tambem em TV Box mais forte e no PC.
+
+E o MESMO JOGO das edicoes Godot (regras, telas, sons, ritmo 30% mais
+rapido), refeito do zero na Unity para provar que o motor nao e o problema:
+  * MODELOS NOVOS, FACETADOS (faces retas e quinas vivas, nada de aspecto
+    de "massinha" ou de GLB arredondado): Bob e Mia com as roupinhas de cada
+    fase (pirata, dinossaurinho, astronauta e o bone de helice do parque),
+    pinos com carinha (8 expressoes), dinossauros (pescocudo, T-rex,
+    triceratops, estegossauro, pterossauro, ovo chocando), a pista, a
+    maquina de pinos e os 4 cenarios - tudo modelado por codigo
+    (tools/modelador, Python) e conferido em imagens de previa.
+  * FISICA PhysX (a da Unity), passo de 1/120 s: os pinos derrubam uns aos
+    outros, batem nas paredes, caem no fosso e no poco do alcapao. A tabela
+    das jogadas (Resources/Dados/tabela_jogadas.json) e refeita SOZINHA com
+    a PhysX na primeira geracao do APK (alguns minutos, uma vez so).
+  * LEVE para a Mali-450: luz calculada nos vertices (sem luzes da Unity),
+    sombras "de adesivo", particulas numa malha so por tipo, imagem 3D em
+    720 linhas com antisserrilhado 4x (o da propria placa), cenario leve
+    automatico nas placas de video mais fracas, qualidade e nitidez
+    automaticas (medidas enquanto o jogo roda).
+
+
+DO QUE PRECISA (uma vez so, no PC com Windows)
+----------------------------------------------
+1. UNITY HUB: https://unity.com/download  (instale e entre com uma conta
+   Unity - a licenca PERSONAL e gratis; o Hub ativa sozinho na 1a vez).
+2. No Unity Hub: Instalacoes (Installs) > Instalar editor > Arquivo
+   (Archive) e escolha o Unity 2022.3.62f2 (LTS). Marque o modulo
+   "Android Build Support" com "OpenJDK" e "Android SDK & NDK Tools".
+   (Ja tem outro 2022.3? Tambem serve; o GERAR_APK.bat avisa a versao.)
+   A 2022.3 e a ULTIMA Unity que gera jogo em OpenGL ES 2.0 - nao use 2023
+   nem Unity 6 (nao rodam na Mali-450).
+3. Nada mais: NAO precisa abrir o projeto na Unity nem instalar Android
+   Studio. Se quiser abrir (para mexer), use o Hub > Adicionar > esta pasta.
+
+
+COMO GERAR O APK
+----------------
+De dois cliques no GERAR_APK.bat (nesta pasta, junto das pastas Assets e
+ProjectSettings). Ele faz tudo sozinho e mostra cada passo:
+  - acha o Unity 2022.3 instalado pelo Hub e confere o modulo Android;
+  - trabalha numa COPIA do projeto em C:\StrikeKidsUnity (caminho curto,
+    sem acentos: o Android/Gradle nao gosta de caminho comprido). O projeto
+    original nao e alterado; a copia guarda o que a Unity ja importou;
+  - roda a Unity SEM JANELA: configura o projeto (OpenGL ES 2.0, IL2CPP 32
+    e 64 bits, Android 5.1+, Android TV, a chave do projeto), monta a cena,
+    calibra as jogadas na 1a vez e gera o APK assinado;
+  - copia o APK para APK-Pronto\StrikeKids-Unity.apk.
+  1a vez: de 20 a 60 min (a Unity importa tudo e compila). Depois: 3 a 10 min.
+  Opcoes (no Prompt de Comando, dentro desta pasta):
+     GERAR_APK.bat -Giro -1        topo do jogo na DIREITA do HDMI
+     GERAR_APK.bat -Giro 0         TV deitada, sem giro
+     GERAR_APK.bat -Instalar       ja instala na TV Box pelo adb
+     GERAR_APK.bat -Windows        gera tambem a versao de PC (PC-Pronto\)
+     GERAR_APK.bat -Calibrar       refaz a calibracao das jogadas
+     GERAR_APK.bat -Versao 6.1     muda o nome da versao
+     GERAR_APK.bat -CaminhoUnity "D:\Unity\2022.3.62f2\Editor\Unity.exe"
+  Se der erro, envie o arquivo Build\GERACAO-COMPLETA.log (e o
+  Build\unity-android.log). Os erros mais comuns:
+     "nao achou a licenca"   abra o Unity Hub e entre na sua conta;
+     "falta o suporte Android" Hub > Instalacoes > engrenagem > Adicionar
+                               modulos > Android Build Support;
+     "a Unity ja esta aberta"  feche a Unity e rode de novo.
+  No editor da Unity tambem da: menu "Strike Kids" > Gerar APK (TV Box).
+
+
+APK NA TV BOX
+-------------
+StrikeKids-Unity.apk - copie para um pendrive e instale pelo gerenciador de
+arquivos da TV Box (ou: adb install -r StrikeKids-Unity.apk).
+  - Android 5.1 ou mais novo; 32 E 64 bits (instala nas TV Boxes com Android
+    de 32 bits, comum nas com Mali-450). Pacote com.lazersport.strikekids.unity:
+    instala AO LADO das edicoes Godot (nao substitui).
+  - Aparece no inicio da TV Box (icone de TV) e no menu de apps.
+  - Na 1a vez o Android pergunta da CAMERA (Permitir) e do Arduino no USB
+    (marque "Usar por padrao" e OK). O jogo avisa na tela antes.
+  - Na primeira vez, no menu do operador, rode o TESTE DE DESEMPENHO: ele
+    mede a TV Box e escolhe a qualidade.
+
+
+BOTOES DA MAQUINA: SO O ARDUINO
+-------------------------------
+Esta edicao NAO usa a placa Zero Delay: START, os 5 SENSORES da pista,
+FICHA (moedeiro) e CONFIGURACAO vem todos do ARDUINO, pelo cabo USB.
+O firmware esta em arduino\strike_kids\strike_kids.ino (o mesmo das
+edicoes Godot) e o desenho da ligacao em docs\ligacao_arduino.pdf:
+  Sensores (esquerda -> direita, olhando da crianca para os pinos):
+     S1 = D2   S2 = D3   S3 = D4 (centro)   S4 = D5   S5 = D7
+  CONFIGURACAO = A0   START = A1   FICHA (moedeiro) = A2   (cada um e GND)
+  Trava da porta das bolas: servo no D9 (Mega: D11) e/ou rele no D8.
+  Fita de LED WS2812 (opcional): D6.
+Sem moedeiro: deixe "Modo livre (sem ficha)" ligado no menu (padrao).
+O controle remoto da TV Box serve para o MENU DO OPERADOR (tecla MENU abre;
+setas andam e mudam; OK escolhe; VOLTAR sai).
+
+TESTAR NO PC (versao Windows: GERAR_APK.bat -Windows, ou no editor):
+     sensores: A S D F G    START: 1 ou Espaco    ficha: 5
+     configuracao/operador: 9      F3: painel de desempenho
+     Variaveis (opcionais): STRIKE_GIRO=1 (tela girada como na maquina),
+     STRIKE_QUALIDADE=alta|media|baixa, STRIKE_CAMERA_FALSA=1 (camera de teste).
+
+
+O JOGO
+------
+  ATRACAO: Bob e Mia na frente da pista, a demonstracao jogando sozinha, o
+  recorde e os MELHORES DE HOJE (com a foto de cada crianca).
+  START: 1 vez = 1 jogador; START de novo em 4 s = 2 jogadores (BOB x MIA).
+  1 jogador escolhe o amigo rolando a bola: esquerda = BOB, direita = MIA,
+  meio (ou START) confirma. Depois: "SORRIA!" (foto pela camera USB da
+  maquina, se tiver), a partida (3 rodadas de 3 bolas, por padrao), cada
+  rodada numa fase sorteada (Selva dos Dinos, Parque, Espaco, Fundo do Mar)
+  com a roupinha da fase, o REPLAY do strike em camera lenta, a maquina
+  de pinos (barra, mesa e alcapao) e o FIM com estrelas, recorde e a
+  CLASSIFICACAO DO DIA.
+  Pontos: cada pino 10; STRIKE +50; SPARE +20.
+
+
+MENU DO OPERADOR (botao CONFIGURACAO do Arduino ou MENU do controle)
+--------------------------------------------------------------------
+Navegacao pelos sensores: X sobe, V desce, Z diminui, B aumenta, C ou START
+escolhe, CONFIGURACAO volta ao jogo. Itens: rodadas, bolas por rodada,
+dificuldade, velocidade do jogo, para-choques, replay, demonstracao, modo
+livre, foto, giro/espelho da camera, fichas por partida, tempo de
+inatividade, volumes, QUALIDADE GRAFICA, CENARIO (auto/leve/completo),
+NITIDEZ do 3D, desempenho na tela, TESTE DE DESEMPENHO, GIRO DA TELA, teste
+dos sensores, calibrar sensores, sensores invertidos, teste da porta, porta
+invertida, teste da camera, zerar recordes, padrao de fabrica.
+
+
+PASTAS
+------
+  Assets\StrikeKids\Scripts     o jogo (C#): Principal (o fluxo), Mundo,
+                                Temas, Pinos/Pino, Bola, Maquina, Personagem,
+                                Animacoes, CameraCine, Hud/HudTelas (telas),
+                                Ui (placas, textos, animacoes das telas),
+                                Operador, Medidor, Jogada, Placar, Ajustes,
+                                Controles, ArduinoBridge, Fotos (camera)...
+  Assets\StrikeKids\Editor      geracao do APK (Construir), calibracao das
+                                jogadas (Calibrar), importacao (Importacao)
+  Assets\StrikeKids\Resources   malhas (.bytes), texturas, telas, sons,
+                                fontes, shaders (OpenGL ES 2.0), dados
+  Assets\Plugins\Android        Java: atividade (controle remoto), Arduino
+                                (USB serial) e camera USB + manifestos
+  arduino\                      firmware do Arduino da maquina
+  tools\modelador\              o modelador 3D facetado (Python) e as
+                                previas: python3 tools/modelador/gerar.py
+  tools\verificar\              confere o C# e o Java sem a Unity (Linux)
+  tools\android\                a chave do projeto (strikekids.keystore)
+  docs\ARQUITETURA.md           as decisoes tecnicas
+  GERAR_APK.bat / GERAR_APK.ps1 gera o APK no Windows
