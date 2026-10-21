@@ -10,6 +10,14 @@ GitHub e, no fim, baixa:
 
 Nada de Unity no seu PC.
 
+**Depois de configurado, é automático:** a cada mudança do jogo enviada ao
+repositório, o GitHub gera de novo e **publica no próprio repositório**, em
+**Releases** (lado direito da página do repositório). Links fixos da última
+geração:
+
+* APK: <https://github.com/Bochino693/beta-unity/releases/latest/download/StrikeKids-Unity.apk>
+* Windows: <https://github.com/Bochino693/beta-unity/releases/latest/download/StrikeKids-Windows.zip>
+
 O que roda lá é o mesmo do `GERAR_APK.bat`: configura o projeto (OpenGL ES 2.0
 no APK), calibra as jogadas na primeira vez, assina o APK com a chave do
 projeto e gera.
@@ -69,17 +77,19 @@ O GitHub guarda trancado: depois de salvo, ninguém vê o valor (nem eu).
    - 1ª vez: uns **40 a 70 minutos** (a Unity importa tudo e calibra as
      jogadas com a física);
    - depois: uns **25 a 40 minutos** (a importação fica guardada).
-3. Abra a execução e, **no fim da página, em “Artifacts”**, baixe:
+3. Pronto: o APK e o jogo de PC aparecem em **Releases** (links acima).
+   Também dá para baixar na própria execução, **no fim da página, em
+   “Artifacts”**:
    - **StrikeKids-Unity-APK** — um .zip com o `StrikeKids-Unity.apk` dentro:
      instale na TV Box como sempre (pendrive ou `adb install`);
    - **StrikeKids-Windows** — um .zip com o jogo de PC (veja abaixo).
-   Os arquivos ficam lá por 7 dias: baixe logo.
+   (Em Artifacts eles ficam 7 dias; em Releases, ficam guardados.)
 
 ---
 
 ## Jogar no PC (testar sem a TV Box)
 
-1. Descompacte o `StrikeKids-Windows.zip` numa pasta (por exemplo
+1. Baixe o `StrikeKids-Windows.zip` (Releases) e descompacte numa pasta (por exemplo
    `C:\StrikeKids`) — **todos os arquivos juntos**: o `StrikeKids.exe` precisa
    da pasta `StrikeKids_Data` e dos .dll do lado.
 2. Dê dois cliques em **StrikeKids.exe**. Se o Windows mostrar “O Windows

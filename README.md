@@ -10,6 +10,12 @@ modelos, pinos e bola envernizados, reflexo na pista —, física PhysX, o
 Arduino da máquina (START, 5 sensores, ficha e configuração) e a câmera USB
 para a foto das crianças.
 
+* **Baixar o jogo pronto (a última geração):**
+  [APK da TV Box](https://github.com/Bochino693/beta-unity/releases/latest/download/StrikeKids-Unity.apk) ·
+  [versão de Windows para testar no PC](https://github.com/Bochino693/beta-unity/releases/latest/download/StrikeKids-Windows.zip)
+  — gerados sozinhos na nuvem a cada mudança do jogo e publicados em
+  [Releases](https://github.com/Bochino693/beta-unity/releases) (precisa dos
+  3 segredos da licença grátis da Unity, uma vez só — veja abaixo).
 * **Gerar o APK e a versão de PC sem instalar a Unity (na nuvem):** aba
   **Actions** do GitHub › **Gerar APK (TV Box)** › **Run workflow** — o APK da
   TV Box e o `StrikeKids.exe` de Windows saem em *Artifacts*. Uma vez

@@ -1,12 +1,17 @@
-# GERA O JOGO NA NUVEM (GitHub Actions) - SEM INSTALAR A UNITY NO PC:
-#   * o APK da TV Box (Android, OpenGL ES 2.0);
-#   * a versao de WINDOWS para testar no proprio PC (StrikeKids.exe).
+# GERA O JOGO NA NUVEM (GitHub Actions) - SEM INSTALAR A UNITY NO PC - E
+# PUBLICA NO PROPRIO REPOSITORIO (Releases):
+#   * StrikeKids-Unity.apk   - a TV Box (Android, OpenGL ES 2.0);
+#   * StrikeKids-Windows.zip - o jogo de PC para testar (StrikeKids.exe).
 #
-# Como usar: aba "Actions" do repositorio > "Gerar APK (TV Box)" > "Run workflow".
-# No fim (uns 30 a 70 minutos), os arquivos aparecem no fim da pagina da
-# execucao, em "Artifacts": StrikeKids-Unity-APK e StrikeKids-Windows.
-# Antes da 1a vez: os 3 segredos da licenca Personal da Unity (gratis) -
-# passo a passo em docs/GERAR_APK_NA_NUVEM.md.
+# Roda SOZINHO a cada mudanca do jogo (Assets, Packages, ProjectSettings) na
+# main, ou pelo botao: aba "Actions" > "Gerar APK (TV Box)" > "Run workflow".
+# Links fixos da ultima geracao:
+#   https://github.com/Bochino693/beta-unity/releases/latest/download/StrikeKids-Unity.apk
+#   https://github.com/Bochino693/beta-unity/releases/latest/download/StrikeKids-Windows.zip
+#
+# Precisa (uma vez so) dos 3 segredos da licenca Personal da Unity (gratis):
+# UNITY_LICENSE, UNITY_EMAIL, UNITY_PASSWORD - passo a passo em
+# docs/GERAR_APK_NA_NUVEM.md. Sem eles, a execucao so avisa e nao gera nada.
 #
 # Quem roda a Unity e o GameCI (imagem unityci/editor com a Unity 2022.3),
 # chamando os mesmos metodos do GERAR_APK.bat (StrikeKids.Editor.Construir.Apk
@@ -14,6 +19,12 @@
 name: Gerar APK (TV Box)
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "Assets/**"
+      - "Packages/**"
+      - "ProjectSettings/**"
   workflow_dispatch:
     inputs:
       alvo:
@@ -43,12 +54,32 @@ permissions:
 
 concurrency:
   group: gerar-jogo
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
+  licenca:
+    name: Conferir a licenca da Unity
+    runs-on: ubuntu-latest
+    outputs:
+      ok: ${{ steps.conferir.outputs.ok }}
+    steps:
+      - id: conferir
+        env:
+          L: ${{ secrets.UNITY_LICENSE }}
+          E: ${{ secrets.UNITY_EMAIL }}
+          P: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          if [ -n "$L" ] && [ -n "$E" ] && [ -n "$P" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Faltam os 3 segredos da licenca da Unity (UNITY_LICENSE, UNITY_EMAIL, UNITY_PASSWORD). Passo a passo: docs/GERAR_APK_NA_NUVEM.md"
+          fi
+
   apk:
     name: APK da TV Box
-    if: inputs.alvo != 'So o Windows'
+    needs: licenca
+    if: needs.licenca.outputs.ok == 'true' && inputs.alvo != 'So o Windows'
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
@@ -81,11 +112,11 @@ jobs:
           androidExportType: androidPackage
           customParameters: >-
             -saida build/Android/StrikeKids-Unity.apk
-            -giro ${{ inputs.giro }}
+            -giro ${{ inputs.giro || '1' }}
             ${{ inputs.versao != '' && format('-versao {0}', inputs.versao) || '' }}
             ${{ inputs.arm64 && ' ' || '-so32' }}
 
-      - name: Entregar o APK (fica no fim da pagina, em Artifacts)
+      - name: Guardar o APK
         uses: actions/upload-artifact@v4
         with:
           name: StrikeKids-Unity-APK
@@ -95,7 +126,8 @@ jobs:
 
   windows:
     name: Versao Windows (testar no PC)
-    if: inputs.alvo != 'So o APK'
+    needs: licenca
+    if: needs.licenca.outputs.ok == 'true' && inputs.alvo != 'So o APK'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -129,10 +161,50 @@ jobs:
             -saida build/StandaloneWindows64/StrikeKids.exe
             ${{ inputs.versao != '' && format('-versao {0}', inputs.versao) || '' }}
 
-      - name: Entregar a versao Windows (fica no fim da pagina, em Artifacts)
+      - name: Guardar a versao Windows
         uses: actions/upload-artifact@v4
         with:
           name: StrikeKids-Windows
           path: build/StandaloneWindows64
           if-no-files-found: error
           retention-days: 7
+
+  publicar:
+    name: Publicar no repositorio (Releases)
+    needs: [licenca, apk, windows]
+    if: always() && needs.licenca.outputs.ok == 'true' && (needs.apk.result == 'success' || needs.windows.result == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Pegar o que foi gerado
+        uses: actions/download-artifact@v4
+        with:
+          path: entregas
+
+      - name: Arrumar os arquivos
+        run: |
+          mkdir -p publicar
+          if [ -f entregas/StrikeKids-Unity-APK/StrikeKids-Unity.apk ]; then
+            cp entregas/StrikeKids-Unity-APK/StrikeKids-Unity.apk publicar/
+          fi
+          if [ -d entregas/StrikeKids-Windows ]; then
+            (cd entregas/StrikeKids-Windows && zip -qr ../../publicar/StrikeKids-Windows.zip .)
+          fi
+          ls -la publicar
+
+      - name: Publicar (Releases do repositorio)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: jogo-${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: Strike Kids - geracao ${{ github.run_number }}
+          make_latest: true
+          files: publicar/*
+          body: |
+            O jogo gerado na nuvem (Unity 2022.3, a partir do commit ${{ github.sha }}).
+
+            * **StrikeKids-Unity.apk**: a TV Box (Android, OpenGL ES 2.0). Instale como sempre (pendrive ou `adb install`).
+            * **StrikeKids-Windows.zip**: o jogo de PC para testar. Descompacte tudo numa pasta e abra o `StrikeKids.exe`.
+              Teclas: 5 = ficha, 1 ou Espaco = START, A S D F G = sensores, 9 = menu, F3 = medidor de FPS.
+              Se o Windows avisar ("O Windows protegeu o computador"): Mais informacoes > Executar assim mesmo.
