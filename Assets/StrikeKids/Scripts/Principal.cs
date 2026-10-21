@@ -41,8 +41,10 @@ namespace StrikeKids
         {
             ["mar"] = "pirata", ["dinos"] = "dino", ["espaco"] = "astronauta", ["parque"] = "parque",
         };
-        static readonly Dictionary<string, int> LADO_3D = new Dictionary<string, int> { ["alta"] = 1080, ["media"] = 720, ["baixa"] = 540 };
-        const float FATOR_MIN = 0.7f;
+        // linhas da imagem 3D por qualidade; a nitidez automática nunca desce de 85% (a imagem
+        // não fica "quadriculada" na TV: no pior caso, 510 linhas)
+        static readonly Dictionary<string, int> LADO_3D = new Dictionary<string, int> { ["alta"] = 1080, ["media"] = 720, ["baixa"] = 600 };
+        const float FATOR_MIN = 0.85f;
         const int CAMADA_UI = 5;
 
         public E estado = E.ABERTURA;

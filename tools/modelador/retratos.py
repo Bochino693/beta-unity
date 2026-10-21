@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 RETRATOS DO BOB E DA MIA (Assets/StrikeKids/Resources/UI/retrato_*.png),
-tirados dos MESMOS modelos facetados do jogo — os cartões, o placar, a
+tirados dos MESMOS modelos do jogo — os cartões, o placar, a
 escolha do bichinho e a classificação mostram o bichinho como ele é no 3D.
 
     python3 tools/modelador/retratos.py
@@ -64,6 +64,8 @@ def retrato(modelo):
 
 def main():
     os.makedirs(SAIDA, exist_ok=True)
+    import malha
+    malha.RESOLUCAO = 2.0          # a mesma dos bichinhos do jogo (gerar.py)
     for nome, f in (("bob", personagens.bob), ("mia", personagens.mia)):
         im = retrato(f(""))
         caminho = os.path.join(SAIDA, "retrato_" + nome + ".png")

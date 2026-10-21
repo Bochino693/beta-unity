@@ -1,4 +1,4 @@
-// As peças facetadas (personagens, pinos, cenário, pista): cor do vértice x
+// As peças do jogo (personagens, cenário, pista; lisas ou com quina): cor do vértice x
 // tinta, luz por vértice (StrikeLuz.cginc). _Flash acende (personagem da
 // vez); _Escuro escurece (pino caindo no poço).
 Shader "StrikeKids/Facetado"

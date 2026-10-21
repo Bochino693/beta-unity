@@ -6,8 +6,9 @@ Rockchip RK3229, MXQ, X96...). Roda tambem em TV Box mais forte e no PC.
 
 E o MESMO JOGO das edicoes Godot (regras, telas, sons, ritmo 30% mais
 rapido), refeito do zero na Unity para provar que o motor nao e o problema:
-  * MODELOS NOVOS, FACETADOS (faces retas e quinas vivas, nada de aspecto
-    de "massinha" ou de GLB arredondado): Bob e Mia com as roupinhas de cada
+  * MODELOS NOVOS, LISOS E EM BOA RESOLUCAO (formas bem definidas, nada de
+    "massinha" derretida nem de aspecto quadriculado; superficie lisa e
+    quinas vivas so onde sao de verdade): Bob e Mia com as roupinhas de cada
     fase (pirata, dinossaurinho, astronauta e o bone de helice do parque),
     pinos com carinha (8 expressoes), dinossauros (pescocudo, T-rex,
     triceratops, estegossauro, pterossauro, ovo chocando), a pista, a
@@ -151,7 +152,7 @@ PASTAS
   Assets\Plugins\Android        Java: atividade (controle remoto), Arduino
                                 (USB serial) e camera USB + manifestos
   arduino\                      firmware do Arduino da maquina
-  tools\modelador\              o modelador 3D facetado (Python) e as
+  tools\modelador\              o modelador 3D (Python) e as
                                 previas: python3 tools/modelador/gerar.py
   tools\verificar\              confere o C# e o Java sem a Unity (Linux)
   tools\android\                a chave do projeto (strikekids.keystore)

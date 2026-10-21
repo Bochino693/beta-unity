@@ -34,6 +34,7 @@ namespace StrikeKids
 
         static Mesh[] _malhas;
         static Mesh _colisao;
+        static Mesh _reflexo;
         static Material _matEstrela;
         static readonly int ID_ESCURO = Shader.PropertyToID("_Escuro");
 
@@ -62,6 +63,7 @@ namespace StrikeKids
             _malhas = new Mesh[EXPR.Length];
             for (int i = 0; i < EXPR.Length; i++) _malhas[i] = pc.Malha("pino_" + EXPR[i]);
             _colisao = pc.Malha("colisao");
+            _reflexo = pc.Malha("reflexo");
             _matEstrela = Materiais.Novo("Recorte", "estrela_tonto");
             _matEstrela.SetTexture(Materiais.ID_TEX, Materiais.Textura("estrela"));
             _matEstrela.SetColor(Materiais.ID_TINTA, Materiais.Hex("#FFE14D"));
@@ -131,6 +133,8 @@ namespace StrikeKids
         public MeshRenderer Corpo => _mr;
         /// <summary>A malha da expressão de agora.</summary>
         public Mesh MalhaAtual => _mf.sharedMesh;
+        /// <summary>O pino do reflexo na pista (sem cara, menos gomos: metade do custo).</summary>
+        public Mesh MalhaReflexo => _reflexo != null ? _reflexo : _mf.sharedMesh;
 
         // ------------------------------------------------------------ onde
         /// <summary>A base do pino (onde ele pisa), pela física.</summary>

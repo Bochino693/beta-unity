@@ -26,7 +26,12 @@ partir da 2023.1 a Unity tirou o OpenGL ES 2.0.
     cena cobre por cima. Desligado na qualidade baixa;
   - *vinheta* leve na imagem 3D (cor dos vértices de uma gradezinha, `Ui.Figura`);
   - antisserrilhado 4x (de graça nas placas de vídeo de ladrilhos como a Mali).
-* **Visual facetado**: malhas low-poly de faces retas e cores por vértice,
+* **Modelos lisos em boa resolução**: malhas com cores por vértice e normais
+  lisas por ângulo (superfície curva lisa, quina viva só onde é quina:
+  `SUAVE_PADRAO` = 40°), com gomos e anéis a mais pela `RESOLUCAO` de cada
+  tipo de modelo (bichinhos 2x, dinossauros 1,6x, cenário 1,4x) — nada de
+  aspecto quadriculado; os pinos do reflexo usam uma malha mais leve.
+  Antes eram malhas de faces retas e cores por vértice,
   feitas pelo modelador em Python (`tools/modelador`). Nada de SDF/massinha
   arredondada. Arquivos `.bytes` em `Resources/Malhas` (formato no
   `tools/modelador/malha.py`, função `gravar`, e em `Scripts/Malhas.cs`).
@@ -90,7 +95,7 @@ Assets/StrikeKids/Scripts     o jogo (namespace StrikeKids)
 Assets/StrikeKids/Editor      build do APK, calibração, importação
 Assets/StrikeKids/Resources   malhas, texturas, telas, sons, fontes, shaders, dados
 Assets/Plugins/Android        Java (atividade, Arduino, câmera) + manifesto
-tools/modelador               modelador facetado (Python) + prévias + retratos
+tools/modelador               modelador 3D (Python) + prévias + retratos
 tools/verificar               compila o C# sem a Unity (referências do NuGet)
                               e confere os shaders (glslangValidator, HLSL)
 ```

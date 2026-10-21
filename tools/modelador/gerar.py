@@ -16,12 +16,23 @@ import time
 AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, AQUI)
 
+import malha  # noqa: E402
 from malha import gravar  # noqa: E402
 import objetos  # noqa: E402
 import personagens  # noqa: E402
 
 SAIDA = os.path.normpath(os.path.join(AQUI, "..", "..", "Assets", "StrikeKids", "Resources", "Malhas"))
 ROUPAS = ["parque", "pirata", "dino", "astronauta"]
+# resolução (gomos e anéis a mais nas formas curvas) de cada tipo de modelo:
+# os bichinhos aparecem de pertinho (mais), os pinos são 10 (menos)
+RESOLUCAO = {"bob": 2.0, "mia": 2.0, "pinos": 1.35, "bola": 1.0, "pista": 1.4}
+
+
+def resolucao_de(nome):
+    for prefixo, r in RESOLUCAO.items():
+        if nome == prefixo or nome.startswith(prefixo + "_"):
+            return r
+    return 1.75
 
 
 def tarefas():
@@ -51,6 +62,7 @@ def main(alvos):
             continue
         for k in [k for k in todas if k == n or (alvos and k.startswith(n + "_"))]:
             t0 = time.time()
+            malha.RESOLUCAO = resolucao_de(k)
             m = todas[k]()
             v, tri = gravar(m, os.path.join(SAIDA, k + ".bytes"))
             print("%-22s %6d vértices %6d triângulos  %.1fs" % (k, v, tri, time.time() - t0))

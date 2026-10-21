@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-MODELADOR FACETADO DO STRIKE KIDS (edição Unity)
-================================================
+MODELADOR DO STRIKE KIDS (edição Unity) — MODELOS LISOS EM BOA RESOLUÇÃO
+=======================================================================
 
-Peças de faces retas e quinas vivas (nada de "massinha" arredondada): cada
-primitiva é uma malha indexada (V, F) que pode ser deformada antes de virar
-triângulos. As normais saem por "suavização por ângulo" (como o Auto Smooth):
-superfícies curvas ficam lisas por dentro e as quinas (mais que `suave`
-graus) ficam vivas; suave=0 = tudo facetado (pedras, cristais).
+Formas bem definidas (nada de "massinha" derretida) e LISAS: cada primitiva
+é uma malha indexada (V, F) que pode ser deformada antes de virar
+triângulos. As normais saem por "suavização por ângulo" (como o Auto Smooth
+dos programas 3D): superfícies curvas ficam lisas e as quinas de verdade
+(mais que SUAVE_PADRAO graus: a borda de uma tampa, a sola do tênis, a
+quina de uma caixa) continuam vivas. As formas curvas ganham gomos e anéis
+pela RESOLUCAO (o gerador escolhe por tipo de modelo), para o contorno não
+ficar quadriculado. suave=0 = facetado de propósito (cristais).
 
 Sistema de coordenadas: o da UNITY (mão esquerda, Y para cima). O
 personagem olha para +Z; a esquerda DELE fica em -X. Um triângulo (a, b, c)
@@ -21,6 +24,17 @@ import os
 import struct
 
 import numpy as np
+
+# quantas vezes mais gomos/anéis nas formas curvas (esferas, tornos, tubos,
+# círculos, cantos arredondados) — os geradores mudam por tipo de modelo
+RESOLUCAO = 1.0
+# ângulo (graus) até onde as faces vizinhas viram superfície lisa
+SUAVE_PADRAO = 40.0
+
+
+def _res(n):
+    """n gomos na resolução atual (nunca menos que n)."""
+    return max(int(n), int(round(n * RESOLUCAO)))
 
 # ------------------------------------------------------------------ matrizes
 
@@ -258,6 +272,7 @@ def caixa_arredondada(sx, sy, sz, raio, segs=2, centro=(0, 0, 0)):
     """Caixa com quinas em poucas facetas (segs) — "arredondada" facetada."""
     hx, hy, hz = sx / 2.0, sy / 2.0, sz / 2.0
     r = min(raio, hx * 0.95, hy * 0.95, hz * 0.95)
+    segs = _res(segs)
     pts = []
     for sxg in (-1, 1):
         for syg in (-1, 1):
@@ -274,7 +289,10 @@ def caixa_arredondada(sx, sy, sz, raio, segs=2, centro=(0, 0, 0)):
 
 
 def prisma(n, raio, altura, chanfro=0.0, raio_topo=None, fase=0.0, centro=(0, 0, 0)):
-    """Prisma de n lados em pé (eixo Y), base em y = 0. raio_topo: tronco de cone."""
+    """Prisma de n lados em pé (eixo Y), base em y = 0. raio_topo: tronco de cone.
+    Com 8 lados ou mais ele faz papel de cilindro: ganha lados pela RESOLUCAO."""
+    if n >= 8:
+        n = _res(n)
     rt = raio if raio_topo is None else raio_topo
     pts = []
     for i in range(n):
@@ -294,6 +312,7 @@ def prisma(n, raio, altura, chanfro=0.0, raio_topo=None, fase=0.0, centro=(0, 0,
 def esfera(raio=1.0, gomos=12, aneis=8, centro=(0, 0, 0), escala=(1, 1, 1)):
     """Esfera UV (gomos x aneis). Com suave=0 fica facetada (bola de cristal);
     com suave grande, lisa."""
+    gomos, aneis = _res(gomos), _res(aneis)
     V = [(0, raio, 0)]
     for j in range(1, aneis):
         b = math.pi * j / aneis
@@ -331,6 +350,8 @@ def icosfera(raio=1.0, sub=1, centro=(0, 0, 0), escala=(1, 1, 1)):
          (7, 1, 8), (3, 9, 4), (3, 4, 2), (3, 2, 6), (3, 6, 8), (3, 8, 9), (4, 9, 5), (2, 4, 11), (6, 2, 10), (8, 6, 7),
          (9, 8, 1)]
     V = [np.array(v, float) / np.linalg.norm(v) for v in V]
+    if sub >= 1 and RESOLUCAO >= 1.5:
+        sub += 1
     for _ in range(sub):
         meio = {}
         F2 = []
@@ -369,6 +390,7 @@ def _orientar_para_fora(f, centro=None):
 def torno(perfil, gomos=16, fase=0.0, tampa_baixo=True, tampa_cima=True, fechar=True):
     """Superfície de revolução em volta do eixo Y. perfil: [(raio, y), ...] de
     baixo para cima. Raio 0 nas pontas fecha em bico (sem tampa)."""
+    gomos = _res(gomos)
     perfil = [(float(r), float(y)) for r, y in perfil]
     V = []
     idx = []
@@ -416,6 +438,7 @@ def torno(perfil, gomos=16, fase=0.0, tampa_baixo=True, tampa_cima=True, fechar=
 def tubo(pontos, raios, gomos=8, tampas=True, achatar=(1.0, 1.0), torcao=0.0, cima=(0, 1, 0)):
     """Tubo ao longo de uma linha (pontos), raio em cada ponto (0 = bico).
     achatar: escala da seção (largura, altura)."""
+    gomos = _res(gomos)
     P = np.asarray(pontos, float)
     n = len(P)
     raios = list(raios) if hasattr(raios, "__len__") else [raios] * n
@@ -624,6 +647,7 @@ def estrela2d(pontas, r_fora, r_dentro, fase=90.0):
 
 
 def circulo2d(r, n=16, centro=(0, 0), escala=(1, 1)):
+    n = _res(n)
     return [(centro[0] + math.cos(2 * math.pi * i / n) * r * escala[0],
              centro[1] + math.sin(2 * math.pi * i / n) * r * escala[1]) for i in range(n)]
 
@@ -633,6 +657,7 @@ def retangulo2d(w, h, raio=0.0, segs=2, centro=(0, 0)):
         return [(centro[0] - w / 2, centro[1] - h / 2), (centro[0] + w / 2, centro[1] - h / 2),
                 (centro[0] + w / 2, centro[1] + h / 2), (centro[0] - w / 2, centro[1] + h / 2)]
     r = min(raio, w / 2 * 0.99, h / 2 * 0.99)
+    segs = _res(segs)
     pts = []
     cantos = [(w / 2 - r, -h / 2 + r, -90), (w / 2 - r, h / 2 - r, 0), (-w / 2 + r, h / 2 - r, 90), (-w / 2 + r, -h / 2 + r, 180)]
     for (cx, cy, a0) in cantos:
@@ -704,9 +729,11 @@ class Peca:
         self.uv = []
         self.tem_uv = False
 
-    def add(self, forma, cor_padrao=(255, 255, 255, 255), suave=0.0, M=None, uv=None):
-        """suave: ângulo (graus) até onde as normais se juntam (0 = facetado).
-        uv: função (V) -> (n, 2) (opcional)."""
+    def add(self, forma, cor_padrao=(255, 255, 255, 255), suave=None, M=None, uv=None):
+        """suave: ângulo (graus) até onde as normais se juntam (None = SUAVE_PADRAO;
+        0 = facetado). uv: função (V) -> (n, 2) (opcional)."""
+        if suave is None:
+            suave = SUAVE_PADRAO
         f = forma.copia()
         if M is not None:
             f.matriz(M)
@@ -724,24 +751,8 @@ class Peca:
             cores_f = [c for c, k in zip(cores_f, ok) if k]
         nf = len(F)
         normais = np.repeat(fn[:, None, :], 3, axis=1)
-        if suave > 0:
-            limite = math.cos(math.radians(suave))
-            # faces de cada vértice
-            por_v = [[] for _ in range(len(V))]
-            for i in range(nf):
-                for k in range(3):
-                    por_v[F[i, k]].append(i)
-            # ângulo de cada canto (peso)
-            for i in range(nf):
-                for k in range(3):
-                    v = F[i, k]
-                    soma = np.zeros(3)
-                    for j in por_v[v]:
-                        if np.dot(fn[j], fn[i]) >= limite:
-                            soma += fn[j] * _angulo_canto(V, F[j], v)
-                    ln = np.linalg.norm(soma)
-                    if ln > 1e-12:
-                        normais[i, k] = soma / ln
+        if suave > 0 and nf > 0:
+            normais = _normais_lisas(V, F, fn, math.cos(math.radians(suave)))
         uvs = None
         if uv is not None:
             uvs = np.asarray(uv(V), float)
@@ -761,6 +772,44 @@ class Peca:
     def limites(self):
         P = np.array(self.pos)
         return P.min(axis=0), P.max(axis=0)
+
+
+def _normais_lisas(V, F, fn, limite):
+    """Normal de cada canto (nf, 3, 3): média (pesada pelo ângulo do canto) das
+    faces que dividem o vértice e não fazem quina com a face (cos >= limite)."""
+    nf = len(F)
+    P = V[F]                                        # (nf, 3, 3)
+    ang = np.zeros((nf, 3))
+    for k in range(3):
+        u = P[:, (k + 1) % 3] - P[:, k]
+        w = P[:, (k + 2) % 3] - P[:, k]
+        lu = np.linalg.norm(u, axis=1)
+        lw = np.linalg.norm(w, axis=1)
+        c = np.einsum("ij,ij->i", u, w) / np.maximum(lu * lw, 1e-24)
+        ang[:, k] = np.where((lu > 1e-12) & (lw > 1e-12), np.arccos(np.clip(c, -1.0, 1.0)), 0.0)
+    canto_face = np.repeat(np.arange(nf), 3)
+    canto_vert = F.reshape(-1)
+    canto_ang = ang.reshape(-1)
+    ordem = np.argsort(canto_vert, kind="stable")
+    vs = canto_vert[ordem]
+    inicio = np.flatnonzero(np.r_[True, vs[1:] != vs[:-1]])
+    qtd = np.diff(np.r_[inicio, len(vs)])
+    grupo = np.repeat(np.arange(len(inicio)), qtd)  # grupo de cada canto (na ordem)
+    rep = qtd[grupo]
+    total = int(rep.sum())
+    p = np.repeat(np.arange(len(vs)), rep)           # canto (na ordem)
+    desloc = np.cumsum(rep) - rep
+    q = inicio[grupo][p] + (np.arange(total) - desloc[p])
+    fp = canto_face[ordem][p]
+    fq = canto_face[ordem][q]
+    ok = np.einsum("ij,ij->i", fn[fp], fn[fq]) >= limite
+    soma = np.zeros((len(vs), 3))
+    np.add.at(soma, p[ok], fn[fq[ok]] * canto_ang[ordem][q[ok]][:, None])
+    ln = np.linalg.norm(soma, axis=1, keepdims=True)
+    lisa = np.where(ln > 1e-12, soma / np.maximum(ln, 1e-12), fn[canto_face[ordem]])
+    out = np.empty((len(vs), 3))
+    out[ordem] = lisa
+    return out.reshape(nf, 3, 3)
 
 
 def _angulo_canto(V, f, v):

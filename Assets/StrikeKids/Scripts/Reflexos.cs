@@ -59,7 +59,7 @@ namespace StrikeKids
                 // só os de cima da pista (os do poço e os voando longe, não)
                 var b = p.BaseNaTela();
                 if (b.y < -0.05f || b.y > 0.6f || Mathf.Abs(b.x) > 0.66f) continue;
-                Desenhar(p.MalhaAtual, r.localToWorldMatrix, _matPino);
+                Desenhar(p.MalhaReflexo, r.localToWorldMatrix, _matPino);
             }
             if (_bola != null && _bola.Visivel)
             {

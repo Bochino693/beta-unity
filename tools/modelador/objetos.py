@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-PINOS, BOLA e peças pequenas do jogo (edição Unity, facetados).
+PINOS, BOLA e peças pequenas do jogo (edição Unity, lisos).
 
 PINO: 0,48 m (pista infantil ~1,25x a de adulto), duas listras vermelhas no
 pescoço e uma CARINHA na barriga. Cada expressão é uma malha inteira (pino +
@@ -194,6 +194,17 @@ def pinos():
         pc.uv += rosto.uv
         pc.pos = [tuple(np.asarray(v) - np.array([0, COM_Y, 0])) for v in pc.pos]
         m.parte("pino_" + e, None, (0, 0, 0), pc)
+    # o pino do REFLEXO na pista (Reflexos.cs): sem cara e com menos gomos — o
+    # reflexo é clarinho e some com a fundura; custa metade para a placa
+    import malha
+    res = malha.RESOLUCAO
+    malha.RESOLUCAO = 1.0
+    corpo_r = corpo_pino(12)
+    malha.RESOLUCAO = res
+    pr = Peca("reflexo")
+    pr.add(corpo_r, BRANCO, suave=34)
+    pr.pos = [tuple(np.asarray(v) - np.array([0, COM_Y, 0])) for v in pr.pos]
+    m.parte("reflexo", None, (0, 0, 0), pr)
     # casco de colisão: o perfil grosseiro girado (12 lados), sem o pescoço fino (o
     # convexo cobre o pescoço — como nas edições Godot)
     perfil = perfil_pino(2)

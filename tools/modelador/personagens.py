@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-BOB (cachorrinho) e MIA (gatinha) — edição Unity, FACETADOS.
+BOB (cachorrinho) e MIA (gatinha) — edição Unity, lisos e em boa resolução.
 
 Mascotes de cabeça grande (proporção de bebê), corpinho de pera, bracinhos
 e perninhas curtos — agora em faces retas e quinas vivas, cada peça com a
@@ -308,7 +308,7 @@ def _peca(nome, partes, material=""):
     p = Peca(nome, material)
     for item in partes:
         fo, c = item[0], item[1]
-        suave = item[2] if len(item) > 2 else 0.0
+        suave = item[2] if len(item) > 2 else None
         p.add(fo, c, suave)
     return p
 

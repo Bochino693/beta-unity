@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-O CENÁRIO DAS 4 FASES (edição Unity, FACETADO)
+O CENÁRIO DAS 4 FASES (edição Unity, modelos lisos em boa resolução)
 ==============================================
 
 Os objetos de decoração de cada fase, no mesmo estilo dos mascotes: faces
@@ -39,6 +39,7 @@ import math
 
 import numpy as np
 
+import malha
 from malha import (Forma, Modelo, Peca, caixa, caixa_arredondada, circulo2d, cor, cristal, eixo_para, esfera, estrela2d,
                    extrudar, fecho_convexo, icosfera, mais_escura, modelo_simples, pedra, prisma, retangulo2d, rot, torno,
                    triangular, tubo)
@@ -354,7 +355,7 @@ def _peca(nome, itens, material=""):
     """Peca com os itens [(forma, cor[, suave])]."""
     p = Peca(nome, material)
     for it in itens:
-        p.add(it[0], it[1], it[2] if len(it) > 2 else 0.0)
+        p.add(it[0], it[1], it[2] if len(it) > 2 else None)
     return p
 
 
@@ -1462,6 +1463,11 @@ def tubo_torcido(pts, raios, gomos, giro_anel, cor_de_gomo, tampas=True):
     uma hélice, então pintar pelo gomo dá listras em espiral de borda reta
     (bengala, poste de carrossel, torre). Moldura sem torção (transporte
     paralelo): não vira nas curvas. cor_de_gomo(k) -> cor ou None."""
+    # resolução: m gomos por gomo do desenho (as listras e a hélice ficam iguais)
+    m = max(1, int(round(malha.RESOLUCAO)))
+    cor_base = cor_de_gomo
+    cor_de_gomo = (lambda k: cor_base(k // m))
+    gomos, giro_anel = gomos * m, giro_anel * m
     P = np.asarray(pts, float)
     n = len(P)
     raios = list(raios) if hasattr(raios, "__len__") else [raios] * n
@@ -1598,10 +1604,11 @@ def pirulito():
     pal = PARQUE
     azul = cor("#1E88F0")
     R, esp, cy = 0.62, 0.22, 2.0
-    setores = 16
+    m = max(1, int(round(malha.RESOLUCAO)))
+    setores = 16 * m
     raios = [0.0, 0.12, 0.27, 0.42, 0.54, R]
     V, F, C = [], [], []
-    torcao = 0.66          # quanto cada anel gira (em setores)
+    torcao = 0.66 * m      # quanto cada anel gira (em setores)
     for lado in (1, -1):
         base = len(V)
         z = lado * esp / 2
@@ -1612,14 +1619,14 @@ def pirulito():
                 V.append((math.cos(a) * r, cy + math.sin(a) * r, z))
         for k in range(setores):
             F.append((base, base + 1 + k, base + 1 + (k + 1) % setores))
-            C.append(pal.amarelo if (k // 2) % 2 == 0 else azul)
+            C.append(pal.amarelo if (k // (2 * m)) % 2 == 0 else azul)
         for j in range(1, len(raios) - 1):
             a0 = base + 1 + (j - 1) * setores
             a1 = base + 1 + j * setores
             for k in range(setores):
                 k1 = (k + 1) % setores
                 F += [(a0 + k, a1 + k, a0 + k1), (a0 + k1, a1 + k, a1 + k1)]
-                cc = pal.amarelo if (k // 2) % 2 == 0 else azul
+                cc = pal.amarelo if (k // (2 * m)) % 2 == 0 else azul
                 C += [cc, cc]
     # borda: liga os dois aros de fora (cada lado tem 1 + anéis x setores vértices)
     por_lado = 1 + (len(raios) - 1) * setores
@@ -1706,10 +1713,10 @@ def donut():
     escorrendo e confeitos coloridos."""
     pal = PARQUE
     R, r, y0 = 0.5, 0.28, 0.3
-    gomos = 14
+    gomos = 2 * malha._res(7)
     # a massa: só a faixa que a cobertura não cobre (de dentro do furo, por
     # baixo, até um pouco acima das gotas); as bordas ficam embaixo da cobertura
-    perfil = [(R + math.cos(a) * r, y0 + math.sin(a) * r) for a in np.linspace(0.9 * PI, 2.1 * PI, 6)]
+    perfil = [(R + math.cos(a) * r, y0 + math.sin(a) * r) for a in np.linspace(0.9 * PI, 2.1 * PI, 11)]
     massa = torno(perfil, gomos=gomos, tampa_baixo=False, tampa_cima=False)
     itens = [(massa, cor("#E9A55B"))]
     # cobertura: uma casca um pouco por fora da massa, de dentro do furo, por
@@ -1727,7 +1734,7 @@ def donut():
             V.append((math.cos(angs[i]) * x, y0 + math.sin(ph) * r * k_r, math.sin(angs[i]) * x))
         return idx
     gotas = [-0.12 * PI if i % 2 == 0 else 0.02 * PI for i in range(gomos)]
-    aneis = [anel_c(0.92 * PI, 0.99)] + [anel_c(ph, 1.06) for ph in (0.92 * PI, 0.62 * PI, 0.36 * PI, 0.12 * PI)] + \
+    aneis = [anel_c(0.92 * PI, 0.99)] + [anel_c(ph, 1.06) for ph in np.linspace(0.92 * PI, 0.12 * PI, 8)] + \
         [anel_c(gotas, 1.06), anel_c(gotas, 0.99)]
     for A, B in zip(aneis[:-1], aneis[1:]):
         for i in range(gomos):
@@ -2281,9 +2288,13 @@ def cabine():
 
 
 def linha_da_esfera(y, aneis):
-    """Em que fileira (0 = a de cima) da esfera UV (raio 1, `aneis` anéis) cai a altura y."""
+    """Em que fileira do desenho (0 = a de cima; `aneis` fileiras) cai a altura y.
+    A esfera de verdade tem malha._res(aneis) anéis (a resolução): cada anel
+    dela cai inteiro numa fileira, então as faixas saem retas."""
+    reais = malha._res(aneis)
     b = math.acos(max(-1.0, min(1.0, y)))
-    return min(int(b / PI * aneis), aneis - 1)
+    r = min(int(b / PI * reais), reais - 1)
+    return min(r * aneis // reais, aneis - 1)
 
 
 # o eixo do anel do planeta (Temas.cs gira o planeta em volta dele, no espaço do modelo)

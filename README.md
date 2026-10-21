@@ -2,8 +2,9 @@
 
 Boliche infantil 3D (Bob & Mia) para máquina de arcade com TV Box —
 feito na **Unity 2022.3 LTS**, desenhando com **OpenGL ES 2.0** (TV Box TX9,
-Mali-400/450). Modelos facetados novos (feitos por código em
-`tools/modelador`), as 4 fases (Parque, Espaço com as navinhas, Fundo do Mar,
+Mali-400/450). Modelos novos, LISOS e em boa resolução (feitos por código em
+`tools/modelador`: formas bem definidas, nada de massinha nem de aspecto
+quadriculado), as 4 fases (Parque, Espaço com as navinhas, Fundo do Mar,
 Selva dos Dinos) com o mesmo acabamento — sombreado dos cantinhos assado nos
 modelos, pinos e bola envernizados, reflexo na pista —, física PhysX, o
 Arduino da máquina (START, 5 sensores, ficha e configuração) e a câmera USB

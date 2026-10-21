@@ -8,7 +8,7 @@ namespace StrikeKids
 {
     /// <summary>
     /// AS MALHAS DO JOGO (Resources/Malhas/*.bytes), feitas pelo modelador
-    /// facetado (tools/modelador). Um arquivo é um PACOTE de partes com pai e
+    /// 3D (tools/modelador). Um arquivo é um PACOTE de partes com pai e
     /// pivô (um personagem: corpo &gt; cabeça...; a pista: deck, canaletas...).
     ///
     /// Formato SKP1 (little-endian):

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-AS ROUPINHAS DAS FASES (Bob e Mia), facetadas, com as MESMAS juntas do
+AS ROUPINHAS DAS FASES (Bob e Mia), lisas, com as MESMAS juntas do
 bichinho: o jogo só troca a malha de cada junta (animações, rosto e IK valem
 igual). Peças extras viram partes próprias:
   * "helice" (filha da cabeça, gira sozinha) — boné de hélice do PARQUE;

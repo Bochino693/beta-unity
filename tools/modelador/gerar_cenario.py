@@ -30,6 +30,7 @@ import numpy as np
 AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, AQUI)
 
+import malha  # noqa: E402
 from malha import gravar, rot  # noqa: E402
 import cenario  # noqa: E402
 
@@ -111,6 +112,14 @@ def poses_animacao(modelo):
     return P
 
 
+# resolução das formas curvas: os bichos grandes e as atrações aparecem de
+# perto (mais); o que se espalha às dezenas pelo terreno, um pouco menos
+RESOLUCAO_PADRAO = 1.4
+RESOLUCAO = {"dino": 1.6, "trex": 1.6, "triceratops": 1.6, "estegossauro": 1.6, "ptero": 1.6, "ovo_chocando": 1.6,
+             "carrossel": 1.5, "navio": 1.5, "tartaruga": 1.6, "ovni": 1.6, "foguete": 1.6, "navinha": 1.6,
+             "planeta_anel": 1.6, "balao": 1.6, "roda": 1.5, "cabine": 1.5}
+
+
 def main(args):
     """Grava os .bytes pedidos (todos, se nenhum) e faz as prévias."""
     sem_previa = "--sem-previa" in args
@@ -140,6 +149,7 @@ def main(args):
         fn, tema, orcamento = todos[n][:3]
         tinta = todos[n][3] if len(todos[n]) > 3 else None
         t0 = time.time()
+        malha.RESOLUCAO = RESOLUCAO.get(n, RESOLUCAO_PADRAO)
         m = fn()
         v, tri = gravar(m, os.path.join(SAIDA, n + ".bytes"))
         total += tri

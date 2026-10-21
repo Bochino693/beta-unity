@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-A PISTA E A MÁQUINA (edição Unity, facetadas).
+A PISTA E A MÁQUINA (edição Unity).
 
 Mesmas medidas das edições Godot (scripts/mundo.gd e maquina.gd), com o X
 espelhado (coordenadas da Unity: ver docs/ARQUITETURA.md). Linha de falta em
