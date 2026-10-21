@@ -1,21 +1,29 @@
-# GERA O APK DA TV BOX NA NUVEM (GitHub Actions) - SEM INSTALAR A UNITY NO PC.
+# GERA O JOGO NA NUVEM (GitHub Actions) - SEM INSTALAR A UNITY NO PC:
+#   * o APK da TV Box (Android, OpenGL ES 2.0);
+#   * a versao de WINDOWS para testar no proprio PC (StrikeKids.exe).
 #
 # Como usar: aba "Actions" do repositorio > "Gerar APK (TV Box)" > "Run workflow".
-# No fim (uns 30 a 60 minutos), o APK aparece no fim da pagina da execucao,
-# em "Artifacts" (StrikeKids-Unity-APK). Antes da 1a vez: os 3 segredos da
-# licenca Personal da Unity (gratis) - passo a passo em docs/GERAR_APK_NA_NUVEM.md.
+# No fim (uns 30 a 70 minutos), os arquivos aparecem no fim da pagina da
+# execucao, em "Artifacts": StrikeKids-Unity-APK e StrikeKids-Windows.
+# Antes da 1a vez: os 3 segredos da licenca Personal da Unity (gratis) -
+# passo a passo em docs/GERAR_APK_NA_NUVEM.md.
 #
-# Quem roda a Unity e o GameCI (imagem unityci/editor com a Unity 2022.3 e o
-# modulo Android), chamando o mesmo metodo do GERAR_APK.bat
-# (StrikeKids.Editor.Construir.Apk): configura OpenGL ES 2.0, calibra as jogadas
-# se precisar, assina com a chave do projeto e gera o APK.
+# Quem roda a Unity e o GameCI (imagem unityci/editor com a Unity 2022.3),
+# chamando os mesmos metodos do GERAR_APK.bat (StrikeKids.Editor.Construir.Apk
+# e .Windows): configuram o projeto, calibram as jogadas se precisar e geram.
 name: Gerar APK (TV Box)
 
 on:
   workflow_dispatch:
     inputs:
+      alvo:
+        description: "O que gerar"
+        required: true
+        default: "APK + Windows"
+        type: choice
+        options: ["APK + Windows", "So o APK", "So o Windows"]
       giro:
-        description: "Giro de fabrica da tela (1 = TV Box deitada, o padrao; -1 = para o outro lado; 0 = sem giro)"
+        description: "APK: giro de fabrica da tela (1 = TV Box deitada, o padrao; -1 = para o outro lado; 0 = sem giro)"
         required: true
         default: "1"
         type: choice
@@ -25,7 +33,7 @@ on:
         required: false
         default: ""
       arm64:
-        description: "Incluir tambem ARM64 (mais lento; a TX9 so precisa de ARMv7)"
+        description: "APK: incluir tambem ARM64 (mais lento; a TX9 so precisa de ARMv7)"
         required: false
         default: false
         type: boolean
@@ -34,12 +42,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: gerar-apk
+  group: gerar-jogo
   cancel-in-progress: false
 
 jobs:
   apk:
     name: APK da TV Box
+    if: inputs.alvo != 'So o Windows'
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
@@ -82,4 +91,48 @@ jobs:
           name: StrikeKids-Unity-APK
           path: build/Android/StrikeKids-Unity.apk
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
+
+  windows:
+    name: Versao Windows (testar no PC)
+    if: inputs.alvo != 'So o APK'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Abrir espaco no disco
+        uses: jlumbroso/free-disk-space@v1.3.1
+
+      - name: Baixar o projeto
+        uses: actions/checkout@v4
+
+      - name: Reaproveitar a importacao da ultima vez (pasta Library)
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-Windows-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-Windows-
+
+      - name: Gerar o jogo para Windows com a Unity 2022.3
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: StandaloneWindows64
+          unityVersion: auto
+          versioning: None
+          buildName: StrikeKids
+          buildMethod: StrikeKids.Editor.Construir.Windows
+          customParameters: >-
+            -saida build/StandaloneWindows64/StrikeKids.exe
+            ${{ inputs.versao != '' && format('-versao {0}', inputs.versao) || '' }}
+
+      - name: Entregar a versao Windows (fica no fim da pagina, em Artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: StrikeKids-Windows
+          path: build/StandaloneWindows64
+          if-no-files-found: error
+          retention-days: 7

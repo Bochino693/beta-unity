@@ -30,14 +30,18 @@ rapido), refeito do zero na Unity para provar que o motor nao e o problema:
     automaticas (medidas enquanto o jogo roda).
 
 
-SEM INSTALAR A UNITY: GERAR O APK NA NUVEM (GITHUB)
----------------------------------------------------
-O GitHub gera o APK sozinho, num computador dele, com a Unity pronta.
+SEM INSTALAR A UNITY: GERAR NA NUVEM (GITHUB) - O APK E A VERSAO DE PC
+----------------------------------------------------------------------
+O GitHub gera sozinho, num computador dele, com a Unity pronta: o APK da
+TV Box e o jogo de Windows para testar no PC (descompacte e abra o
+StrikeKids.exe; teclas: 5 = ficha, 1 = START, A S D F G = sensores,
+9 = menu, F3 = medidor).
 Uma vez so: conta Unity gratis + o arquivo da licenca Personal (tirado
 pelo Unity Hub, o programinha pequeno - nao a Unity inteira) + 3 segredos
 no GitHub (UNITY_LICENSE, UNITY_EMAIL, UNITY_PASSWORD).
 Toda vez: repositorio > aba Actions > "Gerar APK (TV Box)" > Run workflow;
-no fim (30 a 70 min), baixe o APK em "Artifacts", no fim da pagina.
+no fim (30 a 70 min), baixe em "Artifacts", no fim da pagina:
+StrikeKids-Unity-APK (a TV Box) e StrikeKids-Windows (o PC).
 Passo a passo completo: docs\GERAR_APK_NA_NUVEM.md
 
 

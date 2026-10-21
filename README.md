@@ -10,8 +10,9 @@ modelos, pinos e bola envernizados, reflexo na pista —, física PhysX, o
 Arduino da máquina (START, 5 sensores, ficha e configuração) e a câmera USB
 para a foto das crianças.
 
-* **Gerar o APK sem instalar a Unity (na nuvem):** aba **Actions** do GitHub ›
-  **Gerar APK (TV Box)** › **Run workflow** — o APK sai em *Artifacts*. Uma vez
+* **Gerar o APK e a versão de PC sem instalar a Unity (na nuvem):** aba
+  **Actions** do GitHub › **Gerar APK (TV Box)** › **Run workflow** — o APK da
+  TV Box e o `StrikeKids.exe` de Windows saem em *Artifacts*. Uma vez
   só, antes: os 3 segredos da licença Personal grátis — passo a passo em
   [`docs/GERAR_APK_NA_NUVEM.md`](docs/GERAR_APK_NA_NUVEM.md).
 * **Gerar o APK no próprio PC (Windows):** instale o Unity Hub + Unity 2022.3.62f2 com

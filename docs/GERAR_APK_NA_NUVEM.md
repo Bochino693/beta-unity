@@ -1,11 +1,18 @@
-# Gerar o APK na nuvem — sem instalar a Unity no PC
+# Gerar o jogo na nuvem — sem instalar a Unity no PC
 
-O **GitHub gera o APK sozinho**, num computador dele, com a Unity 2022.3 e o
-módulo Android já prontos (imagem do [GameCI](https://game.ci)). Você aperta
-um botão no site do GitHub e, no fim, baixa o APK. Nada de Unity no seu PC.
+O **GitHub gera o jogo sozinho**, num computador dele, com a Unity 2022.3 já
+pronta (imagens do [GameCI](https://game.ci)). Você aperta um botão no site do
+GitHub e, no fim, baixa:
 
-O que roda lá é o mesmo do `GERAR_APK.bat`: configura OpenGL ES 2.0, calibra
-as jogadas na primeira vez, assina com a chave do projeto e gera o APK.
+* **o APK da TV Box** (`StrikeKids-Unity-APK`);
+* **a versão de Windows para testar no seu PC** (`StrikeKids-Windows`: é só
+  descompactar e abrir o `StrikeKids.exe`).
+
+Nada de Unity no seu PC.
+
+O que roda lá é o mesmo do `GERAR_APK.bat`: configura o projeto (OpenGL ES 2.0
+no APK), calibra as jogadas na primeira vez, assina o APK com a chave do
+projeto e gera.
 
 ---
 
@@ -48,10 +55,11 @@ O GitHub guarda trancado: depois de salvo, ninguém vê o valor (nem eu).
 
 ---
 
-## Toda vez que quiser um APK
+## Toda vez que quiser gerar
 
 1. No repositório, aba **Actions** › à esquerda, **Gerar APK (TV Box)** ›
    botão **Run workflow**.
+   - **O que gerar**: `APK + Windows` (o padrão), só o APK ou só o Windows.
    - **Giro**: `1` é o da TV Box deitada (o padrão do `GERAR_APK.bat`);
      `-1` gira para o outro lado; `0` é sem giro.
    - **Versão**: vazio = 6.0.
@@ -61,9 +69,33 @@ O GitHub guarda trancado: depois de salvo, ninguém vê o valor (nem eu).
    - 1ª vez: uns **40 a 70 minutos** (a Unity importa tudo e calibra as
      jogadas com a física);
    - depois: uns **25 a 40 minutos** (a importação fica guardada).
-3. Abra a execução e, **no fim da página, em “Artifacts”**, baixe
-   **StrikeKids-Unity-APK** (um .zip com o `StrikeKids-Unity.apk` dentro).
-4. Instale na TV Box como sempre (pendrive ou `adb install`).
+3. Abra a execução e, **no fim da página, em “Artifacts”**, baixe:
+   - **StrikeKids-Unity-APK** — um .zip com o `StrikeKids-Unity.apk` dentro:
+     instale na TV Box como sempre (pendrive ou `adb install`);
+   - **StrikeKids-Windows** — um .zip com o jogo de PC (veja abaixo).
+   Os arquivos ficam lá por 7 dias: baixe logo.
+
+---
+
+## Jogar no PC (testar sem a TV Box)
+
+1. Descompacte o `StrikeKids-Windows.zip` numa pasta (por exemplo
+   `C:\StrikeKids`) — **todos os arquivos juntos**: o `StrikeKids.exe` precisa
+   da pasta `StrikeKids_Data` e dos .dll do lado.
+2. Dê dois cliques em **StrikeKids.exe**. Se o Windows mostrar “O Windows
+   protegeu o computador”, clique em **Mais informações › Executar assim
+   mesmo** (o jogo não tem assinatura de loja).
+3. Teclas (no lugar da máquina):
+
+   | Tecla              | Faz                          |
+   |--------------------|------------------------------|
+   | **5**              | põe ficha (crédito)          |
+   | **1** ou **Espaço**| START                        |
+   | **A S D F G**      | os 5 sensores da pista       |
+   | **9**              | menu do operador             |
+   | **F3**             | medidor de desempenho (FPS)  |
+
+   Abre em tela cheia; **Alt+Enter** sai da tela cheia, **Alt+F4** fecha.
 
 ---
 
