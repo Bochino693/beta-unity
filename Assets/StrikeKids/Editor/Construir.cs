@@ -17,7 +17,7 @@ namespace StrikeKids.Editor
     /// Pelo GERAR_APK.bat (Unity sem janela):
     ///   Unity -batchmode -quit -projectPath . -buildTarget Android
     ///         -executeMethod StrikeKids.Editor.Construir.Apk
-    ///         [-saida caminho.apk] [-giro 1|-1|0] [-versao 6.0] [-calibrar]
+    ///         [-saida caminho.apk] [-giro 1|-1|0] [-versao 6.0] [-calibrar] [-so32]
     /// No editor: menu "Strike Kids".
     /// </summary>
     public static class Construir
@@ -60,7 +60,11 @@ namespace StrikeKids.Editor
             PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
             PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[] { GraphicsDeviceType.OpenGLES2 });
             PlayerSettings.SetScriptingBackend(BuildTargetGroup.Android, ScriptingImplementation.IL2CPP);
-            PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARMv7 | AndroidArchitecture.ARM64;
+            // -so32: só ARMv7 (o APK roda nas TV Box de 32 e de 64 bits e gera na metade do
+            // tempo: é o que a geração na nuvem usa); sem ele, ARMv7 + ARM64
+            PlayerSettings.Android.targetArchitectures = TemArg("-so32")
+                ? AndroidArchitecture.ARMv7
+                : AndroidArchitecture.ARMv7 | AndroidArchitecture.ARM64;
             PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel22;
             PlayerSettings.Android.targetSdkVersion = AndroidSdkVersions.AndroidApiLevelAuto;
             PlayerSettings.SetManagedStrippingLevel(BuildTargetGroup.Android, ManagedStrippingLevel.Low);

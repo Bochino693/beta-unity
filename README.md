@@ -10,7 +10,11 @@ modelos, pinos e bola envernizados, reflexo na pista —, física PhysX, o
 Arduino da máquina (START, 5 sensores, ficha e configuração) e a câmera USB
 para a foto das crianças.
 
-* **Gerar o APK no Windows:** instale o Unity Hub + Unity 2022.3.62f2 com
+* **Gerar o APK sem instalar a Unity (na nuvem):** aba **Actions** do GitHub ›
+  **Gerar APK (TV Box)** › **Run workflow** — o APK sai em *Artifacts*. Uma vez
+  só, antes: os 3 segredos da licença Personal grátis — passo a passo em
+  [`docs/GERAR_APK_NA_NUVEM.md`](docs/GERAR_APK_NA_NUVEM.md).
+* **Gerar o APK no próprio PC (Windows):** instale o Unity Hub + Unity 2022.3.62f2 com
   *Android Build Support* (OpenJDK + Android SDK & NDK) e dê dois cliques no
   `GERAR_APK.bat`. O APK sai em `APK-Pronto/StrikeKids-Unity.apk`.
 * Instruções completas: [`LEIA-ME.txt`](LEIA-ME.txt). Decisões técnicas:

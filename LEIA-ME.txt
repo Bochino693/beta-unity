@@ -30,8 +30,19 @@ rapido), refeito do zero na Unity para provar que o motor nao e o problema:
     automaticas (medidas enquanto o jogo roda).
 
 
-DO QUE PRECISA (uma vez so, no PC com Windows)
-----------------------------------------------
+SEM INSTALAR A UNITY: GERAR O APK NA NUVEM (GITHUB)
+---------------------------------------------------
+O GitHub gera o APK sozinho, num computador dele, com a Unity pronta.
+Uma vez so: conta Unity gratis + o arquivo da licenca Personal (tirado
+pelo Unity Hub, o programinha pequeno - nao a Unity inteira) + 3 segredos
+no GitHub (UNITY_LICENSE, UNITY_EMAIL, UNITY_PASSWORD).
+Toda vez: repositorio > aba Actions > "Gerar APK (TV Box)" > Run workflow;
+no fim (30 a 70 min), baixe o APK em "Artifacts", no fim da pagina.
+Passo a passo completo: docs\GERAR_APK_NA_NUVEM.md
+
+
+DO QUE PRECISA PARA GERAR NO PROPRIO PC (uma vez so, no PC com Windows)
+------------------------------------------------------------------------
 1. UNITY HUB: https://unity.com/download  (instale e entre com uma conta
    Unity - a licenca PERSONAL e gratis; o Hub ativa sozinho na 1a vez).
 2. No Unity Hub: Instalacoes (Installs) > Instalar editor > Arquivo

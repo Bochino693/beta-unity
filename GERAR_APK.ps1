@@ -254,6 +254,10 @@ if (-not $Unity) {
     Info "   'Android Build Support' com 'OpenJDK' e 'Android SDK & NDK Tools'."
     Info "3) Entre na sua conta Unity no Hub (licenca Personal, gratis)."
     Info "Ou rode: GERAR_APK.bat -CaminhoUnity ""C:\...\Editor\Unity.exe"""
+    Info ""
+    Info "SEM INSTALAR A UNITY: gere o APK na nuvem, pelo GitHub (aba Actions >"
+    Info "'Gerar APK (TV Box)' > Run workflow). Passo a passo (uma vez so):"
+    Info "docs\GERAR_APK_NA_NUVEM.md"
     Sair 1
 }
 $PastaEditor = Split-Path $Unity -Parent
