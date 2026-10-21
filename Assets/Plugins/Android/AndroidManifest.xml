@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Manifesto principal do Strike Kids (Unity 2022.3): a atividade é a
+     StrikeAtividade (lê os códigos crus das teclas e botões). As peças do
+     Arduino e da câmera USB ficam no StrikeUsb.androidlib. -->
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.unity3d.player"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.gamepad" android:required="false" />
+    <application android:banner="@mipmap/app_icon" android:isGame="true">
+        <activity android:name="com.lazersport.strikekids.StrikeAtividade"
+                  android:theme="@style/UnityThemeSelector"
+                  android:exported="true"
+                  android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="unityplayer.UnityActivity" android:value="true" />
+        </activity>
+    </application>
+</manifest>

@@ -1,0 +1,268 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Threading;
+using UnityEngine;
+
+namespace StrikeKids
+{
+    /// <summary>
+    /// AJUSTES DO OPERADOR, RECORDE E CONTADORES — gravados na TV Box
+    /// (ajustes.json em Application.persistentDataPath). Mudados na tela do
+    /// operador (botão de configuração &gt; AJUSTES DO JOGO).
+    ///
+    /// GRAVAR SEM PARAR O JOGO: as gravações do mesmo quadro viram uma só e o
+    /// arquivo é escrito numa linha de trabalho separada (sempre na ordem
+    /// certa); ao fechar o jogo, grava na hora o que estiver pendente.
+    /// </summary>
+    public static class Ajustes
+    {
+        public static readonly string[] DIFICULDADES = { "facil", "normal", "dificil" };
+        public static readonly string[] QUALIDADES = { "auto", "alta", "media", "baixa" };
+
+        /// <summary>Valores de fábrica.</summary>
+        public static readonly Dictionary<string, Dictionary<string, object>> PADRAO = new Dictionary<string, Dictionary<string, object>>
+        {
+            ["jogo"] = new Dictionary<string, object>
+            {
+                ["rodadas"] = 3,              // rodadas por jogador
+                ["tentativas"] = 3,           // bolas por rodada (como no Dragon Bowling)
+                ["dificuldade"] = "facil",
+                ["velocidade"] = 130,         // ritmo do jogo (%): 130 = tudo 30% mais rápido (a física das jogadas não muda)
+                ["protecao_canaleta"] = true, // para-choques nas canaletas (bumpers)
+                ["replay_strike"] = true,
+                ["modo_livre"] = true,        // sem crédito: START sempre começa
+                ["creditos_por_partida"] = 1,
+                ["tempo_inatividade"] = 45,   // segundos sem jogar até o aviso
+                ["demo"] = true,
+                ["foto"] = true,              // foto das crianças com a câmera da máquina
+                ["camera_giro"] = 0,          // 0, 90, 180, 270 (câmera montada de lado)
+                ["camera_espelho"] = true,    // espelha a imagem (a criança se vê como no espelho)
+            },
+            ["som"] = new Dictionary<string, object>
+            {
+                ["musica"] = 0.8,
+                ["efeitos"] = 1.0,
+                ["som_na_demo"] = true,
+            },
+            ["arduino"] = new Dictionary<string, object>
+            {
+                ["porta_invertida"] = false,     // a trava abre quando devia fechar? troca aqui
+                ["sensores_invertidos"] = false, // sensores ligados da direita para a esquerda
+            },
+            ["video"] = new Dictionary<string, object>
+            {
+                ["qualidade"] = "auto",          // auto, alta, media, baixa
+                ["nitidez"] = "auto",            // resolução do 3D: auto ou 100%/90%/80%/70%
+                ["fator"] = 1.0,                 // o último fator automático bom (começa dele ao ligar)
+                ["medidor"] = false,             // painel de desempenho na tela (F3 no PC)
+                ["qualidade_auto"] = "",         // o que o TESTE DE DESEMPENHO recomendou
+                ["testar"] = false,              // pedido do menu: rodar o teste ao voltar
+            },
+        };
+
+        public static event Action Mudaram;
+
+        static Dictionary<string, object> _dados;
+        static int _creditos;
+        static bool _pendente;
+        static int _versao;
+        static int _gravada;
+        static readonly object _trava = new object();
+        static string _arquivo;
+
+        public static string Pasta
+        {
+            get { return Application.persistentDataPath; }
+        }
+
+        static void Garantir()
+        {
+            if (_dados != null) return;
+            _arquivo = Path.Combine(Pasta, "ajustes.json");
+            _dados = null;
+            try
+            {
+                if (File.Exists(_arquivo)) _dados = Json.Dic(Json.Ler(File.ReadAllText(_arquivo)));
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("ajustes: não li " + _arquivo + ": " + e.Message);
+            }
+            if (_dados == null) _dados = new Dictionary<string, object>();
+        }
+
+        static Dictionary<string, object> Secao(string secao, bool criar)
+        {
+            Garantir();
+            if (_dados.TryGetValue(secao, out object s) && s is Dictionary<string, object> d) return d;
+            if (!criar) return null;
+            d = new Dictionary<string, object>();
+            _dados[secao] = d;
+            return d;
+        }
+
+        public static object Valor(string secao, string chave)
+        {
+            var s = Secao(secao, false);
+            if (s != null && s.TryGetValue(chave, out object v)) return v;
+            if (PADRAO.TryGetValue(secao, out var p) && p.TryGetValue(chave, out object vp)) return vp;
+            return null;
+        }
+
+        public static int Int(string secao, string chave) => Json.Int(Valor(secao, chave));
+        public static float Float(string secao, string chave) => (float)Json.Num(Valor(secao, chave));
+        public static bool Bool(string secao, string chave) => Json.Bool(Valor(secao, chave));
+        public static string Texto(string secao, string chave) => Json.Str(Valor(secao, chave));
+
+        public static void Definir(string secao, string chave, object v)
+        {
+            Secao(secao, true)[chave] = v;
+            Salvar();
+            Mudaram?.Invoke();
+        }
+
+        public static void RestaurarPadrao()
+        {
+            foreach (var s in PADRAO)
+                foreach (var k in s.Value)
+                    Secao(s.Key, true)[k.Key] = k.Value;
+            Salvar();
+            Mudaram?.Invoke();
+        }
+
+        // ------------------------------------------------------------ gravação
+        static void Salvar()
+        {
+            if (_pendente) return;
+            _pendente = true;
+            Tarefas.NoFimDoQuadro(SalvarAgora);
+        }
+
+        static void SalvarAgora()
+        {
+            if (!_pendente) return;
+            _pendente = false;
+            _versao++;
+            int v = _versao;
+            // a cópia é tirada aqui (no quadro do jogo); a linha de trabalho só grava o texto
+            string texto = Json.Escrever(_dados, true);
+            string arq = _arquivo;
+            ThreadPool.QueueUserWorkItem(_ => Escrever(arq, texto, v));
+        }
+
+        static void Escrever(string arq, string texto, int v)
+        {
+            lock (_trava)
+            {
+                if (v <= _gravada) return;
+                try
+                {
+                    string tmp = arq + ".tmp";
+                    File.WriteAllText(tmp, texto);
+                    if (File.Exists(arq)) File.Delete(arq);
+                    File.Move(tmp, arq);
+                    _gravada = v;
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning("ajustes: não gravei: " + e.Message);
+                }
+            }
+        }
+
+        /// <summary>Fechando o jogo: grava na hora o que estiver pendente.</summary>
+        public static void GravarJa()
+        {
+            if (_dados == null) return;
+            if (_pendente)
+            {
+                _pendente = false;
+                _versao++;
+            }
+            Escrever(_arquivo, Json.Escrever(_dados, true), _versao);
+        }
+
+        // ------------------------------------------------------------ atalhos
+        public static int Rodadas() => Mathf.Clamp(Int("jogo", "rodadas"), 1, 10);
+
+        /// <summary>Ritmo do jogo: 1,0 = tempo real; 1,3 = tudo 30% mais rápido.</summary>
+        public static float Velocidade() => Mathf.Clamp(Float("jogo", "velocidade") / 100f, 0.5f, 2f);
+
+        public static int Tentativas() => Mathf.Clamp(Int("jogo", "tentativas"), 1, 3);
+
+        public static string Dificuldade()
+        {
+            string d = Texto("jogo", "dificuldade");
+            return Array.IndexOf(DIFICULDADES, d) >= 0 ? d : "facil";
+        }
+
+        public static bool ProtecaoCanaleta() => Bool("jogo", "protecao_canaleta");
+        public static bool ModoLivre() => Bool("jogo", "modo_livre");
+
+        // ------------------------------------------------------------ créditos
+        public static int Creditos => _creditos;
+
+        public static void AdicionarCredito()
+        {
+            _creditos++;
+            Contar("moedas");
+        }
+
+        public static bool PodeComecar() => ModoLivre() || _creditos >= Int("jogo", "creditos_por_partida");
+
+        public static void GastarCreditos()
+        {
+            if (!ModoLivre()) _creditos = Mathf.Max(0, _creditos - Int("jogo", "creditos_por_partida"));
+        }
+
+        // ------------------------------------------------------------ recorde
+        /// <summary>{pontos, quem, foto} do recorde de 1 ou 2 jogadores.</summary>
+        public static Dictionary<string, object> Recorde(int jogadores)
+        {
+            var s = Secao("recorde", false);
+            if (s != null && s.TryGetValue("j" + jogadores, out object v) && v is Dictionary<string, object> d) return d;
+            return new Dictionary<string, object> { ["pontos"] = 0, ["quem"] = "" };
+        }
+
+        /// <summary>Grava se for recorde. Retorna true se bateu.</summary>
+        public static bool RegistrarPontos(int jogadores, int pontos, string quem)
+        {
+            var r = Recorde(jogadores);
+            if (pontos > Json.Int(Json.Pegar(r, "pontos"), 0))
+            {
+                Secao("recorde", true)["j" + jogadores] = new Dictionary<string, object> { ["pontos"] = pontos, ["quem"] = quem };
+                Salvar();
+                return true;
+            }
+            return false;
+        }
+
+        public static void DefinirFotoRecorde(int jogadores, string caminho)
+        {
+            var r = new Dictionary<string, object>(Recorde(jogadores));
+            r["foto"] = caminho;
+            Secao("recorde", true)["j" + jogadores] = r;
+            Salvar();
+        }
+
+        public static void ZerarRecordes()
+        {
+            Garantir();
+            _dados.Remove("recorde");
+            Salvar();
+            Classificacao.Zerar();
+            Fotos.ApagarRecordes();
+        }
+
+        // ------------------------------------------------------------ contadores
+        public static void Contar(string chave, int quanto = 1)
+        {
+            var s = Secao("contadores", true);
+            s[chave] = Json.Int(Json.Pegar(s, chave), 0) + quanto;
+            Salvar();
+        }
+
+        public static int Contador(string chave) => Json.Int(Json.Pegar(Secao("contadores", false), chave), 0);
+    }
+}

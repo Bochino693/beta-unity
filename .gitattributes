@@ -1,0 +1,21 @@
+* text=auto
+*.cs text eol=lf
+*.shader text eol=lf
+*.py text eol=lf
+*.java text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+LEIA-ME.txt text eol=crlf
+*.png binary
+*.jpg binary
+*.wav binary
+*.ogg binary
+*.ttf binary
+*.bytes binary
+*.keystore binary
+*.jar binary
+*.dex binary
+*.zip binary
+*.apk binary

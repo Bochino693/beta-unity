@@ -1,0 +1,76 @@
+package com.lazersport.strikekids;
+
+import android.os.Bundle;
+import android.view.KeyEvent;
+import android.view.WindowManager;
+
+import com.unity3d.player.UnityPlayerActivity;
+
+/**
+ * A atividade principal do Strike Kids (no lugar da UnityPlayerActivity).
+ *
+ * Anota TODO aperto e soltura de tecla/botão do Android (código cru do
+ * KeyEvent): a placa Zero Delay, o teclado e o controle remoto da TV Box.
+ * A Unity não numera alguns botões (BUTTON_1..16 de placas genéricas): o
+ * jogo lê a fila crua a cada quadro (Controles.cs, AndroidPonte.cs).
+ *
+ * VOLTAR e MENU do controle remoto nunca fecham o jogo: o jogo trata (abre
+ * o menu do operador, volta nos menus).
+ */
+public class StrikeAtividade extends UnityPlayerActivity {
+    private static final Object TRAVA = new Object();
+    private static final StringBuilder FILA = new StringBuilder();
+    private static volatile boolean ativa = false;
+
+    @Override
+    protected void onCreate(Bundle estado) {
+        super.onCreate(estado);
+        ativa = true;
+        // máquina de fliperama: a tela nunca apaga
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
+
+    @Override
+    protected void onDestroy() {
+        ativa = false;
+        super.onDestroy();
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent e) {
+        int k = e.getKeyCode();
+        int a = e.getAction();
+        // volume: do sistema, sem passar pelo jogo
+        if (k == KeyEvent.KEYCODE_VOLUME_UP || k == KeyEvent.KEYCODE_VOLUME_DOWN || k == KeyEvent.KEYCODE_VOLUME_MUTE) {
+            return super.dispatchKeyEvent(e);
+        }
+        if ((a == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) || a == KeyEvent.ACTION_UP) {
+            synchronized (TRAVA) {
+                if (FILA.length() < 8000) {
+                    FILA.append(k).append(':').append(a == KeyEvent.ACTION_DOWN ? '0' : '1').append(';');
+                }
+            }
+        }
+        if (k == KeyEvent.KEYCODE_BACK || k == KeyEvent.KEYCODE_MENU) {
+            return true;
+        }
+        return super.dispatchKeyEvent(e);
+    }
+
+    /** "codigo:0;codigo:1;..." (0 = apertou, 1 = soltou) desde a última leitura, ou null. */
+    public static String lerTeclas() {
+        synchronized (TRAVA) {
+            if (FILA.length() == 0) {
+                return null;
+            }
+            String s = FILA.toString();
+            FILA.setLength(0);
+            return s;
+        }
+    }
+
+    /** A atividade está rodando (as teclas vêm por ela). */
+    public static boolean ativa() {
+        return ativa;
+    }
+}
