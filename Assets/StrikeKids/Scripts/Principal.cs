@@ -54,6 +54,7 @@ namespace StrikeKids
         public Hud hud;
         public Medidor medidor;
         public CameraCine cam;
+        public Reflexos reflexos;
         Camera _camUi;
         Canvas _canvas;
         CanvasScaler _escala;
@@ -212,6 +213,8 @@ namespace StrikeKids
             }
             cam = CameraCine.Criar(transform);
             cam.cam.cullingMask = ~(1 << CAMADA_UI);
+            // os pinos e a bola refletidos no verniz da pista
+            reflexos = Reflexos.Criar(raiz3d, pinos, bola, cam.cam);
             _alvoReplay = new GameObject("alvo_replay").transform;
             _alvoReplay.SetParent(raiz3d, false);
         }
@@ -239,6 +242,10 @@ namespace StrikeKids
             go.transform.position = new Vector3(0, -1000f, 0f);
             _canvas = go.AddComponent<Canvas>();
             _canvas.renderMode = RenderMode.WorldSpace;
+            // o Canvas nasce "na tela" (Overlay) e mexe no próprio RectTransform: agora, no
+            // mundo, volta para onde a câmera das telas olha
+            go.transform.SetPositionAndRotation(new Vector3(0, -1000f, 0f), Quaternion.identity);
+            go.transform.localScale = Vector3.one;
             _canvas.worldCamera = _camUi;
             _canvas.additionalShaderChannels |= AdditionalCanvasShaderChannels.TexCoord1;
             _escala = go.AddComponent<CanvasScaler>();
@@ -255,7 +262,10 @@ namespace StrikeKids
         {
             var T = Tela.Tamanho;
             var f = Tela.Fisico;
-            ((RectTransform)_canvas.transform).sizeDelta = T;
+            var rtc = (RectTransform)_canvas.transform;
+            rtc.sizeDelta = T;
+            rtc.SetPositionAndRotation(new Vector3(0, -1000f, 0f), Quaternion.identity);
+            rtc.localScale = Vector3.one;
             _escala.dynamicPixelsPerUnit = Mathf.Max(1f, f.x / Mathf.Max(T.x, 1f));
             _camUi.projectionMatrix = Tela.Ortografica();
             float menor = Mathf.Min(f.x, f.y);
@@ -263,6 +273,7 @@ namespace StrikeKids
             float k = lado / Mathf.Max(menor, 1f);
             int w = Mathf.Max(64, Mathf.RoundToInt(f.x * k)), h = Mathf.Max(64, Mathf.RoundToInt(f.y * k));
             int aa = _qualidade == "baixa" ? 2 : 4;
+            if (reflexos != null) reflexos.ligado = _qualidade != "baixa";
             if (_rt3d == null || _rt3d.width != w || _rt3d.height != h || _rt3d.antiAliasing != aa)
             {
                 var antiga = _rt3d;
@@ -316,7 +327,6 @@ namespace StrikeKids
             if (Controles.Apertou(Acao.Credito))
             {
                 Ajustes.AdicionarCredito();
-                Ajustes.Contar("moedas");
                 Sons.Tocar("moeda", 0.65f);
                 AtualizarAtracao();
                 return;
@@ -1781,9 +1791,8 @@ namespace StrikeKids
         void BolaBateu(Collider c, float vel)
         {
             if (c == null || c.attachedRigidbody != null || vel <= 0.8f) return;
-            string n = c.name;
-            // no chão e na canaleta a bola só rola; nas paredes e para-choques, "boing"
-            if (n.StartsWith("piso", StringComparison.Ordinal) || n == "aproximacao" || n == "seguranca" || n == "canaleta") return;
+            // "boing" só nos para-choques (como a edição Godot): no resto a bola rola ou cai
+            if (c.name != "bumper_fisica") return;
             Sons.Tocar("boing", Mathf.Clamp(vel / 6f, 0.4f, 1f));
             cam.Tremer(0.012f, 0.15f);
         }

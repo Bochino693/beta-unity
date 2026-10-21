@@ -19,6 +19,7 @@ sys.path.insert(0, AQUI)
 import numpy as np  # noqa: E402
 from PIL import Image  # noqa: E402
 
+import ao  # noqa: E402
 from malha import trs  # noqa: E402
 from previa import Camera, itens_do_modelo, renderizar  # noqa: E402
 import personagens  # noqa: E402
@@ -42,6 +43,8 @@ def pose_acenando():
 
 
 def retrato(modelo):
+    # o mesmo sombreado dos cantinhos do modelo do jogo
+    ao.assar_modelo(modelo, getattr(modelo, "ao", "modelo"))
     esconder = [p[0] for p in modelo.partes if p[0].startswith(ESCONDER)]
     itens = itens_do_modelo(modelo, poses=pose_acenando(), esconder=esconder)
     alvo = np.array([-0.02, 0.76, 0.0])

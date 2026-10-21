@@ -10,6 +10,7 @@ Shader "StrikeKids/Vidro"
     {
         Tags { "RenderType" = "Transparent" "Queue" = "Transparent" "IgnoreProjector" = "True" }
         Blend SrcAlpha OneMinusSrcAlpha
+        ColorMask RGB
         ZWrite Off
         Pass
         {

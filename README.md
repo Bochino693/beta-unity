@@ -3,8 +3,11 @@
 Boliche infantil 3D (Bob & Mia) para máquina de arcade com TV Box —
 feito na **Unity 2022.3 LTS**, desenhando com **OpenGL ES 2.0** (TV Box TX9,
 Mali-400/450). Modelos facetados novos (feitos por código em
-`tools/modelador`), física PhysX, o Arduino da máquina (START, 5 sensores,
-ficha e configuração) e a câmera USB para a foto das crianças.
+`tools/modelador`), as 4 fases (Parque, Espaço com as navinhas, Fundo do Mar,
+Selva dos Dinos) com o mesmo acabamento — sombreado dos cantinhos assado nos
+modelos, pinos e bola envernizados, reflexo na pista —, física PhysX, o
+Arduino da máquina (START, 5 sensores, ficha e configuração) e a câmera USB
+para a foto das crianças.
 
 * **Gerar o APK no Windows:** instale o Unity Hub + Unity 2022.3.62f2 com
   *Android Build Support* (OpenJDK + Android SDK & NDK) e dê dois cliques no

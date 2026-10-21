@@ -61,6 +61,8 @@ namespace StrikeKids
         const float ASTRO_DISTANCIA = 140f;
         /// <summary>Para onde está o sol (direção da luz) — o mesmo das edições Godot.</summary>
         public static readonly Vector3 DIR_SOL = Medidas.G(0.289f, 0.788f, 0.544f).normalized;
+        /// <summary>A madeira da pista vista no reflexo da bola e dos pinos.</summary>
+        static readonly Color PISO_REFLETIDO = new Color(0.42f, 0.26f, 0.14f);
 
         public static Mundo Criar(Transform pai)
         {
@@ -118,6 +120,9 @@ namespace StrikeKids
             var tex = Materiais.Textura("pista_pronta");
             tex.wrapMode = TextureWrapMode.Clamp;
             _matPista.SetTexture(Materiais.ID_TEX, tex);
+            // a pista vem antes do resto: o reflexo dos pinos e da bola (Reflexos.cs, fila
+            // 1995) só pinta onde fica embaixo do verniz; o resto da cena vem depois e cobre
+            _matPista.renderQueue = Reflexos.FILA_PISTA;
             _matBumper = Materiais.Novo("Bumper", "bumper");
             var pc = Malhas.Ler("pista", true);
             var pular = new HashSet<string> { "lampadas", "tira", "bumper", "mesa", "barra", "porta", "podio_0", "podio_1", "podio_anel_0", "podio_anel_1" };
@@ -444,6 +449,8 @@ namespace StrikeKids
             mp.SetColor(Materiais.ID_TINTA, Materiais.Hex("#B9A8FF"));
             var pl = Malhas.Montar(Malhas.Ler("cenario/planeta_anel"), espaco, null, p => p.material == "luz" ? Materiais.SemLuz : mp);
             pl.transform.localScale = Vector3.one * 0.3f;
+            // o anel deitado passa por baixo da logo (não cobre o desenho da bola)
+            pl.transform.localRotation = Quaternion.Euler(0, 0, 20.6f);
             Logo(espaco, 0.4f, new Vector3(0, 0, 0.33f));
             _marcas["espaco"] = espaco;
             // Mar: uma bolha de vidro com a logo dentro e bolhinhas subindo
@@ -498,8 +505,9 @@ namespace StrikeKids
                 for (int i = 0; i < gomos; i++)
                 {
                     int a = j * (gomos + 1) + i, b = a + 1, c = a + gomos + 1, d = c + 1;
-                    T.Add(a); T.Add(c); T.Add(b);
-                    T.Add(b); T.Add(c); T.Add(d);
+                    // faces para FORA (o vidro só desenha a frente)
+                    T.Add(a); T.Add(b); T.Add(c);
+                    T.Add(b); T.Add(d); T.Add(c);
                 }
             var m = new Mesh { name = "esfera" };
             m.SetVertices(V);
@@ -659,6 +667,8 @@ namespace StrikeKids
             Color borda = Materiais.Vezes(Color.Lerp(Color.white, c.ceu[1], 0.3f), 0.22f);
             float dens = leve ? c.neblinaDensidade * 0.6f : c.neblinaDensidade;
             Materiais.DefinirLuz(DIR_SOL, sol, ceu, chao, borda, c.neblina, dens);
+            // o que as peças lustrosas (pinos, bola) refletem: o céu da fase, a pista, o neon
+            Materiais.DefinirMatcap(c.ceu[0], c.ceu[2], PISO_REFLETIDO, c.neon);
             // o chão da fase
             var mc = Materiais.Chao;
             mc.SetColor("_Cor0", c.chao[0]);

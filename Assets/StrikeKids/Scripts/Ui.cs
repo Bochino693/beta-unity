@@ -493,6 +493,9 @@ namespace StrikeKids
     public class Figura : RawImage
     {
         public bool manter = true;
+        /// <summary>&gt; 0: escurece de leve as bordas e os cantos (a imagem 3D, como lente de cinema).
+        /// Feito na cor dos vértices de uma gradezinha: não custa nada na placa de vídeo.</summary>
+        public float vinheta;
 
         protected override void OnPopulateMesh(VertexHelper vh)
         {
@@ -510,6 +513,11 @@ namespace StrikeKids
             }
             var uv = uvRect;
             Color32 c = color;
+            if (vinheta > 0f)
+            {
+                Grade(vh, r, uv, c);
+                return;
+            }
             // 2ª coordenada: 0..1 no quadrado da peça (o círculo das fotos)
             vh.AddVert(new Vector3(r.xMin, r.yMin), c, new Vector2(uv.xMin, uv.yMin), new Vector2(0, 0), Vector3.back, new Vector4(1, 0, 0, -1));
             vh.AddVert(new Vector3(r.xMin, r.yMax), c, new Vector2(uv.xMin, uv.yMax), new Vector2(0, 1), Vector3.back, new Vector4(1, 0, 0, -1));
@@ -517,6 +525,34 @@ namespace StrikeKids
             vh.AddVert(new Vector3(r.xMax, r.yMin), c, new Vector2(uv.xMax, uv.yMin), new Vector2(1, 0), Vector3.back, new Vector4(1, 0, 0, -1));
             vh.AddTriangle(0, 1, 2);
             vh.AddTriangle(2, 3, 0);
+        }
+
+        void Grade(VertexHelper vh, Rect r, Rect uv, Color32 c)
+        {
+            const int N = 8;
+            for (int j = 0; j <= N; j++)
+            {
+                for (int i = 0; i <= N; i++)
+                {
+                    float u = (float)i / N, v = (float)j / N;
+                    float dx = (u - 0.5f) * 2f, dy = (v - 0.5f) * 2f;
+                    float d = Mathf.Clamp01((dx * dx * 0.8f + dy * dy) * 0.5f);
+                    float k = 1f - vinheta * d * d;
+                    var cc = new Color32((byte)(c.r * k), (byte)(c.g * k), (byte)(c.b * k), c.a);
+                    vh.AddVert(new Vector3(Mathf.Lerp(r.xMin, r.xMax, u), Mathf.Lerp(r.yMin, r.yMax, v)), cc,
+                        new Vector2(Mathf.Lerp(uv.xMin, uv.xMax, u), Mathf.Lerp(uv.yMin, uv.yMax, v)), new Vector2(u, v),
+                        Vector3.back, new Vector4(1, 0, 0, -1));
+                }
+            }
+            for (int j = 0; j < N; j++)
+            {
+                for (int i = 0; i < N; i++)
+                {
+                    int a = j * (N + 1) + i, b = a + N + 1;
+                    vh.AddTriangle(a, b, b + 1);
+                    vh.AddTriangle(b + 1, a + 1, a);
+                }
+            }
         }
 
         /// <summary>Recorta o meio da imagem num quadrado (foto ao vivo da câmera).</summary>

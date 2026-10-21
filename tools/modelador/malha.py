@@ -17,6 +17,7 @@ frente, como a Unity desenha).
 Cores: sRGB 0-255 (o jogo roda em espaço Gamma — o único da OpenGL ES 2.0).
 """
 import math
+import os
 import struct
 
 import numpy as np
@@ -843,6 +844,15 @@ def _dados_peca(peca):
 
 
 def gravar(modelo, caminho):
+    """Grava o pacote .bytes. Antes, assa o sombreado dos cantinhos na cor
+    dos vértices (ao.py): modelo.ao = "modelo" (padrão: as peças fazem sombra
+    umas nas outras), "peca" (cada peça sozinha) ou None (nada). STRIKE_SEM_AO=1
+    no ambiente desliga (prévias rápidas)."""
+    modo = getattr(modelo, "ao", "modelo")
+    if modo and not getattr(modelo, "_ao_feito", False) and not os.environ.get("STRIKE_SEM_AO"):
+        import ao
+        ao.assar_modelo(modelo, modo)
+        modelo._ao_feito = True
     nomes = [p[0] for p in modelo.partes]
     out = b"SKP1" + struct.pack("<H", len(modelo.partes))
     total_v = 0

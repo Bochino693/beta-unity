@@ -25,6 +25,8 @@ namespace StrikeKids
         public static readonly int ID_FLASH = Shader.PropertyToID("_Flash");
         public static readonly int ID_ESCURO = Shader.PropertyToID("_Escuro");
         public static readonly int ID_TEX = Shader.PropertyToID("_MainTex");
+        static readonly int ID_MATCAP = Shader.PropertyToID("_SkMatcap");
+        static Texture2D _matcap;
 
         public static Shader AcharShader(string nome)
         {
@@ -58,6 +60,8 @@ namespace StrikeKids
         public static Material Vidro => Comum("vidro", "Vidro");
         public static Material Chao => Comum("chao", "Chao");
         public static Material Lampadas => Comum("lampadas", "Lampadas");
+        /// <summary>Peças lustrosas (os pinos): o Facetado com o reflexo do matcap da fase.</summary>
+        public static Material Brilho => Comum("brilho", "Brilho");
 
         public static Material Madeira
         {
@@ -105,7 +109,7 @@ namespace StrikeKids
                 case "vidro": return Vidro;
                 case "chao": return Chao;
                 case "madeira": return Madeira;
-                case "brilho": return Facetado;
+                case "brilho": return Brilho;
                 default:
                     if (material.StartsWith("textura:")) return TexturaComum(material.Substring(8));
                     return Facetado;
@@ -155,6 +159,68 @@ namespace StrikeKids
             UnityEngine.Shader.SetGlobalColor(ID_CHAO, chao);
             UnityEngine.Shader.SetGlobalColor(ID_BORDA, borda);
             UnityEngine.Shader.SetGlobalColor(ID_NEBLINA, new Color(neblina.r, neblina.g, neblina.b, densidade));
+        }
+
+        /// <summary>
+        /// O MATCAP das peças lustrosas (pinos e bola): o que a superfície reflete
+        /// conforme a direção dela vista da câmera — o céu da fase em cima, a pista
+        /// embaixo, o neon da fase na borda (contraluz) — e, no alfa, os pontos de
+        /// brilho das luzes do teto. Feito aqui (128 px), a cada troca de fase:
+        /// na placa de vídeo é uma leitura de textura por pixel, nada mais.
+        /// </summary>
+        public static void DefinirMatcap(Color ceu, Color horizonte, Color piso, Color neon)
+        {
+            const int T = 128;
+            if (_matcap == null)
+                _matcap = new Texture2D(T, T, TextureFormat.RGBA32, false)
+                {
+                    name = "matcap",
+                    wrapMode = TextureWrapMode.Clamp,
+                    filterMode = FilterMode.Bilinear,
+                    hideFlags = HideFlags.DontSave,
+                };
+            var px = new Color32[T * T];
+            for (int y = 0; y < T; y++)
+            {
+                for (int x = 0; x < T; x++)
+                {
+                    float nx = (x + 0.5f) / T * 2f - 1f, ny = (y + 0.5f) / T * 2f - 1f;
+                    float q = nx * nx + ny * ny;
+                    if (q > 1f)
+                    {
+                        float k = 1f / Mathf.Sqrt(q);
+                        nx *= k;
+                        ny *= k;
+                        q = 1f;
+                    }
+                    float nz = Mathf.Sqrt(Mathf.Max(0f, 1f - q));
+                    // o raio da câmera refletido na superfície (y para cima, z para a câmera)
+                    float ry = 2f * nz * ny, rz = 2f * nz * nz - 1f;
+                    Color c = ry >= 0f
+                        ? Color.Lerp(horizonte, ceu, Mathf.Pow(ry, 0.6f))
+                        : Color.Lerp(horizonte * 0.85f, piso, Mathf.Clamp01(-ry * 3f));
+                    float faixa = Mathf.Clamp01(1f - Mathf.Abs(ry) / 0.1f) * Mathf.Clamp01(-rz);
+                    c = Color.Lerp(c, neon, faixa * 0.8f);
+                    float a = Mathf.Clamp01(Mancha(nx, ny, -0.36f, 0.44f, 0.22f, 0.12f, 0.35f) +
+                                            0.6f * Mancha(nx, ny, 0.5f, 0.3f, 0.09f, 0.07f, 0f));
+                    c = Color.Lerp(c, Color.white, a * 0.6f);
+                    px[y * T + x] = new Color32(B(c.r), B(c.g), B(c.b), B(a));
+                }
+            }
+            _matcap.SetPixels32(px);
+            _matcap.Apply(false, false);
+            UnityEngine.Shader.SetGlobalTexture(ID_MATCAP, _matcap);
+        }
+
+        static byte B(float v) => (byte)Mathf.RoundToInt(Mathf.Clamp01(v) * 255f);
+
+        /// <summary>Mancha de luz (elipse girada, borda macia) no disco do matcap.</summary>
+        static float Mancha(float x, float y, float cx, float cy, float rx, float ry, float giro)
+        {
+            float co = Mathf.Cos(giro), si = Mathf.Sin(giro);
+            float dx = x - cx, dy = y - cy;
+            float u = (dx * co + dy * si) / rx, v = (-dx * si + dy * co) / ry;
+            return 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.55f, 1f, Mathf.Sqrt(u * u + v * v)));
         }
 
         public static Color Hex(string h)

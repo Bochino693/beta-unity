@@ -1,3 +1,6 @@
+using System;
+using System.IO;
+using System.Text;
 using UnityEditor;
 using UnityEngine;
 
@@ -35,9 +38,39 @@ namespace StrikeKids.Editor
             var a = ti.GetPlatformTextureSettings("Android");
             a.overridden = true;
             a.maxTextureSize = 4096;
-            a.format = ti.DoesSourceTextureHaveAlpha() ? TextureImporterFormat.RGBA32 : TextureImporterFormat.ETC_RGB4;
+            a.format = TemTransparencia(assetPath) ? TextureImporterFormat.RGBA32 : TextureImporterFormat.ETC_RGB4;
             a.compressionQuality = 100;
             ti.SetPlatformTextureSettings(a);
+        }
+
+        /// <summary>
+        /// A imagem tem transparência? Lido do próprio PNG (tipo de cor 4 ou 6, ou o
+        /// bloco tRNS): na primeira importação (a pasta de trabalho nova do
+        /// GERAR_APK) a Unity ainda não sabe, e o DoesSourceTextureHaveAlpha volta
+        /// "não" — tudo iria para ETC1 sem transparência. Na dúvida: com transparência.
+        /// </summary>
+        static bool TemTransparencia(string caminho)
+        {
+            try
+            {
+                var b = File.ReadAllBytes(caminho);
+                if (b.Length < 33 || b[0] != 0x89 || b[1] != (byte)'P' || b[2] != (byte)'N' || b[3] != (byte)'G') return true;
+                int tipo = b[25];
+                if (tipo == 4 || tipo == 6) return true;
+                for (int i = 8; i + 8 <= b.Length;)
+                {
+                    int n = (b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3];
+                    string t = Encoding.ASCII.GetString(b, i + 4, 4);
+                    if (t == "tRNS") return true;
+                    if (t == "IDAT" || t == "IEND" || n < 0) break;
+                    i += 12 + n;
+                }
+                return false;
+            }
+            catch (Exception)
+            {
+                return true;
+            }
         }
 
         void OnPreprocessAudio()

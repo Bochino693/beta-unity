@@ -206,6 +206,8 @@ def pinos():
     pcc = Peca("colisao")
     pcc.add(casco, (255, 255, 255, 255))
     m.parte("colisao", None, (0, 0, 0), pcc)
+    # as 8 caras estão uma em cima da outra (e o casco por fora): sombreado de cada uma sozinha
+    m.ao = "peca"
     return m
 
 

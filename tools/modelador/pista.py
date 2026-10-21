@@ -634,6 +634,9 @@ def modelo_pista():
         p, anel = podio(h)
         m.parte("podio_%d" % i, None, (0, 0, 0), p)
         m.parte("podio_anel_%d" % i, "podio_%d" % i, (0, 0, 0), anel)
+    # peças soltas (a máquina, os pódios, os para-choques ficam no pivô, fora do
+    # lugar): sombreado de cada peça sozinha
+    m.ao = "peca"
     return m
 
 

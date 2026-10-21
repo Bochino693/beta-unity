@@ -70,9 +70,9 @@ namespace StrikeKids
         public static Material MaterialDe(string nome)
         {
             if (_materiais.TryGetValue(nome, out var m) && m != null) return m;
-            m = Materiais.Novo("Textura", "bola_" + nome);
+            // verniz: a textura do bichinho + o reflexo do matcap da fase (Bola.shader)
+            m = Materiais.Novo("Bola", "bola_" + nome);
             m.SetTexture(Materiais.ID_TEX, Materiais.Textura("bola_" + nome));
-            m.SetFloat("_Brilho", 0.6f);
             _materiais[nome] = m;
             return m;
         }
@@ -199,6 +199,8 @@ namespace StrikeKids
         }
 
         public bool Visivel => _mr.enabled;
+        /// <summary>O desenho da bola (para o reflexo na pista).</summary>
+        public MeshRenderer Corpo => _mr;
 
         /// <summary>Mostra/esconde a bola (o replay põe como estava em cada instante).</summary>
         public void Ver(bool sim) => Mostrar(sim);

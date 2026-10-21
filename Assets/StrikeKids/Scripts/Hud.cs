@@ -84,6 +84,7 @@ namespace StrikeKids
             foreach (var p in new[] { "bob", "mia" }) _retratos[p] = Materiais.UI("retrato_" + p);
             tela3d = Ui.Figura(_raiz, null, false);
             tela3d.name = "tela3d";
+            tela3d.vinheta = 0.28f;
             MontarPlacar();
             MontarMapa();
             MontarToque();

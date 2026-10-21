@@ -17,6 +17,11 @@ rapido), refeito do zero na Unity para provar que o motor nao e o problema:
     outros, batem nas paredes, caem no fosso e no poco do alcapao. A tabela
     das jogadas (Resources/Dados/tabela_jogadas.json) e refeita SOZINHA com
     a PhysX na primeira geracao do APK (alguns minutos, uma vez so).
+  * GRAFICO CAPRICHADO, IGUAL NAS 4 FASES (Parque, Espaco com as navinhas,
+    Fundo do Mar, Selva dos Dinos): sombreado dos cantinhos assado nos
+    modelos (profundidade de foto, custo zero), pinos e bola envernizados
+    (refletem o ceu, as luzes e o neon da fase), REFLEXO dos pinos e da bola
+    no verniz da pista, vinheta leve na imagem.
   * LEVE para a Mali-450: luz calculada nos vertices (sem luzes da Unity),
     sombras "de adesivo", particulas numa malha so por tipo, imagem 3D em
     720 linhas com antisserrilhado 4x (o da propria placa), cenario leve

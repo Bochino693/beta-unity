@@ -102,7 +102,7 @@ def poses_animacao(modelo):
         M[:3, :3] = rot(ax, ay, az)
         return M
     tabela = {"pescoco": R(6, 12, 0), "cabeca": R(8, 18, 5), "mandibula": R(24, 0, 0), "rabo": R(4, 14, 0),
-              "braco_e": R(20, 0, 0), "braco_d": R(-20, 0, 0), "asa_e": R(0, 0, 32), "asa_d": R(0, 0, 32),
+              "braco_e": R(20, 0, 0), "braco_d": R(-20, 0, 0), "asa_e": R(0, 0, 32), "asa_d": R(0, 0, -32),
               "nadadeira_ed": R(0, 25, 18), "nadadeira_ef": R(0, -25, 18), "nadadeira_dd": R(0, 25, -18),
               "nadadeira_df": R(0, -25, -18), "topo": R(0, 30, 0)}
     for k, M in tabela.items():

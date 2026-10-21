@@ -13,8 +13,8 @@ marcas de cada fase).
   * PARQUE ... arvore_verde, arvore_laranja, arvore_escura, pirulito, cupcake,
                donut, presente, bengala, cogumelo, nuvem, balao, arco_iris,
                torre, tenda, carrossel, roda_base, roda, cabine
-  * ESPAÇO ... planeta_anel, foguete, ovni, planeta, cristal, pedra_lua,
-               estrela_3d
+  * ESPAÇO ... planeta_anel, foguete, ovni, navinha, planeta, cristal,
+               pedra_lua, estrela_3d
   * MAR ...... coral, coral_roxo, alga, concha, estrela_mar, peixe, agua_viva,
                bau, navio, tartaruga
   * DINOS .... palmeira, samambaia, vulcao, ovo_dino, pedra, flor_gigante e os
@@ -27,7 +27,7 @@ CONVENÇÕES
     no próprio centro: planeta_anel, ovni, planeta, estrela_3d, peixe,
     agua_viva, ptero e roda (no eixo). A cabine tem a origem no ponto onde
     pendura (em cima) e fica toda para baixo;
-  * TINTA (balao, cabine, planeta, peixe, agua_viva): o corpo é quase
+  * TINTA (balao, cabine, planeta, peixe, agua_viva, navinha): o corpo é quase
     branco, o jogo multiplica pela cor de cada cópia; os olhos ficam em peças
     "luz" (sem luz e sem tinta);
   * rostos: olhos e bocas em peças "luz" (como os mascotes), filhas da
@@ -50,7 +50,6 @@ OLHO = cor("#2B1F3F")
 BRILHO = cor("#FFFFFF")
 BOCA = cor("#5A2330")
 BOCHECHA = cor("#FF9BB0")
-LINGUA = cor("#FF7A8A")
 UNHA = cor("#FFF3DC")
 
 
@@ -313,6 +312,41 @@ def adesivo(sup, pts, d, esp=0.005, afundar=0.012, giro=0.0, cima=(0, 1, 0), fun
     return Forma(np.array(V), F)
 
 
+def anel_adesivo(sup, d, r_in, r_out, lados=10, esp=0.01, afundar=0.02, giro=0.0, cima=(0, 1, 0)):
+    """Anel (borda de cratera) colado na superfície: faixa entre dois círculos
+    projetados, com a parede de fora e a de dentro."""
+    p, n0 = sup.superficie(d)
+    x, y, n = base_tangente(n0, cima, giro)
+
+    def proj(u, v, h):
+        q = p + x * u + y * v
+        t = sup.raio(q, n)
+        s_ = q + n * (t if t is not None else 0.0)
+        return s_ + sup.normal(s_) * h
+    V, F = [], []
+    for i in range(lados):
+        a = 2 * PI * i / lados
+        for (r, h) in ((r_out, esp), (r_in, esp), (r_out, -afundar), (r_in, -afundar)):
+            V.append(proj(math.cos(a) * r, math.sin(a) * r, h))
+    for i in range(lados):
+        a, b = 4 * i, 4 * ((i + 1) % lados)
+        F += [(a, b, a + 1), (a + 1, b, b + 1)]                 # topo
+        F += [(a + 2, b + 2, a), (a, b + 2, b)]                 # parede de fora
+        F += [(a + 1, b + 1, a + 3), (a + 3, b + 1, b + 3)]     # parede de dentro
+    f = Forma(np.array(V), F)
+    # topo para fora da superfície, paredes para longe/perto do centro do anel
+    A_, B_, C_ = f.V[f.F[:, 0]], f.V[f.F[:, 1]], f.V[f.F[:, 2]]
+    nf = np.cross(B_ - A_, C_ - A_)
+    cen = (A_ + B_ + C_) / 3
+    tipo = np.tile([0, 0, 1, 1, 2, 2], lados)
+    rad = cen - p
+    rad = rad - np.outer(rad @ n, n)
+    ref = np.where(tipo[:, None] == 0, n[None, :], np.where(tipo[:, None] == 1, rad, -rad))
+    trocar = np.einsum("ij,ij->i", nf, ref) < 0
+    f.F[trocar] = f.F[trocar][:, [0, 2, 1]]
+    return f
+
+
 # ------------------------------------------------------------------ montagem
 
 
@@ -333,15 +367,16 @@ def _local(peca, pivo):
     return peca
 
 
-def montar(nome, partes):
+def montar(nome, partes, origem=(0.0, 0.0, 0.0)):
     """partes: [(nome, pai, pivô no mundo, itens [(forma, cor[, suave])], material)],
-    pais antes dos filhos. Cada parte é gravada no espaço do próprio pivô."""
+    pais antes dos filhos. Cada parte é gravada no espaço do próprio pivô.
+    origem: o ponto do mundo que vira a origem do pacote (normalmente o 0)."""
     m = Modelo(nome)
     piv = {}
     for (pn, pai, pivo, itens, mat) in partes:
         pivo = np.asarray(pivo, float)
         piv[pn] = pivo
-        pos = pivo - (piv[pai] if pai is not None else np.zeros(3))
+        pos = pivo - (piv[pai] if pai is not None else np.asarray(origem, float))
         peca = _peca(pn, itens, mat) if itens else None
         m.parte(pn, pai, pos, _local(peca, pivo))
     return m
@@ -801,6 +836,10 @@ def estegossauro():
 PTERO = Paleta(pele=cor("#FF9F2E"), asa=cor("#FF8657"), asa_clara=cor("#FFB08A"), osso=cor("#E8692E"),
                barriga=cor("#FFDCA6"), bico=cor("#FFD43B"), crista=cor("#2EC4B6"), unha=UNHA, iris=cor("#7A3A1E"))
 OMBRO_PTERO = np.array([0.1, 0.045, 0.06])
+# a origem do ptero fica acima do corpo: na marca dos Dinos (Mundo.cs: origem 0,66
+# acima do meio da plaquinha de 0,52 de altura, escala 0,62) as garras (0,325 abaixo
+# do meio do corpo) chegam na borda de cima da plaquinha: 0,66 - 0,62*(0,325+0,314) = 0,264
+ALTURA_ORIGEM_PTERO = 0.314
 
 
 def asa_ptero(s, pal):
@@ -841,10 +880,11 @@ def asa_ptero(s, pal):
 
 
 def ptero():
-    """Pterossauro ~1,6 m de asa a asa (origem no meio do corpo): corpo
-    pequeno, cabeça de bico amarelo comprido e crista azul-turquesa, asas de
-    membrana e os pezinhos de garras para baixo (segura a plaquinha da marca).
-    Partes: corpo (> rosto), asa_e, asa_d (pivôs nos ombros)."""
+    """Pterossauro ~1,6 m de asa a asa: corpo pequeno, cabeça de bico amarelo
+    comprido e crista azul-turquesa, asas de membrana e os pezinhos de garras
+    para baixo (segura a plaquinha da marca). Partes: corpo (pivô no meio do
+    corpo, ALTURA_ORIGEM_PTERO abaixo da origem do pacote) > rosto, asa_e,
+    asa_d (pivôs nos ombros)."""
     pal = PTERO
     corpo_e = Elip((0, 0, 0), (0.13, 0.12, 0.23))
     corpo = corpo_e.malha(12, 8, polo="z")
@@ -874,7 +914,7 @@ def ptero():
         for k in (-1, 0, 1):
             g = bezier(t + (k * 0.02, -0.01, 0.01), t + (k * 0.03, -0.04, 0.03), t + (k * 0.03, -0.07, 0.02),
                        t + (k * 0.025, -0.075, -0.01), n=3)
-            itens.append((tubo(g, [0.012, 0.01, 0.007, 0.0], gomos=4), pal.unha))
+            itens.append((tubo_pt(g, [0.012, 0.01, 0.007, 0.0], gomos=4), pal.unha))
         garras.append(t + (0, -0.075, 0.0))
     for s in (-1, 1):
         itens.append(oval(cab_e, (s * 0.75, -0.35, 0.55), 0.03, 0.02, BOCHECHA, lados=8))
@@ -891,8 +931,8 @@ def ptero():
         ("rosto", "corpo", (0, 0, 0), rosto, "luz"),
         ("asa_e", "corpo", asas["asa_e"][0], asas["asa_e"][1], ""),
         ("asa_d", "corpo", asas["asa_d"][0], asas["asa_d"][1], ""),
-    ])
-    m.garras = garras
+    ], origem=(0, ALTURA_ORIGEM_PTERO, 0))
+    m.garras = [g - (0, ALTURA_ORIGEM_PTERO, 0) for g in garras]   # pontas das garras, no espaço do pacote
     return m
 
 
@@ -1134,7 +1174,7 @@ def palmeira():
         r0 = 0.21 - 0.07 * ys[i] / H
         a = eixo[i] - (eixo[i + 1] - eixo[i]) * 0.08
         b = eixo[i + 1]
-        seg = tubo([a, b], [r0 * 0.9, r0 * 1.16], gomos=7, tampas=(i == 0))
+        seg = tubo([a, b], [r0 * 0.9, r0 * 1.16], gomos=7)
         itens.append((seg, pal.tronco if i % 2 == 0 else pal.anel))
     itens.append((prisma(7, 0.34, 0.22, chanfro=0.05, raio_topo=0.22, fase=0.5), pal.anel))
     topo = eixo[-1]
@@ -1238,7 +1278,7 @@ def flor_gigante():
     pal = Paleta(caule=cor("#4CB85A"), folha=cor("#6FD25E"), folha_baixo=cor("#3E9E4E"), petala=cor("#FF8A2A"),
                  clara=cor("#FFD43B"), miolo=cor("#7A4A2E"), ponto=cor("#C08A58"))
     caule_pts = bezier((0, 0, 0), (0.05, 0.35, 0.0), (0.0, 0.7, 0.0), (0.0, 0.9, 0.07), n=4)
-    itens = [(tubo(caule_pts, [0.055, 0.05, 0.047, 0.045, 0.045], gomos=6), pal.caule)]
+    itens = [(tubo_pt(caule_pts, [0.055, 0.05, 0.047, 0.045, 0.045], gomos=6), pal.caule)]
     for (y, az, L) in ((0.26, 0.15, 0.48), (0.46, PI - 0.25, 0.42)):
         base = np.array([0.03, y, 0.0])
         dr = np.array([math.cos(az), 0.0, math.sin(az)])
@@ -1290,10 +1330,12 @@ def _no_vulcao(teta, y, sobe=0.0):
     return p + n * sobe
 
 
-def escorrido(teta0, L, w, sobe, passo=0.22):
+def escorrido(teta0, L, w, sobe, passo=0.22, sup=None):
     """Escorrido de lava descendo a encosta: faixa (esquerda, meio, direita)
-    em linhas de altura, com a gota redonda no fim. Devolve uma Forma."""
-    y0 = PERFIL_VULCAO[-1][1] - 0.02
+    em linhas de altura, com a gota redonda no fim. Com `sup` (a malha do
+    cone), cada vértice é levado para a faceta de baixo e levantado `sobe`
+    (bem rente: não sobra fresta na silhueta). Devolve uma Forma."""
+    y0 = PERFIL_VULCAO[-1][1] - 0.08      # começa logo abaixo da crista da borda
     linhas = []
     n = max(3, int(L / passo))
     for k in range(n + 1):
@@ -1326,6 +1368,14 @@ def escorrido(teta0, L, w, sobe, passo=0.22):
     leque.append(k_ult + 2)
     for i in range(len(leque) - 1):
         F.append((meio, leque[i], leque[i + 1]))
+    if sup is not None:
+        V2 = []
+        for v in V:
+            v = np.asarray(v, float)
+            n = _norm((v[0], 0.45, v[2]))
+            t = sup.raio(v, n)
+            V2.append(v + n * t + sup.normal(v) * sobe if t is not None else v)
+        V = V2
     f = Forma(np.array(V), F)
     # todas para fora da encosta
     A, B, C = f.V[f.F[:, 0]], f.V[f.F[:, 1]], f.V[f.F[:, 2]]
@@ -1368,7 +1418,9 @@ def vulcao():
     A_, B_, C_ = cone.V[cone.F[:, 0]], cone.V[cone.F[:, 1]], cone.V[cone.F[:, 2]]
     nf = np.cross(B_ - A_, C_ - A_)
     cen = (A_ + B_ + C_) / 3
-    ref = np.stack([cen[:, 0], np.full(len(cen), 0.5), cen[:, 2]], 1)
+    ref = np.stack([cen[:, 0], np.full(len(cen), 0.5), cen[:, 2]], 1)          # encosta: para fora
+    cratera = np.arange(len(cen)) >= len(cen) - 2 * gomos                        # as últimas: a borda de dentro
+    ref[cratera] = np.stack([-cen[cratera, 0], np.full(cratera.sum(), 1.0), -cen[cratera, 2]], 1)
     trocar = np.einsum("ij,ij->i", nf, ref) < 0
     cone.F[trocar] = cone.F[trocar][:, [0, 2, 1]]
 
@@ -1392,12 +1444,13 @@ def vulcao():
         y = 1.3 + 0.9 * (k % 3)
         c = _no_vulcao(a, y, 0.05)
         itens.append((pedra(0.32, 10, (1.0, 0.55, 0.9), 40 + k, 0.15).mover(c), pal.escura))
+    sup_cone = SupMalha(cone, (0, 2.0, 0))
     lava = [(torno([(0.0, 4.56), (0.84, 4.56)], gomos=gomos, tampa_baixo=False, tampa_cima=False).inverter(), pal.lava),
             (torno([(0.0, 4.58), (0.5, 4.58)], gomos=10, tampa_baixo=False, tampa_cima=False).inverter(), pal.lava_clara)]
     for (az, L, w) in ((0.12, 2.6, 0.46), (0.95, 1.6, 0.38), (-0.75, 2.1, 0.42), (1.9, 2.3, 0.44), (-1.75, 1.5, 0.36),
                        (2.75, 1.9, 0.4), (-2.6, 2.4, 0.44), (3.6, 1.6, 0.38)):
-        lava.append((escorrido(-az + PI / 2, L, w, 0.09), pal.lava))
-        lava.append((escorrido(-az + PI / 2, L * 0.62, w * 0.42, 0.13), pal.lava_clara))
+        lava.append((escorrido(-az + PI / 2, L, w, 0.025, sup=sup_cone), pal.lava))
+        lava.append((escorrido(-az + PI / 2, L * 0.62, w * 0.42, 0.045, sup=sup_cone), pal.lava_clara))
     return simples("vulcao", itens, luz=lava)
 
 
@@ -1443,24 +1496,33 @@ def tubo_torcido(pts, raios, gomos, giro_anel, cor_de_gomo, tampas=True):
 
 
 def _orientar_fora_linha(f, P):
-    """Cada face com a normal para longe da linha central (tubos)."""
+    """Cada face com a normal para longe da linha central (tubos); as tampas
+    (faces quase de frente para a linha) para fora pelas pontas."""
     A, B, C = f.V[f.F[:, 0]], f.V[f.F[:, 1]], f.V[f.F[:, 2]]
     nf = np.cross(B - A, C - A)
     cen = (A + B + C) / 3
     t = parametro_linha(P, cen)
-    seg = np.asarray(P)
+    seg = np.asarray(P, float)
     L = np.concatenate([[0.0], np.cumsum(np.linalg.norm(seg[1:] - seg[:-1], axis=1))])
     L /= L[-1]
     perto = np.stack([np.interp(t, L, seg[:, k]) for k in range(3)], 1)
     fora = cen - perto
-    # tampas: a direção da ponta
-    tg = tangentes(P)
-    tampa0 = np.linalg.norm(fora, axis=1) < 1e-6
-    fora[tampa0 & (t < 0.5)] = -tg[0]
-    fora[tampa0 & (t >= 0.5)] = tg[-1]
+    tg = tangentes(seg)
+    tg_face = np.stack([np.interp(t, L, tg[:, k]) for k in range(3)], 1)
+    nn = nf / np.maximum(np.linalg.norm(nf, axis=1, keepdims=True), 1e-12)
+    tampa = (np.abs(np.einsum("ij,ij->i", nn, tg_face)) > 0.85) & ((t < 1e-4) | (t > 1 - 1e-4))
+    fora[tampa & (t < 0.5)] = -tg[0]
+    fora[tampa & (t >= 0.5)] = tg[-1]
     trocar = np.einsum("ij,ij->i", nf, fora) < 0
     f.F[trocar] = f.F[trocar][:, [0, 2, 1]]
     return f
+
+
+def tubo_pt(pts, raios, gomos=7, tampas=True):
+    """Tubo de moldura sem torção (transporte paralelo): para linhas curvas
+    quase em pé (troncos, caules), onde o tubo da malha.py pode virar a
+    moldura de um anel para o outro e "estrangular"."""
+    return tubo_torcido(pts, raios, gomos, 0.0, lambda k: None, tampas)
 
 
 PARQUE = Paleta(tronco=cor("#A86B3C"), tronco_escuro=cor("#8E5A32"), verde=cor("#5ED16A"), verde2=cor("#4BBE5C"),
@@ -1472,7 +1534,7 @@ PARQUE = Paleta(tronco=cor("#A86B3C"), tronco_escuro=cor("#8E5A32"), verde=cor("
 def tronco_arvore(altura=1.35, r0=0.17, r1=0.09, curva=0.06, cor_=PARQUE.tronco, raizes=True):
     """Tronco curvinho afinando para cima, com três raízes no pé."""
     pts = [(0, 0, 0), (curva * 0.3, altura * 0.4, 0), (curva, altura * 0.75, 0.02), (curva * 0.6, altura, 0.0)]
-    itens = [(tubo(pts, [r0, r0 * 0.82, r1 * 1.1, r1], gomos=7), cor_)]
+    itens = [(tubo_pt(pts, [r0, r0 * 0.82, r1 * 1.1, r1], gomos=7), cor_)]
     if raizes:
         for k in range(3):
             a = 2 * PI * k / 3 + 0.4
@@ -1615,7 +1677,8 @@ def cupcake():
         F.append((ic, i, (i + 1) % gomos))
         C.append(pal.azul)
     forminha = Forma(V, F, C)
-    forminha = _orientar_fora_linha(forminha, [(0, -0.1, 0), (0, 0.5, 0)])
+    # paredes para fora, o fundo para baixo
+    forminha = orientar_fora(forminha, lambda c: np.array([0.0, c[1], 0.0]) if c[1] > 0.01 else c + np.array([0, 1.0, 0]))
     itens = [(forminha, pal.azul)]
     itens.append((prisma(11, 0.44, 0.09, raio_topo=0.43, centro=(0, 0.4, 0)), cor("#C98A5A")))
     creme = cor("#FFF7E6")
@@ -1644,33 +1707,28 @@ def donut():
     pal = PARQUE
     R, r, y0 = 0.5, 0.28, 0.3
     gomos = 14
-    perfil = [(R + math.cos(a) * r, y0 + math.sin(a) * r) for a in np.linspace(-PI / 2, 1.5 * PI, 8)]
+    # a massa: só a faixa que a cobertura não cobre (de dentro do furo, por
+    # baixo, até um pouco acima das gotas); as bordas ficam embaixo da cobertura
+    perfil = [(R + math.cos(a) * r, y0 + math.sin(a) * r) for a in np.linspace(0.9 * PI, 2.1 * PI, 6)]
     massa = torno(perfil, gomos=gomos, tampa_baixo=False, tampa_cima=False)
     itens = [(massa, cor("#E9A55B"))]
-    # cobertura: de dentro, por cima, até a beirada de fora (que escorre em gotas)
+    # cobertura: uma casca um pouco por fora da massa, de dentro do furo, por
+    # cima, até a beirada de fora (que escorre em gotas); as duas beiradas
+    # descem até a massa (não fica fresta vista de baixo)
     V, F = [], []
     angs = [2 * PI * (i + 0.5) / gomos for i in range(gomos)]
-    perfil_c = [-0.92 * PI, -0.55 * PI, -0.25 * PI, 0.05 * PI, 0.32 * PI]   # do lado de dentro para fora
-    perfil_c = [PI * 0.92, PI * 0.62, PI * 0.36, PI * 0.12]
-    aneis = []
-    for j, ph in enumerate(perfil_c):
-        anel = []
+
+    def anel_c(fases, k_r):
+        idx = []
         for i in range(gomos):
-            rr = r * 1.06
-            x = R + math.cos(ph) * rr
-            y = y0 + math.sin(ph) * rr
-            anel.append(len(V))
-            V.append((math.cos(angs[i]) * x, y, math.sin(angs[i]) * x))
-        aneis.append(anel)
-    borda = []
-    for i in range(gomos):
-        ph = -0.12 * PI if i % 2 == 0 else 0.02 * PI
-        rr = r * 1.06
-        x = R + math.cos(ph) * rr
-        y = y0 + math.sin(ph) * rr
-        borda.append(len(V))
-        V.append((math.cos(angs[i]) * x, y, math.sin(angs[i]) * x))
-    aneis.append(borda)
+            ph = fases[i] if hasattr(fases, "__len__") else fases
+            x = R + math.cos(ph) * r * k_r
+            idx.append(len(V))
+            V.append((math.cos(angs[i]) * x, y0 + math.sin(ph) * r * k_r, math.sin(angs[i]) * x))
+        return idx
+    gotas = [-0.12 * PI if i % 2 == 0 else 0.02 * PI for i in range(gomos)]
+    aneis = [anel_c(0.92 * PI, 0.99)] + [anel_c(ph, 1.06) for ph in (0.92 * PI, 0.62 * PI, 0.36 * PI, 0.12 * PI)] + \
+        [anel_c(gotas, 1.06), anel_c(gotas, 0.99)]
     for A, B in zip(aneis[:-1], aneis[1:]):
         for i in range(gomos):
             j = (i + 1) % gomos
@@ -1680,13 +1738,21 @@ def donut():
     nf = np.cross(B_ - A_, C_ - A_)
     cen = (A_ + B_ + C_) / 3
     rc = np.sqrt(cen[:, 0] ** 2 + cen[:, 2] ** 2)
-    eixo = np.stack([cen[:, 0] / rc * R, np.full(len(cen), y0), cen[:, 2] / rc * R], 1)
-    trocar = np.einsum("ij,ij->i", nf, cen - eixo) < 0
+    radial = np.stack([cen[:, 0] / rc, np.zeros(len(cen)), cen[:, 2] / rc], 1)
+    eixo = radial * R + np.array([0.0, y0, 0.0])
+    ref = cen - eixo                                   # a casca: para fora do tubo da massa
+    # as beiradas: viradas para fora da cobertura, ao longo do perfil
+    ph = np.arctan2(cen[:, 1] - y0, rc - R)
+    desce = radial * np.sin(ph)[:, None] + np.array([0.0, 1.0, 0.0]) * -np.cos(ph)[:, None]
+    n_lab = 2 * gomos
+    ref[:n_lab] = -desce[:n_lab]                       # beirada de dentro do furo
+    ref[-n_lab:] = desce[-n_lab:]                      # beirada das gotas
+    trocar = np.einsum("ij,ij->i", nf, ref) < 0
     cob.F[trocar] = cob.F[trocar][:, [0, 2, 1]]
     itens.append((cob, pal.rosa))
     cores = [pal.branco, pal.amarelo, pal.azul, pal.turquesa]
-    for k in range(7):
-        a = 2 * PI * k / 7 + 0.2
+    for k in range(6):
+        a = 2 * PI * k / 6 + 0.2
         ph = PI * (0.3 + 0.12 * (k % 3))
         x = R + math.cos(ph) * r * 1.1
         c = np.array([math.cos(a) * x, y0 + math.sin(ph) * r * 1.1 + 0.005, math.sin(a) * x])
@@ -1706,9 +1772,9 @@ def presente():
         itens.append((caixa(sx, 0.145, sz, centro=(0, 0.69, 0)), pal.amarelo))
     yl = 0.79
     for s in (-1, 1):
-        lobo = torno([(0.06, -0.035), (0.12, 0.0), (0.06, 0.035)], gomos=8, tampa_baixo=False, tampa_cima=False)
-        lobo.V = np.stack([lobo.V[:, 0], lobo.V[:, 2], lobo.V[:, 1]], 1)       # de pé (anel no plano XY)
-        lobo.inverter()
+        # cada lado do laço é uma rosquinha fechada (seção redonda), em pé no plano XY
+        secao_l = [(0.09 + math.cos(a) * 0.03, math.sin(a) * 0.03) for a in np.linspace(-PI / 2, 1.5 * PI, 7)]
+        lobo = torno(secao_l, gomos=9, tampa_baixo=False, tampa_cima=False).girar(90, 0, 0)
         lobo.escalar((1.15, 0.85, 1.0)).girar(0, 0, s * 28).mover((s * 0.13, yl + 0.07, 0))
         itens.append((lobo, pal.amarelo))
         rabo = extrudar([(0.0, 0.0), (0.05, 0.0), (0.09, -0.05), (0.04, -0.05)], -0.012, 0.012)
@@ -1766,7 +1832,8 @@ def nuvem():
 
 def balao():
     """Balão de festa (~0,55 m, com TINTA: branco), origem embaixo, no nó.
-    Brilho "luz" no alto e o fio (parte "fio", sem luz) pendurado.
+    Brilho "luz" no alto e o fio (parte "fio", material "luz": não pega
+    sombra nem tinta) pendurado até y = -0,85.
     (Na marca do Parque, Mundo.cs: a logo fica em z = 0,21 local; o balão vai
     até z = 0,19.)"""
     perfil = [(0.05, 0.065), (0.12, 0.11), (0.18, 0.17), (0.21, 0.24), (0.22, 0.31), (0.208, 0.39), (0.17, 0.46),
@@ -1778,8 +1845,8 @@ def balao():
     sup = Elip((0, 0.3, 0), (0.22, 0.24, 0.19))
     brilho = [(adesivo(sup, circulo2d(1.0, 8, escala=(0.035, 0.06)), (0.55, 0.6, 0.6), 0.004, 0.01, 25, paredes=False),
                BRILHO)]
-    fio = tubo(bezier((0, 0.01, 0), (0.04, -0.3, 0.0), (-0.05, -0.55, 0.02), (0.02, -0.85, 0.0), n=6),
-               0.006, gomos=3, tampas=False)
+    fio = tubo_pt(bezier((0, 0.01, 0), (0.04, -0.3, 0.0), (-0.05, -0.55, 0.02), (0.02, -0.85, 0.0), n=6),
+                  0.006, gomos=3, tampas=False)
     return montar("balao", [("balao", None, (0, 0, 0), itens, ""), ("brilho", "balao", (0, 0, 0), brilho, "luz"),
                             ("fio", "balao", (0, 0, 0), [(fio, cor("#F2F2F2"))], "luz")])
 
@@ -2228,7 +2295,9 @@ def planeta_anel():
     (os anéis da malha em volta do eixo do anel: faixas nítidas) e o anel
     azul-gelo de três faixas, perpendicular a EIXO_ANEL (o eixo do
     "girar_proprio" do Temas.cs). Na marca do Espaço (Mundo.cs, escala 0,3 e
-    tinta lavanda) fica tudo roxo-azulado."""
+    tinta lavanda) fica tudo roxo-azulado; o anel sobe para o lado -X e passa
+    na frente do canto de baixo da logo (z = 0,33), a não ser que a marca gire
+    20,6 graus em Z (o anel fica de nível e passa embaixo da logo)."""
     R = eixo_para((0, 1, 0), EIXO_ANEL)
     lilas, claro, escuro = cor("#9D8CFF"), cor("#C9BEFF"), cor("#7A66EE")
     esf = esfera(1.0, 18, 12)
@@ -2340,6 +2409,71 @@ def ovni():
     return m
 
 
+def navinha():
+    """Navinha de brinquedo (TINTA; origem no centro do corpo, nariz para +Z,
+    ~1,6 m): corpo de foguetinho deitado, asas em flecha com luzinhas na
+    ponta (vermelha e verde), a aleta de trás, a cúpula de vidro com o
+    banquinho e o fogo do motor (peça "luz", sem tinta). Voa em círculos no
+    céu da fase Espaço (Temas.cs, "voo")."""
+    branco, claro, cinza = cor("#F7F8FC"), cor("#D5DAE8"), cor("#5B6277")
+    # corpo: perfil girado no eixo Y e deitado para +Z
+    perfil = [(0.17, -0.72), (0.245, -0.6), (0.295, -0.38), (0.31, -0.1), (0.3, 0.18), (0.27, 0.4), (0.21, 0.58),
+              (0.13, 0.71), (0.05, 0.78), (0.0, 0.8)]
+    corpo = torno(perfil, gomos=10, fase=0.5)
+    corpo.pintar(lambda c, n: claro if (c[1] > 0.6 or -0.02 < c[1] < 0.1 or c[1] < -0.62) else None)
+    corpo.girar(90, 0, 0)
+    itens = [(corpo, branco)]
+    # bocal do motor (anel escuro)
+    bocal = torno([(0.11, -0.84), (0.175, -0.72)], gomos=10, fase=0.5, tampa_baixo=False, tampa_cima=False)
+    bocal.girar(90, 0, 0)
+    itens.append((bocal, cinza))
+    fundo = torno([(0.0, -0.8), (0.11, -0.84)], gomos=10, fase=0.5, tampa_baixo=False, tampa_cima=False)
+    fundo.girar(90, 0, 0)
+    itens.append((fundo, cor("#3B3F5C")))
+    # asas em flecha (contorno em x, z; espessura em y), com um pouco de diedro
+    asa = [(0.2, 0.22), (0.62, -0.18), (0.8, -0.42), (0.78, -0.55), (0.5, -0.48), (0.22, -0.34)]
+    pontas = []
+    for s in (1, -1):
+        f = extrudar(asa, -0.035, 0.035, chanfro=0.015)
+        f.girar(90, 0, 0)               # (x2d, y2d) -> (x, z); espessura em y
+        f.girar(0, 0, 8)
+        if s < 0:
+            f.espelhar_x()
+        itens.append((f, claro))
+        pontas.append(np.array([s * 0.79, 0.11 * 0.97, -0.48]))
+    # aleta de trás (contorno em z, y; espessura em x)
+    aleta = [(-0.42, 0.2), (-0.66, 0.6), (-0.78, 0.6), (-0.74, 0.18)]
+    f = extrudar(aleta, -0.03, 0.03, chanfro=0.012)
+    f.girar(0, -90, 0)                  # (x2d, y2d) -> (z, y)
+    itens.append((f, claro))
+    # banquinho dentro da cúpula
+    itens.append((caixa(0.16, 0.08, 0.16, 0.02, centro=(0, 0.27, 0.12)), cor("#FF6F61")))
+    itens.append((caixa(0.16, 0.16, 0.05, 0.02, centro=(0, 0.33, 0.03)), cor("#FF6F61")))
+    # fogo do motor e as luzinhas (peça "luz": brilham sozinhas, sem tinta)
+    luz = []
+    fogo = torno([(0.0, 0.0), (0.105, 0.0), (0.07, -0.16), (0.0, -0.36)], gomos=8, fase=0.5, tampa_baixo=False, tampa_cima=False)
+    fogo.girar(90, 0, 0)
+    fogo.mover((0, 0, -0.8))
+    luz.append((fogo, cor("#FF8A2B")))
+    miolo = torno([(0.0, 0.0), (0.06, 0.0), (0.04, -0.1), (0.0, -0.22)], gomos=6, fase=0.5, tampa_baixo=False, tampa_cima=False)
+    miolo.girar(90, 0, 0)
+    miolo.mover((0, 0, -0.82))
+    luz.append((miolo, cor("#FFE45C")))
+    for p, c in zip(pontas, (cor("#5BFF7A"), cor("#FF4B5C"))):
+        luz.append((icosfera(0.04, 0, centro=p), c))
+    luz.append((icosfera(0.035, 0, centro=(0, 0.62, -0.74)), cor("#FFD43B")))
+    m = montar("navinha", [("navinha", None, (0, 0, 0), itens, ""), ("luz", "navinha", (0, 0, 0), luz, "luz")])
+    # cúpula de vidro em cima, na frente
+    cupula = esfera(0.2, 12, 8)
+    cupula.F = cupula.F[cupula.V[cupula.F].mean(axis=1)[:, 1] > -0.02]
+    cupula.escalar((1.0, 0.85, 1.5))
+    cupula.mover((0, 0.24, 0.12))
+    vidro = Peca("cupula", "vidro")
+    vidro.add(cupula, cor("#C8F6FF", 70), suave=60)
+    m.parte("cupula", "navinha", (0, 0, 0), vidro)
+    return m
+
+
 def planeta():
     """Planetinha (TINTA; origem no centro, raio 0,5 como nas edições Godot —
     o Temas.cs põe com escala 1,6 a 4,2): esfera facetada branca, faixas e
@@ -2388,10 +2522,9 @@ def pedra_lua():
     f.mover((0, 0.12, 0))
     f.V[:, 1] = np.maximum(f.V[:, 1], -0.02)
     itens = [(f, pedra_c)]
-    for (d, r) in (((0.25, 0.9, 0.2), 0.12), ((-0.5, 0.7, -0.2), 0.09), ((0.0, 0.5, 0.9), 0.08), ((0.75, 0.45, -0.3), 0.08),
-                   ((-0.6, 0.4, 0.55), 0.065)):
-        itens.append((adesivo(e, arco2d(r, r * 0.38, 0, 360, 10)[:22], d, 0.012, 0.02, leque=False, paredes=False), borda))
-        itens.append((adesivo(e, circulo2d(r * 0.82, 9), d, 0.006, 0.02, paredes=False), fundo))
+    for (d, r) in (((0.25, 0.9, 0.2), 0.12), ((-0.5, 0.7, -0.2), 0.1), ((0.05, 0.5, 0.9), 0.085), ((0.75, 0.45, -0.3), 0.08)):
+        itens.append((anel_adesivo(e, d, r * 0.78, r * 1.18, 8, 0.014, 0.02), borda))
+        itens.append((adesivo(e, circulo2d(r * 0.8, 8), d, 0.004, 0.02, paredes=False), fundo))
     return simples("pedra_lua", itens)
 
 
@@ -2478,7 +2611,7 @@ def coral_roxo():
     itens = []
     for (x, z, h, r, incl) in tubos:
         perfil = [(r * 0.8, -0.05), (r * 0.95, h * 0.5), (r, h - 0.03), (r * 1.08, h), (r * 0.78, h), (r * 0.72, h - 0.12)]
-        f = torno(perfil, gomos=8, fase=0.5, tampa_baixo=False, tampa_cima=True)
+        f = torno(perfil, gomos=8, fase=0.5, tampa_baixo=True, tampa_cima=True)
         f.pintar(lambda c, n, h=h, r=r: pal.dentro if c[1] < h - 0.005 and np.hypot(c[0], c[2]) < r * 0.79 else
                  (pal.borda if c[1] > h - 0.035 else None))
         sai = _norm((x, 0.0, z)) if (x or z) else np.array([0.0, 0.0, 0.0])
@@ -2594,8 +2727,13 @@ def estrela_mar():
         pb, vb = 16 + 2 * i, 17 + 2 * i
         vpb = 17 + 2 * ((i - 1) % 5)
         F += [(p_, pb, v_), (v_, pb, vb), (vp, vpb, p_), (p_, vpb, pb)]
+    # a sola (embaixo, virada para baixo)
+    ib = len(V)
+    V.append((0.0, 0.0, 0.0))
+    for k in range(10):
+        F.append((ib, 16 + k, 16 + (k + 1) % 10))
     f = Forma(V, F)
-    f = orientar_fora(f, lambda c: np.array([0.0, -0.2, 0.0]))
+    f = orientar_fora(f, lambda c: np.array([0.0, -0.2, 0.0]) if c[1] > 0.001 else c + np.array([0, 1.0, 0]))
     itens = [(f, laranja)]
     sup = SupMalha(f, (0, -0.05, 0))
     pts = [(0.0, 0.0)]
@@ -2984,6 +3122,7 @@ MODELOS = {
     "planeta_anel": (planeta_anel, "espaco", 1200),
     "foguete": (foguete, "espaco", 1200),
     "ovni": (ovni, "espaco", 1200),
+    "navinha": (navinha, "espaco", 800, "#4FD8FF"),
     "planeta": (planeta, "espaco", 400, "#FF9F2E"),
     "cristal": (cristal_, "espaco", 400),
     "pedra_lua": (pedra_lua, "espaco", 400),

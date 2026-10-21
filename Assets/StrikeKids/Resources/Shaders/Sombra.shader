@@ -12,6 +12,7 @@ Shader "StrikeKids/Sombra"
     {
         Tags { "RenderType" = "Transparent" "Queue" = "Geometry+50" "IgnoreProjector" = "True" }
         Blend SrcAlpha OneMinusSrcAlpha
+        ColorMask RGB
         ZWrite Off
         Offset -1, -2
         Pass

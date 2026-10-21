@@ -20,6 +20,7 @@ Shader "StrikeKids/Astro"
     {
         Tags { "RenderType" = "Transparent" "Queue" = "Geometry+500" "IgnoreProjector" = "True" }
         Blend SrcAlpha OneMinusSrcAlpha
+        ColorMask RGB
         ZWrite Off
         Cull Off
         Pass

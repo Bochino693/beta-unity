@@ -11,10 +11,25 @@ partir da 2023.1 a Unity tirou o OpenGL ES 2.0.
   calculada nos nossos shaders (`Resources/Shaders`, `#pragma target 2.0`)
   com variáveis globais (`_SkLuzDir`, `_SkLuzCor`, `_SkCeu`, `_SkChao`...),
   por vértice. Nada de sombras em tempo real: sombras "blob" (discos).
+* **Gráfico caprichado sem pesar na Mali-450** (tudo cabe no OpenGL ES 2.0):
+  - *sombreado dos cantinhos* (oclusão de ambiente) ASSADO na cor dos
+    vértices pelo modelador (`tools/modelador/ao.py`): queixo, axilas,
+    vãos das escamas, o fundo das canaletas e o miolo da máquina ficam mais
+    escuros, como numa foto — custo zero no jogo;
+  - *verniz*: pinos (`Brilho.shader`) e bola (`Bola.shader`) refletem um
+    MATCAP feito na hora para cada fase (`Materiais.DefinirMatcap`: céu da
+    fase, luzes do teto, a pista, o neon) — uma leitura de textura por pixel;
+  - *reflexo na pista* (`Reflexos.cs`, `Reflexo.shader`): pinos e bola
+    desenhados de novo, espelhados embaixo do verniz e sumindo com a
+    profundidade. A pista vem antes (fila 1990), o reflexo (1995) só pinta
+    onde fica atrás do que já está na tela (`ZTest Greater`) e o resto da
+    cena cobre por cima. Desligado na qualidade baixa;
+  - *vinheta* leve na imagem 3D (cor dos vértices de uma gradezinha, `Ui.Figura`);
+  - antisserrilhado 4x (de graça nas placas de vídeo de ladrilhos como a Mali).
 * **Visual facetado**: malhas low-poly de faces retas e cores por vértice,
   feitas pelo modelador em Python (`tools/modelador`). Nada de SDF/massinha
   arredondada. Arquivos `.bytes` em `Resources/Malhas` (formato no
-  `tools/modelador/formato.py` e em `Scripts/Malhas.cs`).
+  `tools/modelador/malha.py`, função `gravar`, e em `Scripts/Malhas.cs`).
 * **Tudo montado por código**: uma cena só (`Assets/StrikeKids/Cenas/Jogo.unity`,
   criada pelo `Editor/Construir.cs` na geração) com o objeto `Jogo`
   (`Principal` + `AudioListener`). Mundo, pinos, máquina, bola, personagens,
@@ -75,6 +90,7 @@ Assets/StrikeKids/Scripts     o jogo (namespace StrikeKids)
 Assets/StrikeKids/Editor      build do APK, calibração, importação
 Assets/StrikeKids/Resources   malhas, texturas, telas, sons, fontes, shaders, dados
 Assets/Plugins/Android        Java (atividade, Arduino, câmera) + manifesto
-tools/modelador               modelador facetado (Python) + prévias
+tools/modelador               modelador facetado (Python) + prévias + retratos
 tools/verificar               compila o C# sem a Unity (referências do NuGet)
+                              e confere os shaders (glslangValidator, HLSL)
 ```

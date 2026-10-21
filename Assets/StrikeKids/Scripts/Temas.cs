@@ -170,7 +170,14 @@ namespace StrikeKids
             Atras("mar", new[] { ("coral_roxo", 1.5f), ("concha", 1.3f), ("alga", 1.6f), ("coral", 1.5f), ("alga", 1.3f), ("bau", 1.2f) });
             Atras("dinos", new[] { ("palmeira", 1.1f), ("samambaia", 1.5f), ("ovo_dino", 1.3f), ("pedra", 1.4f), ("palmeira", 0.95f), ("flor_gigante", 1.4f) });
             // o que fica parado vira poucas malhas (uma por material)
-            foreach (var nome in ORDEM) StaticBatchingUtility.Combine(_estaticos[nome]);
+            // (o Combine só junta o que está ATIVO: liga o grupo na hora e desliga de novo)
+            foreach (var nome in ORDEM)
+            {
+                var g = _grupos[nome];
+                g.SetActive(true);
+                StaticBatchingUtility.Combine(_estaticos[nome]);
+                g.SetActive(false);
+            }
         }
 
         public void Mostrar(string nome)
@@ -199,7 +206,7 @@ namespace StrikeKids
             {
                 var m = Materiais.Novo("Facetado", nome + "_tinta");
                 m.SetColor(Materiais.ID_TINTA, tinta.Value);
-                mat = p => p.material == "luz" ? Materiais.SemLuz : m;
+                mat = p => p.material == "luz" ? Materiais.SemLuz : p.material == "vidro" ? Materiais.Vidro : m;
             }
             var go = Malhas.Montar(pc, raiz, nos, mat);
             go.transform.localPosition = pos;
@@ -360,7 +367,7 @@ namespace StrikeKids
             var rnd = new System.Random(404);
             float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
             // planeta com anel atrás dos pinos: gira em volta do eixo do ANEL
-            var pa = Obj(T, "planeta_anel", new Vector3(-0.3f, 3.7f, Medidas.Z_FUNDO - 2.6f), 0f, 1.15f, false);
+            var pa = Obj(T, "planeta_anel", new Vector3(-0.3f, 3.7f, Medidas.Z_FUNDO - 2.6f), 0f, 1.84f, false);
             pa.localRotation = Quaternion.Euler(0.18f * Mathf.Rad2Deg, 0, -0.32f * Mathf.Rad2Deg);
             var ap = Animar(T, "girar_proprio", pa);
             ap.vel = 0.12f;
@@ -379,6 +386,16 @@ namespace StrikeKids
             ao.raio3 = new Vector3(3.1f, 0.25f, 0.65f);
             ao.vel = 0.3f;
             ao.girar = 1.6f;
+            // navinhas coloridas voando em círculos no céu (cada uma de uma cor)
+            for (int i = 0; i < Q(3); i++)
+            {
+                var nv = Obj(T, "navinha", Vector3.zero, 0f, R(1.0f, 1.3f), false, null, null, CORES_BICHOS[(i * 2 + 2) % CORES_BICHOS.Length]);
+                var a = Animar(T, "voo", nv);
+                a.centro = new Vector3(R(-3.5f, 3.5f), R(5.5f, 8.5f), R(-24f, -10f));
+                a.raio = R(4.5f, 7.5f);
+                a.vel = R(0.35f, 0.55f) * (i % 2 == 0 ? 1f : -1f);
+                a.fase = R(0f, Mathf.PI * 2f);
+            }
             // planetinhas coloridos no céu
             for (int i = 0; i < Q(8); i++)
             {

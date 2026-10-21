@@ -10,6 +10,7 @@ Shader "StrikeKids/Particula"
     {
         Tags { "RenderType" = "Transparent" "Queue" = "Transparent" "IgnoreProjector" = "True" }
         Blend SrcAlpha OneMinusSrcAlpha
+        ColorMask RGB
         ZWrite Off
         Cull Off
         Pass

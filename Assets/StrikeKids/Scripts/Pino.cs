@@ -86,9 +86,10 @@ namespace StrikeKids
             _piscar = UnityEngine.Random.Range(1f, 4f);
             _mpb = new MaterialPropertyBlock();
             rb = gameObject.AddComponent<Rigidbody>();
+            rb.isKinematic = true;
             _col = gameObject.AddComponent<MeshCollider>();
-            _col.sharedMesh = _colisao;
             _col.convex = true;
+            _col.sharedMesh = _colisao;
             _col.sharedMaterial = Medidas.MaterialPino();
             rb.mass = MASSA;
             rb.centerOfMass = Vector3.zero;
@@ -106,7 +107,7 @@ namespace StrikeKids
             _mf = m.AddComponent<MeshFilter>();
             _mf.sharedMesh = _malhas[0];
             _mr = m.AddComponent<MeshRenderer>();
-            _mr.sharedMaterial = Materiais.Facetado;
+            _mr.sharedMaterial = Materiais.Brilho;
             _mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             _mr.receiveShadows = false;
             _mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
@@ -125,6 +126,11 @@ namespace StrikeKids
             _estrelas.gameObject.SetActive(false);
             Recolocar();
         }
+
+        /// <summary>O desenho do pino (para o reflexo na pista).</summary>
+        public MeshRenderer Corpo => _mr;
+        /// <summary>A malha da expressão de agora.</summary>
+        public Mesh MalhaAtual => _mf.sharedMesh;
 
         // ------------------------------------------------------------ onde
         /// <summary>A base do pino (onde ele pisa), pela física.</summary>
