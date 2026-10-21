@@ -10,6 +10,12 @@ modelos, pinos e bola envernizados, reflexo na pista —, física PhysX, o
 Arduino da máquina (START, 5 sensores, ficha e configuração) e a câmera USB
 para a foto das crianças.
 
+* **Abrir no editor da Unity (PC com a Unity 2022.3):** Unity Hub › Adicionar
+  projeto do disco › esta pasta (num caminho curto, ex. `C:\StrikeKids`). Na
+  primeira vez o projeto se prepara sozinho (cena do jogo aberta, configuração
+  da TV Box). **PLAY** joga no editor; menu **Strike Kids › Gerar APK (TV Box)**
+  ou **› Gerar versão Windows** gera em `Build/` (precisa do módulo Android
+  Build Support com OpenJDK e Android SDK & NDK Tools para o APK).
 * **Baixar o jogo pronto (a última geração):**
   [APK da TV Box](https://github.com/Bochino693/beta-unity/releases/latest/download/StrikeKids-Unity.apk) ·
   [versão de Windows para testar no PC](https://github.com/Bochino693/beta-unity/releases/latest/download/StrikeKids-Windows.zip)

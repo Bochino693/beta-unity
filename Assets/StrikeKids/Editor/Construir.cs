@@ -151,6 +151,11 @@ namespace StrikeKids.Editor
             else Log("tabela das jogadas em dia (" + Calibrar.Assinatura + ")");
         }
 
+        static void Falhou(string oque) =>
+            EditorUtility.DisplayDialog("Strike Kids", "Não deu para gerar " + oque + ".\n\nAs mensagens em vermelho na janela Console " +
+                "(Window > General > Console) dizem o porquê. Para o APK, confira se a Unity tem o módulo Android Build Support " +
+                "(com OpenJDK e Android SDK & NDK Tools) instalado pelo Unity Hub.", "OK");
+
         // ------------------------------------------------------------ geração
         [MenuItem("Strike Kids/Gerar APK (TV Box)")]
         static void ApkMenu() => Apk();
@@ -186,6 +191,7 @@ namespace StrikeKids.Editor
                 {
                     Log("APK PRONTO: " + saida);
                     codigo = 0;
+                    if (!Application.isBatchMode) EditorUtility.RevealInFinder(saida);
                 }
             }
             catch (Exception e)
@@ -193,6 +199,7 @@ namespace StrikeKids.Editor
                 Debug.LogException(e);
             }
             if (Application.isBatchMode) EditorApplication.Exit(codigo);
+            else if (codigo != 0) Falhou("o APK");
         }
 
         [MenuItem("Strike Kids/Gerar versão Windows (para testar no PC)")]
@@ -222,6 +229,7 @@ namespace StrikeKids.Editor
                 {
                     Log("PRONTO: " + saida);
                     codigo = 0;
+                    if (!Application.isBatchMode) EditorUtility.RevealInFinder(saida);
                 }
             }
             catch (Exception e)
@@ -229,6 +237,7 @@ namespace StrikeKids.Editor
                 Debug.LogException(e);
             }
             if (Application.isBatchMode) EditorApplication.Exit(codigo);
+            else if (codigo != 0) Falhou("a versão Windows");
         }
     }
 }

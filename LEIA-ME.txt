@@ -30,6 +30,32 @@ rapido), refeito do zero na Unity para provar que o motor nao e o problema:
     automaticas (medidas enquanto o jogo roda).
 
 
+ABRIR NO EDITOR DA UNITY (num PC com a Unity 2022.3 instalada)
+-------------------------------------------------------------
+1. Copie esta pasta para um caminho CURTO, sem acentos (ex.: C:\StrikeKids)
+   - o Android/Gradle nao gosta de caminho comprido.
+2. Unity Hub > Projetos (Projects) > Adicionar (Add) > "Adicionar projeto
+   do disco" e escolha a pasta (a que tem Assets, Packages e
+   ProjectSettings). Abra com a Unity 2022.3 (2022.3.62f2 recomendada;
+   outra 2022.3 tambem serve). NAO use Unity 6 nem 2023 (nao geram
+   OpenGL ES 2.0, a TX9 nao roda).
+3. Na 1a vez a Unity importa tudo (alguns minutos) e o projeto se
+   prepara sozinho: configura para a TV Box, cria e abre a cena do jogo
+   e mostra o aviso "Projeto pronto!".
+4. JOGAR NO EDITOR: aperte o PLAY (ou menu Strike Kids > Jogar aqui no
+   editor). Teclas: 5 = ficha, 1 ou Espaco = START, A S D F G = sensores,
+   9 = menu do operador, F3 = medidor de desempenho.
+5. GERAR (menu Strike Kids, la em cima):
+   - "Gerar APK (TV Box)"  -> Build\Android\StrikeKids-Unity.apk
+   - "Gerar versao Windows (para testar no PC)" -> Build\Windows\StrikeKids.exe
+   A pasta abre sozinha quando fica pronto. A 1a geracao calibra as
+   jogadas com a fisica (barra de progresso, alguns minutos, uma vez so).
+   Para o APK, a Unity precisa do modulo "Android Build Support" com
+   "OpenJDK" e "Android SDK & NDK Tools" (Unity Hub > Instalacoes > a
+   engrenagem da 2022.3 > Adicionar modulos).
+   (O GERAR_APK.bat tambem funciona nesse PC: faz o mesmo sem abrir a Unity.)
+
+
 SEM INSTALAR A UNITY: GERAR NA NUVEM (GITHUB) - O APK E A VERSAO DE PC
 ----------------------------------------------------------------------
 O GitHub gera sozinho, num computador dele, com a Unity pronta: o APK da

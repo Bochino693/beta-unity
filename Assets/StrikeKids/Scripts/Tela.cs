@@ -59,7 +59,9 @@ namespace StrikeKids
             if (!string.IsNullOrEmpty(amb) && int.TryParse(amb, out int g)) return Mathf.Clamp(g, -1, 1);
             object aj = Ajustes.Valor("tela", "giro");
             if (aj != null) return Mathf.Clamp(Json.Int(aj), -1, 1);
-            // o giro escolhido na geração do APK (GERAR_APK.bat -Giro)
+            // o giro escolhido na geração do APK (GERAR_APK.bat -Giro). No editor (Play)
+            // não vale: o último APK gerado deixa o arquivo com o giro da TV Box
+#if !UNITY_EDITOR
             var fab = Resources.Load<TextAsset>("Dados/fabrica");
             if (fab != null)
             {
@@ -67,6 +69,7 @@ namespace StrikeKids
                 var gf = d != null ? Json.Pegar(d, "giro") : null;
                 if (gf != null) return Mathf.Clamp(Json.Int(gf), -1, 1);
             }
+#endif
 #if UNITY_ANDROID && !UNITY_EDITOR
             return GIRO_TV_BOX;
 #else
