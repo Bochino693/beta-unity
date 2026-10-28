@@ -37,6 +37,20 @@ class ModelosBytes : IModelosCenario
         return r;
     }
     public CaixaG CaixaDe(string nome) => Ler(nome).Item1;
+    public int Tris(string nome)
+    {
+        using var br = new BinaryReader(File.OpenRead(Path.Combine(pasta, nome + ".bytes")));
+        br.ReadBytes(4);
+        int np = br.ReadUInt16(), t = 0;
+        for (int k = 0; k < np; k++)
+        {
+            br.ReadBytes(br.ReadByte()); br.ReadInt16(); br.ReadSingle(); br.ReadSingle(); br.ReadSingle(); br.ReadBytes(br.ReadByte());
+            int fl = br.ReadByte(); int nv = (int)br.ReadUInt32(); br.ReadSingle();
+            if (nv > 0) { br.ReadBytes(nv * 13); if ((fl & 1) != 0) br.ReadBytes(nv * 8); }
+            int ni = (int)br.ReadUInt32(); br.ReadBytes(ni * 2); t += ni / 3;
+        }
+        return t;
+    }
     public V3[] Pontos(string nome) => Ler(nome).Item2;
 }
 
@@ -82,6 +96,29 @@ static class Programa
             sb.AppendLine($"VOZ|{tema}|{string.Join(",", sons)}");
         }
         foreach (var w in p.avisos) Console.Error.WriteLine("AVISO " + w);
+        if (Environment.GetEnvironmentVariable("CONTAR") == "1")
+            foreach (var tema in PlanoCenario.ORDEM)
+            {
+                int alto = 0, leve = 0, mexe = 0, pecas = 0;
+                void Somar(No n, bool paiMexe)
+                {
+                    foreach (var c in n.filhos)
+                    {
+                        bool mx = paiMexe || c.mexe;
+                        if (c.malha != null)
+                        {
+                            pecas++;
+                            int ta = m.Tris(c.malha), tl = m.Tris(c.malhaLeve ?? c.malha);
+                            if (c.nivel != 2) alto += ta;
+                            if (c.nivel != 1) leve += c.nivel == 2 ? ta : tl;
+                            if (mx) mexe++;
+                        }
+                        Somar(c, mx);
+                    }
+                }
+                Somar(p.grupos[tema], false);
+                Console.Error.WriteLine($"TRI|{tema}|pecas {pecas}|alto {alto}|leve {leve}|que se mexem {mexe}");
+            }
         Console.Write(sb.ToString());
     }
 }
