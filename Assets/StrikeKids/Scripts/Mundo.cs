@@ -103,11 +103,14 @@ namespace StrikeKids
                 {
                     _matAsasMarca = temas.MatAsas("dinos");
                     mr.sharedMaterial = _matAsasMarca;
-                    if (temas.cenarioLeve)
-                    {
-                        var meio = Malhas.Ler("cenario/ptero_meio").partes;
-                        if (meio.Count > 0 && meio[0].malha != null) mr.GetComponent<MeshFilter>().sharedMesh = meio[0].malha;
-                    }
+                    // (o governador do quadro pode mudar o nível no meio do jogo)
+                    var mf = mr.GetComponent<MeshFilter>();
+                    var alto = mf.sharedMesh;
+                    var pm = Malhas.Ler("cenario/ptero_meio").partes;
+                    var meio = pm.Count > 0 ? pm[0].malha : null;
+                    void Vestir(bool l) => mf.sharedMesh = l && meio != null ? meio : alto;
+                    Vestir(temas.cenarioLeve);
+                    temas.NivelMudou += Vestir;
                 }
             }
             AplicarTema(Temas.ORDEM[0]);
