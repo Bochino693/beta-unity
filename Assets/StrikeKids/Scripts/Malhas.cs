@@ -13,9 +13,9 @@ namespace StrikeKids
     ///
     /// Formato SKP1 (little-endian):
     ///   "SKP1" | u16 partes
-    ///   por parte: str nome | i16 pai | f32x3 pos | str material | u8 flags (1 = uv)
+    ///   por parte: str nome | i16 pai | f32x3 pos | str material | u8 flags (1 = uv, 2 = uv2)
     ///              u32 nv | f32 escala | i16x3 pos*nv | i8x3 normal*nv | u8x4 cor*nv
-    ///              [f32x2 uv*nv] | u32 ni | u16 indice*ni
+    ///              [f32x2 uv*nv] [f32x2 uv2*nv] | u32 ni | u16 indice*ni
     ///   str = u8 tamanho + utf-8
     /// </summary>
     public static class Malhas
@@ -126,6 +126,12 @@ namespace StrikeKids
                         U = new Vector2[nv];
                         for (int i = 0; i < nv; i++) U[i] = new Vector2(r.ReadSingle(), r.ReadSingle());
                     }
+                    Vector2[] U2 = null;
+                    if ((flags & 2) != 0)
+                    {
+                        U2 = new Vector2[nv];
+                        for (int i = 0; i < nv; i++) U2[i] = new Vector2(r.ReadSingle(), r.ReadSingle());
+                    }
                     int ni = (int)r.ReadUInt32();
                     var I = new int[ni];
                     for (int i = 0; i < ni; i++) I[i] = r.ReadUInt16();
@@ -134,6 +140,7 @@ namespace StrikeKids
                     m.normals = N;
                     m.colors32 = C;
                     if (U != null) m.uv = U;
+                    if (U2 != null) m.uv2 = U2;
                     m.SetTriangles(I, 0, true);
                     m.UploadMeshData(false);   // continua legível (lote estático, colisão)
                     p.malha = m;

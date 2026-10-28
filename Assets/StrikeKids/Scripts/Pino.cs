@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace StrikeKids
@@ -12,10 +13,14 @@ namespace StrikeKids
     /// Os pulinhos são animação (o pino fica preso, sem física) e terminam
     /// exatamente onde ele estava: na hora da jogada está tudo no lugar.
     ///
-    /// A ORIGEM do pino é o centro de massa (COM, 17 cm acima da base): as
-    /// malhas do modelador já vêm nesse espaço. `lugar` é a BASE do pino;
-    /// Base() / Colocar() fazem a conta. Cada expressão é uma malha inteira
-    /// (corpo + rosto num desenho só); trocar de cara = trocar a malha.
+    /// A ORIGEM do pino é o centro de massa (COM, 17 cm acima da base); a colisão
+    /// do modelador vem nesse espaço e o desenho (o pino da edição Godot, com a
+    /// base na origem) fica no pivô do pé. `lugar` é a BASE do pino; Base() /
+    /// Colocar() fazem a conta. A carinha é a arte de cada expressão numa
+    /// textura (rosto_pino, 4 x 2 células) no toon de personagem
+    /// (G_toon_personagem); trocar de cara = trocar a célula. Três malhas: a de
+    /// PERTO (mais redonda, com os detalhes extras), a de sempre e a de LONGE
+    /// (Pinos escolhe pela distância da câmera).
     /// </summary>
     public class Pino : MonoBehaviour
     {
@@ -32,11 +37,15 @@ namespace StrikeKids
         public Rigidbody rb;
         public string Expr => _expr;
 
-        static Mesh[] _malhas;
+        static Mesh _malhaPerto, _malhaLonge;
         static Mesh _colisao;
-        static Mesh _reflexo;
         static Material _matEstrela;
-        static readonly int ID_ESCURO = Shader.PropertyToID("_Escuro");
+        static Vector4 _rostoCentro = new Vector4(0f, 0.215f, 0f, 0f), _rostoTamanho = new Vector4(0.15f, 0.13f, 0f, 0f);
+        static readonly int ID_ESCURO = Shader.PropertyToID("_escuro");
+        static readonly int ID_CELULA = Shader.PropertyToID("_rosto_celula");
+        /// <summary>O pino de perto mais redondo (os detalhes extras).</summary>
+        public static bool redondos = true;
+        Material _mat;
 
         MeshFilter _mf;
         MeshRenderer _mr;
@@ -58,12 +67,19 @@ namespace StrikeKids
 
         static void Carregar()
         {
-            if (_malhas != null) return;
-            var pc = Malhas.Ler("pinos", true);
-            _malhas = new Mesh[EXPR.Length];
-            for (int i = 0; i < EXPR.Length; i++) _malhas[i] = pc.Malha("pino_" + EXPR[i]);
-            _colisao = pc.Malha("colisao");
-            _reflexo = pc.Malha("reflexo");
+            if (_malhaPerto != null) return;
+            // a forma de colisão (calibrada com a tabela de jogadas) é a do modelador
+            _colisao = Malhas.Ler("pinos", true).Malha("colisao");
+            // o desenho: os pinos da edição Godot (base na origem)
+            var meio = Malhas.Ler("pino").partes[0].malha;
+            _malhaPerto = redondos && Malhas.Existe("pino_perto") ? Malhas.Ler("pino_perto").partes[0].malha : meio;
+            _malhaLonge = Malhas.Existe("pino_longe") ? Malhas.Ler("pino_longe").partes[0].malha : meio;
+            var meta = Personagem.Meta("pino");
+            if (meta != null && Json.Dic(Json.Pegar(meta, "rosto")) is Dictionary<string, object> r && r.ContainsKey("centro"))
+            {
+                _rostoCentro = Palco.Vetor(r["centro"]);
+                _rostoTamanho = Palco.Vetor(r["tamanho"]);
+            }
             _matEstrela = Materiais.Novo("Recorte", "estrela_tonto");
             _matEstrela.SetTexture(Materiais.ID_TEX, Materiais.Textura("estrela"));
             _matEstrela.SetColor(Materiais.ID_TINTA, Materiais.Hex("#FFE14D"));
@@ -105,11 +121,25 @@ namespace StrikeKids
             _pe.localPosition = -COM;
             var m = new GameObject("malha");
             m.transform.SetParent(_pe, false);
-            m.transform.localPosition = COM;
             _mf = m.AddComponent<MeshFilter>();
-            _mf.sharedMesh = _malhas[0];
+            _mf.sharedMesh = _malhaPerto;
             _mr = m.AddComponent<MeshRenderer>();
-            _mr.sharedMaterial = Materiais.Brilho;
+            // o toon de personagem com a carinha (cada pino a dele: a cara e o escuro do poço)
+            _mat = Materiais.Novo("G/toon_personagem", "pino_" + n);
+            _mat.SetFloat("_usa_rosto", 1f);
+            _mat.SetTexture("_rosto", Palco.Textura("rosto_pino"));
+            _mat.SetVector("_rosto_grade", new Vector4(4f, 2f, 0f, 0f));
+            _mat.SetVector("_rosto_centro", _rostoCentro);
+            _mat.SetVector("_rosto_tamanho", _rostoTamanho);
+            _mat.SetFloat("_borda", 0.4f);
+            _mat.SetVector("_cor_borda", new Vector4(0.92f, 0.96f, 1f, 1f));
+            if (Personagem.contornos)
+            {
+                var c = Materiais.Novo("G/contorno", "pino_contorno");
+                c.SetFloat("_espessura", 0.0026f);
+                _mr.sharedMaterials = new[] { _mat, c };
+            }
+            else _mr.sharedMaterial = _mat;
             _mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             _mr.receiveShadows = false;
             _mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
@@ -131,10 +161,13 @@ namespace StrikeKids
 
         /// <summary>O desenho do pino (para o reflexo na pista).</summary>
         public MeshRenderer Corpo => _mr;
-        /// <summary>A malha da expressão de agora.</summary>
+        /// <summary>A malha de agora.</summary>
         public Mesh MalhaAtual => _mf.sharedMesh;
-        /// <summary>O pino do reflexo na pista (sem cara, menos gomos: metade do custo).</summary>
-        public Mesh MalhaReflexo => _reflexo != null ? _reflexo : _mf.sharedMesh;
+        /// <summary>O pino do reflexo na pista (o de longe: metade do custo).</summary>
+        public Mesh MalhaReflexo => _malhaLonge != null ? _malhaLonge : _mf.sharedMesh;
+
+        /// <summary>Perto ou longe (Pinos escolhe pela distância da câmera).</summary>
+        public void DeLonge(bool longe) => _mf.sharedMesh = longe ? _malhaLonge : _malhaPerto;
 
         // ------------------------------------------------------------ onde
         /// <summary>A base do pino (onde ele pisa), pela física.</summary>
@@ -245,15 +278,14 @@ namespace StrikeKids
         {
             int i = Array.IndexOf(EXPR, nome);
             if (i < 0) i = 0;
-            if (_malhas[i] != null) _mf.sharedMesh = _malhas[i];
+            _mat.SetVector(ID_CELULA, new Vector4(i % 4, i / 4, 0f, 0f));
         }
 
         void Escurecer(float k)
         {
             if (Mathf.Abs(k - _escuro) < 0.01f && (k < 1f || _escuro == 1f)) return;
             _escuro = k;
-            _mpb.SetFloat(ID_ESCURO, k);
-            _mr.SetPropertyBlock(_mpb);
+            _mat.SetFloat(ID_ESCURO, k);
         }
 
         public bool Tonto => _estrelas.gameObject.activeSelf;

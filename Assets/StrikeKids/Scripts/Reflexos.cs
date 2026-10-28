@@ -72,7 +72,7 @@ namespace StrikeKids
                     {
                         // a textura do bichinho da vez (troca na vez de cada um)
                         _matDaBola = mat;
-                        _matBola.SetTexture(Materiais.ID_TEX, mat != null ? mat.GetTexture(Materiais.ID_TEX) : null);
+                        _matBola.SetTexture(Materiais.ID_TEX, mat != null && mat.HasProperty("_textura") ? mat.GetTexture("_textura") : null);
                     }
                     Desenhar(Bola.Malha, mr.localToWorldMatrix, _matBola);
                 }

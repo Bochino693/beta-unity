@@ -23,6 +23,8 @@ namespace StrikeKids
         static readonly int ID_NEBLINA = Shader.PropertyToID("_SkNeblina");
         public static readonly int ID_TINTA = Shader.PropertyToID("_Tinta");
         public static readonly int ID_FLASH = Shader.PropertyToID("_Flash");
+        /// <summary>o destaque nos shaders da edição Godot (Shaders/Palco/G_*)</summary>
+        public static readonly int ID_FLASH_G = Shader.PropertyToID("_flash");
         public static readonly int ID_ESCURO = Shader.PropertyToID("_Escuro");
         public static readonly int ID_TEX = Shader.PropertyToID("_MainTex");
         static readonly int ID_MATCAP = Shader.PropertyToID("_SkMatcap");
@@ -55,25 +57,8 @@ namespace StrikeKids
             return m;
         }
 
-        public static Material Facetado => Comum("facetado", "Facetado");
         public static Material SemLuz => Comum("semluz", "SemLuz");
-        public static Material Vidro => Comum("vidro", "Vidro");
-        public static Material Chao => Comum("chao", "Chao");
         public static Material Lampadas => Comum("lampadas", "Lampadas");
-        /// <summary>Peças lustrosas (os pinos): o Facetado com o reflexo do matcap da fase.</summary>
-        public static Material Brilho => Comum("brilho", "Brilho");
-
-        public static Material Madeira
-        {
-            get
-            {
-                if (_comuns.TryGetValue("madeira", out var m) && m != null) return m;
-                m = Comum("madeira", "Textura");
-                m.SetTexture(ID_TEX, Textura("madeira", true));
-                m.SetFloat("_Brilho", 0.25f);
-                return m;
-            }
-        }
 
         public static Material TexturaComum(string nome, string shader = "Textura")
         {
@@ -99,21 +84,12 @@ namespace StrikeKids
             return m;
         }
 
-        /// <summary>O material de uma parte de pacote (pelo nome gravado pelo modelador).</summary>
+        /// <summary>O material de uma parte de pacote sem material próprio (as peças da edição
+        /// Godot vêm com o material de cada uma: Palco, Personagem, Temas).</summary>
         public static Material DoPacote(string material)
         {
-            switch (material)
-            {
-                case "": return Facetado;
-                case "luz": return SemLuz;
-                case "vidro": return Vidro;
-                case "chao": return Chao;
-                case "madeira": return Madeira;
-                case "brilho": return Brilho;
-                default:
-                    if (material.StartsWith("textura:")) return TexturaComum(material.Substring(8));
-                    return Facetado;
-            }
+            if (material.StartsWith("textura:")) return TexturaComum(material.Substring(8));
+            return SemLuz;
         }
 
         // ------------------------------------------------------------ texturas

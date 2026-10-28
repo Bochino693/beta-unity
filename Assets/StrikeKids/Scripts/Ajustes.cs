@@ -56,6 +56,7 @@ namespace StrikeKids
                 ["qualidade"] = "auto",          // auto, alta, media, baixa
                 ["cenario"] = "auto",            // fundo: auto (= leve, como a edição Godot da TV Box), leve, completo
                 ["cenario3d"] = "auto",          // nível do cenário 3D: auto (leve nas Mali-400/450), alto, leve
+                ["cenario3d_medido"] = "",       // o que o automático viu ("leve" = não segurou o alto)
                 ["detalhes"] = true,             // vento nas plantas, enfeites que se mexem, borboletas, sons de ambiente
                 ["nitidez"] = "auto",            // resolução do 3D: auto ou 100%/90%/80%/70%
                 ["fator"] = 1.0,                 // o último fator automático bom (começa dele ao ligar)
@@ -122,6 +123,8 @@ namespace StrikeKids
         public static void Definir(string secao, string chave, object v)
         {
             Secao(secao, true)[chave] = v;
+            // escolher o nível do cenário à mão esquece o que o automático mediu
+            if (secao == "video" && chave == "cenario3d") Secao(secao, true)["cenario3d_medido"] = "";
             Salvar();
             Mudaram?.Invoke();
         }
@@ -224,7 +227,10 @@ namespace StrikeKids
             string c = Texto("video", "cenario3d");
             if (c == "leve") return true;
             if (c == "alto") return false;
-            return PlacaFraca();
+            // no automático: o que o governador do quadro já mediu nesta máquina (antes de
+            // medir, a Mali-400/450 começa no leve; as outras, no alto)
+            string medido = Texto("video", "cenario3d_medido");
+            return medido == "leve" || (medido == "" && PlacaFraca());
         }
 
         /// <summary>Detalhes extras: vento nas plantas, enfeites perto da pista que se mexem,

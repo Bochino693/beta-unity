@@ -5,8 +5,9 @@ GERA AS MALHAS DO JOGO (Assets/StrikeKids/Resources/Malhas/*.bytes).
     python3 tools/modelador/gerar.py            # tudo
     python3 tools/modelador/gerar.py bob pinos  # só alguns
 
-Personagens (Bob e Mia, a roupa de sempre e as 4 roupinhas), pinos (8
-expressões + casco de colisão) e a bola. O cenário de cada fase sai do
+Os pinos (o casco de colisão, calibrado com a tabela de jogadas). Os modelos
+antigos desta edição (Bob, Mia, roupinhas, bola, pista e máquina) só com
+--forcar: o jogo agora usa os da edição Godot (tools/godot/exportar_palco.gd). O cenário de cada fase sai do
 gerar_cenario.py; a pista e a máquina do pista.py.
 """
 import os
@@ -52,10 +53,24 @@ def tarefas():
     return t
 
 
+# o Bob, a Mia, a bola, a pista e a máquina agora vêm da edição Godot 7.6
+# (tools/godot/exportar_palco.gd): gravar os modelos antigos por cima estragaria
+# o jogo. Daqui sai só a forma de colisão dos pinos (Malhas/pinos).
+DO_GODOT = ("bob", "mia", "bola", "pista")
+
+
 def main(alvos):
     os.makedirs(SAIDA, exist_ok=True)
+    forcar = "--forcar" in alvos
+    alvos = [a for a in alvos if a != "--forcar"]
     todas = tarefas()
     nomes = alvos or list(todas.keys())
+    if not forcar:
+        antigos = [n for n in nomes if any(n == d or n.startswith(d + "_") for d in DO_GODOT)]
+        if antigos:
+            print("Estes agora vêm da edição Godot (tools/godot/exportar_palco.gd): " + ", ".join(antigos) + ".\n"
+                  "São os modelos ANTIGOS desta edição: para gravá-los mesmo assim, use --forcar.")
+            nomes = [n for n in nomes if n not in antigos]
     for n in nomes:
         if n not in todas and not any(k.startswith(n + "_") for k in todas):
             print("não existe:", n)

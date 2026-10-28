@@ -153,6 +153,9 @@ namespace StrikeKids
             _velocidade = Ajustes.Velocidade();
             Ritmo(1f);
             _qualidade = QualidadeEscolhida();
+            // contornos (a casca escura em volta dos bichinhos e dos pinos): na qualidade
+            // BAIXA ficam desligados (cada peça com contorno é desenhada duas vezes)
+            Personagem.contornos = _qualidade != "baixa";
             LerNitidez();
             Montar3D();
             MontarTelas();
@@ -222,7 +225,7 @@ namespace StrikeKids
             mundo.bola = bola.transform;
             foreach (var nome in new[] { "bob", "mia" })
             {
-                var p = Personagem.Criar(raiz3d, nome);
+                var p = Personagem.Criar(raiz3d, nome, Ajustes.Detalhes());
                 p.SoltouBola += SoltouBola;
                 p.Som += SomPersonagem;
                 personagens[nome] = p;
@@ -1212,6 +1215,7 @@ namespace StrikeKids
             if (Time.frameCount != _quadroFechou) LerEntrada();
             if (_menu != null) return;
             MedirFps();
+            OrcamentoBichos();
             AndarLenta();
             float real = Time.unscaledDeltaTime;
             // PC em tela cheia: a setinha do mouse some sozinha quando ninguém mexe
@@ -2128,6 +2132,27 @@ namespace StrikeKids
         /// diminui 10% (até 70%); ainda muito lento: qualidade BAIXA. Com folga, a imagem VOLTA A
         /// CRESCER 5% (sem passar, por 90 s, de um tamanho que já se mostrou pesado). As trocas
         /// ficam para o próximo clarão (o tranco de refazer a imagem fica escondido).</summary>
+        bool _quadroFolgado = true, _quadroRuim;
+
+        /// <summary>O "GERENTE DE POLÍGONOS" dos bichinhos (o _orcamento_bichos da edição Godot):
+        /// o nível de PERTO (as malhas "_hd", ~2,5x) só para o bichinho maior na tela, inteiro
+        /// nela, e só com o quadro folgado — na comemoração cabe; com o cenário inteiro atrás e
+        /// a placa no limite, não. Já de perto, fica enquanto o quadro não ficar ruim.</summary>
+        void OrcamentoBichos()
+        {
+            if (!Ajustes.Detalhes() || _parado3d || _menu != null) return;
+            Personagem maior = null;
+            foreach (var p in personagens.Values)
+                if (p.CandidatoPerto() && (maior == null || p.TamanhoNaTela > maior.TamanhoNaTela)) maior = p;
+            foreach (var p in personagens.Values)
+            {
+                bool quer = p == maior;
+                if (quer && !p.podePerto) quer = _quadroFolgado;
+                else if (quer) quer = !_quadroRuim;
+                p.PermitirPerto(quer);
+            }
+        }
+
         void MedirFps()
         {
             if (!_adaptar) return;
@@ -2153,13 +2178,25 @@ namespace StrikeKids
             _qLentos = 0;
             if (_qualidadePendente != "" || _fatorPendente > 0f) return;
             bool auto = Ajustes.Texto("video", "qualidade") == "auto";
+            // (o orçamento do bichinho de perto: só com o quadro folgado)
+            _quadroFolgado = fps >= alvo * 0.97f && atrasados < 0.01f;
+            _quadroRuim = fps < alvo * 0.9f || atrasados > 0.04f;
             if (fps < alvo * 0.9f || atrasados > 0.04f)
             {
                 _fpsBons = 0;
                 _fpsRuins++;
                 if (_fpsRuins < 2) return;
                 _fpsRuins = 0;
-                if (auto && _qualidade == "alta") _qualidadePendente = "media";
+                if (Ajustes.Texto("video", "cenario3d") == "auto" && mundo != null && mundo.temas != null && !mundo.temas.cenarioLeve)
+                {
+                    // 0) o CENÁRIO 3D mais leve (governador do quadro da edição Godot 7.0): um
+                    // passo mais leve em cada peça do cenário — trocar é só mostrar um lote e
+                    // esconder outro; fica guardado para as próximas vezes
+                    mundo.temas.NivelCenario(true);
+                    Ajustes.Definir("video", "cenario3d_medido", "leve");
+                    Debug.Log($"Cenário 3D automático: leve ({fps:0} quadros/s, {atrasados * 100f:0}% atrasados)");
+                }
+                else if (auto && _qualidade == "alta") _qualidadePendente = "media";
                 else if (_fator > FATOR_MIN + 0.01f)
                 {
                     _teto = _fator;

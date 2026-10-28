@@ -69,6 +69,31 @@ NOVIDADE: O JOGO DA EDICAO GODOT 7.6
     PARABENS!, logo e os nomes das fases).
 
 
+NOVIDADE: BOB, MIA, PINOS, BOLA E PISTA DA EDICAO GODOT 7.6
+------------------------------------------------------------
+Tudo o que aparece agora e o MESMO da edicao Godot que roda na TV Box:
+  * BOB E MIA: os mesmos modelos, as 4 roupinhas (pirata, dinossaurinho,
+    astronauta, parque com a helice), o rosto de cada expressao em
+    textura (pisca, ri, fica triste...), a estrela e as bolinhas da roupa
+    desenhadas no shader, contorno, borda iluminada e TRES NIVEIS de
+    detalhe pelo tamanho na tela (o de perto, bem redondo, so quando o
+    quadro tem folga).
+  * PINOS com carinha (medo, tonto, bravo, feliz), pino de perto mais
+    redondo e de longe mais leve; BOLA com a textura de cada bichinho.
+  * PISTA e PALCO: madeira, setas e estrelas da pista, neon que corre, o
+    brilho que acompanha a bola, canaletas com o desenho de cada fase,
+    para-choques listrados de doce, o gabinete com as colunas, a cortina
+    da bola que abre quando ela passa, o fundo estrelado com o arco de
+    raios, as lampadas do letreiro, as logos, os podios da escolha, o
+    simbolo Lazer & Sport de cada fase e a maquina de pinos.
+  * CEU: sol e lua 3D com carinha e a BALEIA nadando (e cantando) no mar.
+  * Se o quadro pesar, o cenario 3D automatico passa sozinho para o leve
+    (fica guardado: video > cenario3d_medido).
+  * Trazer de novo depois de mexer na edicao Godot (o Godot sem tela nao
+    guarda os parametros dos materiais: o exportador roda numa copia):
+      bash tools/godot/copia_que_guarda.sh <beta>/strike-kids-gles2 /tmp/copia
+      godot3 --no-window --path /tmp/copia -s tools/godot/exportar_palco.gd -- --saida=<esta pasta>/Assets/StrikeKids/Resources
+
 ABRIR NO EDITOR DA UNITY (num PC com a Unity 2022.3 instalada)
 -------------------------------------------------------------
 1. Copie esta pasta para um caminho CURTO, sem acentos (ex.: C:\StrikeKids)
