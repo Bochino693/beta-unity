@@ -198,15 +198,48 @@ BOTOES DA MAQUINA: SO O ARDUINO
 Esta edicao NAO usa a placa Zero Delay: START, os 5 SENSORES da pista,
 FICHA (moedeiro) e CONFIGURACAO vem todos do ARDUINO, pelo cabo USB.
 O firmware esta em arduino\strike_kids\strike_kids.ino (o mesmo das
-edicoes Godot) e o desenho da ligacao em docs\ligacao_arduino.pdf:
+edicoes Godot, versao 2) e o desenho da montagem em docs\ligacao_arduino.pdf
+(A3; tambem .png e .svg, feitos por tools\desenhar_ligacao.py):
   Sensores (esquerda -> direita, olhando da crianca para os pinos):
      S1 = D2   S2 = D3   S3 = D4 (centro)   S4 = D5   S5 = D7
   CONFIGURACAO = A0   START = A1   FICHA (moedeiro) = A2   (cada um e GND)
-  Trava da porta das bolas: servo no D9 (Mega: D11) e/ou rele no D8.
+  Porta das bolas: PONTE H (motor DC ou atuador linear) IN1 = D10,
+     IN2 = D12, ENA = D11 (opcional; Mega: D9), fins de curso opcionais
+     A3 (aberta) e A4 (fechada); e/ou servo no D9 (Mega: D11); e/ou rele
+     no D8 (veja "ARDUINO 2" abaixo).
   Fita de LED WS2812 (opcional): D6.
 Sem moedeiro: deixe "Modo livre (sem ficha)" ligado no menu (padrao).
 O controle remoto da TV Box serve para o MENU DO OPERADOR (tecla MENU abre;
 setas andam e mudam; OK escolhe; VOLTAR sai).
+
+ARDUINO 2: PONTE H NA PORTA DAS BOLAS (E SEM FICHA DE GRACA)
+------------------------------------------------------------
+O mesmo firmware da edicao Godot (versao 2); o jogo continua igual: a
+porta fica FECHADA ao ligar e na espera, ABRE com o START (com ficha; no
+modo livre, so o START), FECHA no fim da partida e abre de novo com outra
+ficha + START.
+  * PONTE H: motor DC com reducao (ou atuador linear de 12 V) numa ponte H
+    - L298N, L9110S, BTS7960, TB6612 ou DRV8871: IN1 = D10, IN2 = D12 e
+    ENA = D11 (opcional, so para a velocidade; no L298N pode ficar o
+    jumper; no Mega o ENA vai no D9). O motor na fonte de 12 V pela ponte,
+    o GND da ponte no GND do Arduino. Servo (D9) e rele (D8) continuam.
+  * SEM FIM DE CURSO (de fabrica): o motor anda PONTE_TEMPO_ABRE_MS /
+    PONTE_TEMPO_FECHA_MS (1,5 s; meca o curso e ponha um pouco a mais) e
+    para. Se o jogo muda de ideia no meio, para e volta so o que andou.
+    Ao ligar, fecha.
+  * COM FIM DE CURSO (no .ino: PONTE_FIM_DE_CURSO 1): micro-switch da porta
+    ABERTA no A3 e da FECHADA no A4 (C no GND, NA no pino; no NF: FC_NF 1).
+    Nao chegou em 6 s: para, tenta de novo (3 vezes) e o TESTE DA PORTA do
+    menu do operador mostra "A PORTA NAO CHEGOU".
+  * O Arduino so confirma a porta quando ela chega: no TESTE DA PORTA
+    aparece "esperando o Arduino..." enquanto o motor anda.
+  * Abriu ao contrario? Inverta os 2 fios do motor (OUT1 e OUT2) ou ponha
+    PONTE_INVERTIDA 1. Com fim de curso nao use a "Porta invertida" do menu.
+  * FICHA DE GRACA CORRIGIDA: o que ja esta acionado quando o Arduino liga
+    (o Uno/Nano reinicia cada vez que o jogo abre o USB) nao conta mais: um
+    moedeiro NF nao da mais 1 ficha de graca, um START preso nao vale.
+  * Teste sem placa (Linux, so o g++):
+      bash tools/testes/arduino/testar_firmware.sh     -> FIRMWARE OK
 
 TESTAR NO PC (versao Windows: GERAR_APK.bat -Windows, ou no editor):
      sensores: A S D F G    START: 1 ou Espaco    ficha: 5
@@ -257,6 +290,8 @@ PASTAS
   Assets\Plugins\Android        Java: atividade (controle remoto), Arduino
                                 (USB serial) e camera USB + manifestos
   arduino\                      firmware do Arduino da maquina
+  tools\testes\arduino\         o firmware testado no PC, sem placa
+  tools\desenhar_ligacao.py      o desenho da montagem (docs\ligacao_arduino.*)
   tools\modelador\              o modelador 3D (Python) e as
                                 previas: python3 tools/modelador/gerar.py
   tools\verificar\              confere o C# e o Java sem a Unity (Linux)
