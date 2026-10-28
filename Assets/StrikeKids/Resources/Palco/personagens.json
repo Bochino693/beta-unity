@@ -1,0 +1,276 @@
+{
+	"bob": {
+		"rosto": {
+			"centro": [
+				0,
+				0.205
+			],
+			"tamanho": [
+				0.46,
+				0.4
+			]
+		},
+		"mao_d": [
+			-0.038,
+			-0.116,
+			0.012
+		],
+		"tornozelo_y": 0.078,
+		"estampa": {
+			"base": "#1FB2C8",
+			"centro": [
+				0,
+				0.092
+			],
+			"cor": "#FFD43B",
+			"dentro": 0.5,
+			"raio": 0.064,
+			"tipo": "estrela"
+		}
+	},
+	"bob_astronauta": {
+		"rosto": {
+			"centro": [
+				0,
+				0.205
+			],
+			"tamanho": [
+				0.46,
+				0.4
+			]
+		},
+		"mao_d": [
+			-0.038,
+			-0.116,
+			0.012
+		],
+		"tornozelo_y": 0.078,
+		"estampa": {
+
+		},
+		"roupa": "astronauta"
+	},
+	"bob_dino": {
+		"rosto": {
+			"centro": [
+				0,
+				0.205
+			],
+			"tamanho": [
+				0.46,
+				0.4
+			]
+		},
+		"mao_d": [
+			-0.038,
+			-0.116,
+			0.012
+		],
+		"tornozelo_y": 0.078,
+		"estampa": {
+
+		},
+		"roupa": "dino"
+	},
+	"bob_parque": {
+		"rosto": {
+			"centro": [
+				0,
+				0.205
+			],
+			"tamanho": [
+				0.46,
+				0.4
+			]
+		},
+		"mao_d": [
+			-0.038,
+			-0.116,
+			0.012
+		],
+		"tornozelo_y": 0.078,
+		"estampa": {
+			"base": "#F2443A",
+			"cor": "#FFFFFF",
+			"dy": 0.052,
+			"fileiras": 3,
+			"n0": 11,
+			"raio": 0.017,
+			"tipo": "bolinhas",
+			"y0": 0.08,
+			"y_max": 0.24
+		},
+		"roupa": "parque"
+	},
+	"bob_pirata": {
+		"rosto": {
+			"centro": [
+				0,
+				0.205
+			],
+			"tamanho": [
+				0.46,
+				0.4
+			]
+		},
+		"mao_d": [
+			-0.038,
+			-0.116,
+			0.012
+		],
+		"tornozelo_y": 0.078,
+		"estampa": {
+			"base": "#F6F1E6",
+			"cor": "#E53935",
+			"periodo": 0.046,
+			"raio": 0.012,
+			"tipo": "listras",
+			"y0": 0.035,
+			"y_max": 0.27
+		},
+		"roupa": "pirata"
+	},
+	"mia": {
+		"rosto": {
+			"centro": [
+				0,
+				0.205
+			],
+			"tamanho": [
+				0.46,
+				0.4
+			]
+		},
+		"mao_d": [
+			-0.038,
+			-0.116,
+			0.012
+		],
+		"tornozelo_y": 0.078,
+		"estampa": {
+			"base": "#FF8A2B",
+			"cor": "#FFFFFF",
+			"dy": 0.05,
+			"fileiras": 3,
+			"n0": 12,
+			"raio": 0.019,
+			"tipo": "bolinhas",
+			"y0": -0.05,
+			"y_max": 0.08
+		}
+	},
+	"mia_astronauta": {
+		"rosto": {
+			"centro": [
+				0,
+				0.205
+			],
+			"tamanho": [
+				0.46,
+				0.4
+			]
+		},
+		"mao_d": [
+			-0.038,
+			-0.116,
+			0.012
+		],
+		"tornozelo_y": 0.078,
+		"estampa": {
+
+		},
+		"roupa": "astronauta"
+	},
+	"mia_dino": {
+		"rosto": {
+			"centro": [
+				0,
+				0.205
+			],
+			"tamanho": [
+				0.46,
+				0.4
+			]
+		},
+		"mao_d": [
+			-0.038,
+			-0.116,
+			0.012
+		],
+		"tornozelo_y": 0.078,
+		"estampa": {
+
+		},
+		"roupa": "dino"
+	},
+	"mia_parque": {
+		"rosto": {
+			"centro": [
+				0,
+				0.205
+			],
+			"tamanho": [
+				0.46,
+				0.4
+			]
+		},
+		"mao_d": [
+			-0.038,
+			-0.116,
+			0.012
+		],
+		"tornozelo_y": 0.078,
+		"estampa": {
+			"base": "#2BC4A0",
+			"cor": "#FFE14D",
+			"dy": 0.05,
+			"fileiras": 3,
+			"n0": 12,
+			"raio": 0.019,
+			"tipo": "bolinhas",
+			"y0": -0.05,
+			"y_max": 0.08
+		},
+		"roupa": "parque"
+	},
+	"mia_pirata": {
+		"rosto": {
+			"centro": [
+				0,
+				0.205
+			],
+			"tamanho": [
+				0.46,
+				0.4
+			]
+		},
+		"mao_d": [
+			-0.038,
+			-0.116,
+			0.012
+		],
+		"tornozelo_y": 0.078,
+		"estampa": {
+			"base": "#F6F1E6",
+			"cor": "#1E6FD9",
+			"periodo": 0.042,
+			"raio": 0.011,
+			"tipo": "listras",
+			"y0": 0.09,
+			"y_max": 0.27
+		},
+		"roupa": "pirata"
+	},
+	"pino": {
+		"rosto": {
+			"centro": [
+				0,
+				0.215
+			],
+			"tamanho": [
+				0.15,
+				0.13
+			]
+		}
+	}
+}

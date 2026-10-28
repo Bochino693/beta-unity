@@ -82,14 +82,17 @@ namespace StrikeKids
             pinos = p;
             _zMesa = Medidas.Z_PINO1 - Medidas.FILEIRA * 1.5f;
             _zBarra = Medidas.Z_PINO1 + 0.5f;
-            var pc = Malhas.Ler("pista");
             // mesa (sem colisão: os pinos que ela carrega ficam "fantasmas")
-            var mesa = Malhas.Objeto("mesa", pc.Malha("mesa"), Materiais.Facetado, transform);
+            var mesa = new GameObject("mesa");
+            mesa.transform.SetParent(transform, false);
+            Vestir(mesa.transform, "maquina.mesa");
             _mesa = Cinematico(mesa);
             _mesaPos = new Vector3(0, Y_REPOUSO, _zMesa);
             mesa.transform.position = _mesaPos;
             // barra varredora (corpo cinemático que empurra os pinos)
-            var barra = Malhas.Objeto("barra", pc.Malha("barra"), Materiais.Facetado, transform);
+            var barra = new GameObject("barra");
+            barra.transform.SetParent(transform, false);
+            Vestir(barra.transform, "maquina.barra");
             barra.layer = Medidas.CAMADA_MUNDO;
             var bc = barra.AddComponent<BoxCollider>();
             bc.size = new Vector3(Medidas.MEIA_LARGURA * 2f + 0.3f, 0.17f, 0.07f);
@@ -97,12 +100,22 @@ namespace StrikeKids
             _barra = Cinematico(barra);
             _barraPos = new Vector3(0, Y_BARRA_CIMA, _zBarra);
             barra.transform.position = _barraPos;
-            MontarAlcapao(pc);
+            MontarAlcapao();
+        }
+
+        /// <summary>As peças da edição Godot (o palco: Palco.cs) passam para o nó daqui, no mesmo
+        /// lugar em relação a ele (a origem de cada nó é a mesma nas duas edições).</summary>
+        static void Vestir(Transform alvo, string papel)
+        {
+            var no = Mundo.I != null && Mundo.I.palco != null ? Mundo.I.palco.No(papel) : null;
+            if (no == null) return;
+            for (int i = no.childCount - 1; i >= 0; i--) no.GetChild(i).SetParent(alvo, false);
+            no.gameObject.SetActive(false);
         }
 
         /// <summary>As duas portinhas do alçapão: cada uma gira na dobradiça da beirada de
         /// fora; fechadas, o chão fica liso como o resto do fosso.</summary>
-        void MontarAlcapao(Malhas.Pacote pc)
+        void MontarAlcapao()
         {
             float comp = Medidas.ALCAPAO_Z0 - Medidas.ALCAPAO_Z1;
             var tam = new Vector3(Medidas.ALCAPAO_X - 0.004f, 0.04f, comp - 0.008f);
@@ -112,7 +125,14 @@ namespace StrikeKids
                 // a malha vai da dobradiça para -X: a da direita (x +) fica como está,
                 // a da esquerda gira meia volta
                 float s = i == 0 ? 1f : -1f;
-                var porta = Malhas.Objeto("alcapao_" + i, pc.Malha("porta"), Materiais.Facetado, transform);
+                var porta = new GameObject("alcapao_" + i);
+                porta.transform.SetParent(transform, false);
+                // as portinhas da edição Godot (a dobradiça na origem): a da direita (x +) é a
+                // "alcapao_-1" de lá; a da esquerda, a "alcapao_1", desvirada da meia volta daqui
+                var vis = new GameObject("desenho").transform;
+                vis.SetParent(porta.transform, false);
+                vis.localRotation = Quaternion.Euler(0, i == 0 ? 0f : 180f, 0);
+                Vestir(vis, i == 0 ? "maquina.portas[0]" : "maquina.portas[1]");
                 porta.layer = Medidas.CAMADA_MUNDO;
                 var bc = porta.AddComponent<BoxCollider>();
                 bc.size = tam;

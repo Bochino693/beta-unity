@@ -17,6 +17,8 @@ namespace StrikeKids.Editor
     ///     8 MB + mipmaps); com transparência fica sem perda (RGBA 32) —
     ///     a ETC2 não existe na Mali-400/450; os detalhes do chão
     ///     (Texturas/cenario/chao_*) são pesos e ficam sem perda (RGB 24);
+    ///   * o palco da edição Godot (Texturas/palco): fora de potência de 2 vai para a
+    ///     potência mais perto; a madeira e as bolas se repetem;
     ///   * sons curtos: ADPCM descomprimido ao carregar (toca na hora, quase sem
     ///     processador); músicas: Vorbis tocando direto do arquivo.
     /// </summary>
@@ -47,6 +49,15 @@ namespace StrikeKids.Editor
                 ti.sRGBTexture = false;
                 ti.alphaIsTransparency = false;
                 ti.wrapMode = TextureWrapMode.Repeat;
+            }
+            // o PALCO da edição Godot (Texturas/palco): como lá, as imagens fora de potência de 2
+            // vão para a potência mais perto (a OpenGL ES 2.0 da Mali-400/450 não faz mipmaps
+            // nelas); a madeira e as bolas se repetem
+            if (assetPath.Contains("/Texturas/palco/"))
+            {
+                ti.npotScale = TextureImporterNPOTScale.ToNearest;
+                string n = Path.GetFileNameWithoutExtension(assetPath);
+                if (n == "madeira" || n.StartsWith("bola_")) ti.wrapMode = TextureWrapMode.Repeat;
             }
             var a = ti.GetPlatformTextureSettings("Android");
             a.overridden = true;

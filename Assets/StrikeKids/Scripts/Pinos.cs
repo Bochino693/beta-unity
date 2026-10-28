@@ -82,8 +82,26 @@ namespace StrikeKids
             Malhas.Objeto("sombras_pinos", _sombras, Materiais.Sombra(0.5f), transform);
         }
 
+        // PERTO ou LONGE: com a câmera longe dos pinos (a vista da pista, de onde a criança
+        // joga) eles ocupam poucos pixels e o contorno desenha cada um duas vezes: o de
+        // longe. Perto (vista dos pinos, replay) o completo. (com folga na divisa)
+        const float PERTO = 8f, LONGE = 9f;
+        bool _deLonge;
+
+        void EscolherMalha()
+        {
+            var cam = Camera.main;
+            if (cam == null || pinos.Count == 0) return;
+            float d = Vector3.Distance(cam.transform.position, new Vector3(0f, 0.3f, Medidas.Z_PINO1 - 0.5f));
+            bool longe = !_deLonge ? d > LONGE : d > PERTO;
+            if (longe == _deLonge) return;
+            _deLonge = longe;
+            foreach (var p in pinos) p.DeLonge(longe);
+        }
+
         void LateUpdate()
         {
+            EscolherMalha();
             for (int i = 0; i < pinos.Count; i++)
             {
                 var p = pinos[i];

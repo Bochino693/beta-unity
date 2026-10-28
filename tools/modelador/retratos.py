@@ -63,6 +63,12 @@ def retrato(modelo):
 
 
 def main():
+    # os retratos agora são os da edição Godot (ui/retrato_*.png, 768 px): os bichinhos
+    # do jogo são os de lá
+    if "--forcar" not in sys.argv:
+        print("Os retratos agora vêm da edição Godot (strike-kids-gles2/ui/retrato_*.png).\n"
+              "Estes são os do modelo ANTIGO desta edição: para gravá-los mesmo assim, use --forcar.")
+        return 1
     os.makedirs(SAIDA, exist_ok=True)
     import malha
     malha.RESOLUCAO = 2.0          # a mesma dos bichinhos do jogo (gerar.py)

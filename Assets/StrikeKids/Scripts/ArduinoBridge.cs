@@ -15,14 +15,17 @@ namespace StrikeKids
     ///   * os 5 SENSORES da pista (S1 = esquerda ... S5 = direita) viram as
     ///     jogadas Z X C V B (Controles.Injetar) e o evento Sensor;
     ///   * START, FICHA (crédito) e o botão de CONFIGURAÇÃO (menu do operador);
-    ///   * a TRAVA da porta das bolas: fechada na espera, ABRE depois do START,
-    ///     FECHA no fim da partida (e sozinha, no Arduino, se o jogo sumir);
+    ///   * a PORTA das bolas (ponte H, servo ou relé): fechada na espera, ABRE
+    ///     depois do START, FECHA no fim da partida (e sozinha, no Arduino, se o
+    ///     jogo sumir);
     ///   * a fita de LED (MENU, STRIKE, SPARE...).
     ///
     /// Protocolo (linhas de texto, 9600):
-    ///   Arduino -> jogo: OLA:STRIKE_KIDS:1, PONG:STRIKE_KIDS:1, S:1..S:5, CFG,
-    ///     START, FICHA, SENS:00100 (ao vivo, no teste), PORTA:ABERTA/FECHADA,
-    ///     CAL:OK:HHHHH, INFO:..., AVISO:SEM_JOGO
+    ///   Arduino -> jogo: OLA:STRIKE_KIDS:2, PONG:STRIKE_KIDS:2, S:1..S:5, CFG,
+    ///     START, FICHA, SENS:00100 (ao vivo, no teste), PORTA:ABERTA/FECHADA
+    ///     (com a ponte H, quando a porta chega), CAL:OK:HHHHH, INFO:...,
+    ///     AVISO:SEM_JOGO, AVISO:PORTA_TRAVOU (o fim de curso não chegou)
+    ///   (o firmware 1, sem a ponte H, também conecta: o protocolo é o mesmo)
     ///   jogo -> Arduino: PING, PORTA:ABRE, PORTA:FECHA, PORTA?, SENS?, TESTE:1,
     ///     TESTE:0, CALIBRA, INFO?, MENU, IDLE, STRIKE...
     /// O firmware antigo só de LEDs (DRAGON_BOWLING) também conecta (só LEDs).
@@ -67,6 +70,8 @@ namespace StrikeKids
         public static bool PortaAberta;
         /// <summary>O que o jogo pediu.</summary>
         public static bool PortaQuer;
+        /// <summary>O último AVISO: do Arduino (PORTA_TRAVOU, SEM_JOGO); a porta chegou = "".</summary>
+        public static string Aviso = "";
 
         /// <summary>STRIKE_KIDS:1 (ou DRAGON_BOWLING:1, o antigo só de LEDs); "" = desconectado.</summary>
         public static string Firmware { get; private set; } = "";
@@ -496,6 +501,7 @@ namespace StrikeKids
             Conectado = false;
             Firmware = "";
             Sensores = "";
+            Aviso = "";
             _lastLedSent = "";
             _fase = Fase.Procurando;
             _ultimaProcura = Agora();
@@ -541,6 +547,7 @@ namespace StrikeKids
                     {
                         bool aberta = linha == "PORTA:ABERTA";
                         PortaAberta = aberta != Ajustes.Bool("arduino", "porta_invertida");
+                        Aviso = "";
                         Mudar();
                         return;
                     }
@@ -560,6 +567,11 @@ namespace StrikeKids
             else if (linha.StartsWith("INFO:", StringComparison.Ordinal))
             {
                 Info = linha.Substring(5);
+                Mudar();
+            }
+            else if (linha.StartsWith("AVISO:", StringComparison.Ordinal))
+            {
+                Aviso = linha.Substring(6);
                 Mudar();
             }
         }

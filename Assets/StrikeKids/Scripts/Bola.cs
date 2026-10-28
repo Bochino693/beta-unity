@@ -49,7 +49,8 @@ namespace StrikeKids
         Efeitos.Emissor _brilhos, _chamas;
         Efeitos.Config _cfgBrilhos;
         bool _fogo;
-        static readonly int ID_ACESO = Shader.PropertyToID("_Aceso");
+        static readonly int ID_ACESO = Shader.PropertyToID("_aceso");
+        static readonly int ID_TEXTURA = Shader.PropertyToID("_textura");
         static readonly Dictionary<string, Material> _materiais = new Dictionary<string, Material>();
         static Mesh _malha;
 
@@ -59,7 +60,8 @@ namespace StrikeKids
             {
                 if (_malha == null)
                 {
-                    var pc = Malhas.Ler("bola");
+                    // a esfera da edição Godot (32 x 16 gomos, a textura dá a volta nela)
+                    var pc = Malhas.Ler("bola_esfera");
                     if (pc.partes.Count > 0) _malha = pc.partes[0].malha;
                 }
                 return _malha;
@@ -70,9 +72,12 @@ namespace StrikeKids
         public static Material MaterialDe(string nome)
         {
             if (_materiais.TryGetValue(nome, out var m) && m != null) return m;
-            // verniz: a textura do bichinho + o reflexo do matcap da fase (Bola.shader)
-            m = Materiais.Novo("Bola", "bola_" + nome);
-            m.SetTexture(Materiais.ID_TEX, Materiais.Textura("bola_" + nome));
+            // a bola da edição Godot (G_bola): a textura do bichinho, a luz de palco em
+            // faixas, o brilho de verniz e a borda iluminada
+            m = Materiais.Novo("G/bola", "bola_" + nome);
+            var t = Palco.Textura("bola_" + nome);
+            t.wrapMode = TextureWrapMode.Repeat;
+            m.SetTexture(ID_TEXTURA, t);
             _materiais[nome] = m;
             return m;
         }

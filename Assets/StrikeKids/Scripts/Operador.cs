@@ -472,8 +472,11 @@ namespace StrikeKids
             {
                 string pedida = ArduinoBridge.PortaQuer ? "ABERTA" : "FECHADA";
                 string confirmada = ArduinoBridge.PortaAberta ? "ABERTA" : "FECHADA";
-                t += "Porta: " + pedida + "\n" + (confirmada == pedida ? "(o Arduino confirmou)" : "(esperando o Arduino...)") + "\n\n" +
-                    "C ou START: abre / fecha\nCONFIGURAÇÃO: sai (a porta fecha)\n\nAbriu quando devia fechar? Ligue \"Porta invertida\" no menu.";
+                t += "Porta: " + pedida + "\n" + (confirmada == pedida ? "(o Arduino confirmou)" : "(esperando o Arduino...)") + "\n\n";
+                if (ArduinoBridge.Aviso == "PORTA_TRAVOU")
+                    t += "A PORTA NÃO CHEGOU: confira o motor, a ponte H e o fim de curso\n\n";
+                t += "C ou START: abre / fecha\nCONFIGURAÇÃO: sai (a porta fecha)\n\n" +
+                    "Abriu quando devia fechar? Ligue \"Porta invertida\" no menu\n(ponte H com fim de curso: inverta os fios do motor).";
             }
             else
             {

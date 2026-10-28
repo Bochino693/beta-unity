@@ -36,7 +36,11 @@ def main():
     exe = "glslangValidator"
     erros = 0
     avisos = 0
-    for nome in sorted(os.listdir(PASTA)) + ["UI/" + n for n in sorted(os.listdir(os.path.join(PASTA, "UI")))]:
+    nomes = []
+    for pasta, _, arqs in os.walk(PASTA):
+        for n in arqs:
+            nomes.append(os.path.relpath(os.path.join(pasta, n), PASTA).replace(os.sep, "/"))
+    for nome in sorted(nomes):
         if not nome.endswith(".shader"):
             continue
         caminho = os.path.join(PASTA, nome)

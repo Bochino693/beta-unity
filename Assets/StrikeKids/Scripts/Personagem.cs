@@ -22,9 +22,18 @@ namespace StrikeKids
     ///   * Pé sempre de sola chata no chão; sombra de contato embaixo de cada pé.
     ///   * Pulos com arco de gravidade; o corpo NUNCA muda de tamanho.
     ///   * Olhar e rabinho com mola amortecida (sem trancos).
-    /// Rosto: peças sem luz que ligam e desligam (olhos, piscar, ^ ^, bocas).
+    /// O MODELO É O DA EDIÇÃO GODOT 7.6 (tools/godot/exportar_palco.gd): as mesmas
+    /// juntas e malhas, o toon de personagem (G_toon_personagem: luz de palco por
+    /// vértice, borda iluminada, brilho) e o contorno (G_contorno, a casca invertida).
+    /// Rosto: a arte de cada expressão numa textura (rosto_&lt;nome&gt;, 4 x 2 células)
+    /// projetada de frente na cabeça; trocar de cara (e piscar) é trocar a célula.
+    /// Estampa da roupa (estrela, bolinhas, listras) desenhada no shader.
     /// Roupinhas das fases: o pacote "&lt;nome&gt;_&lt;roupa&gt;" tem as MESMAS juntas — só
-    /// a malha de cada junta troca (mais a hélice do boné e o capacete).
+    /// a malha de cada junta troca (mais a hélice do boné).
+    /// NÍVEIS DE DETALHE (com os detalhes extras): cada peça tem três malhas — a de
+    /// PERTO ("_hd", ~2,5x), a do MEIO e a de LONGE ("_longe", ~40%). O longe é dele
+    /// mesmo (pequenininho na tela); o perto quem dá é o jogo (Principal: só para o
+    /// bichinho maior na tela, inteiro nela, e se o quadro tiver folga).
     /// </summary>
     public class Personagem : MonoBehaviour
     {
@@ -32,18 +41,17 @@ namespace StrikeKids
         static readonly string[] JUNTAS = { "corpo", "cabeca", "braco_e", "antebraco_e", "braco_d", "antebraco_d",
             "coxa_e", "canela_e", "pe_e", "coxa_d", "canela_d", "pe_d" };
         static readonly string[] PECAS = { "corpo", "cabeca", "rabo", "braco_e", "antebraco_e", "braco_d", "antebraco_d",
-            "coxa_e", "canela_e", "pe_e", "coxa_d", "canela_d", "pe_d",
-            "olho_e", "fechado_e", "feliz_e", "sobrancelha_e", "olho_d", "fechado_d", "feliz_d", "sobrancelha_d",
-            "boca_sorriso", "boca_aberta", "boca_triste", "boca_o", "boca_reta" };
-        static readonly string[] EXTRAS = { "helice", "capacete" };
-        static readonly string[] BOCAS = { "sorriso", "aberta", "triste", "o", "reta" };
+            "coxa_e", "canela_e", "pe_e", "coxa_d", "canela_d", "pe_d" };
         static readonly string[] LADOS = { "e", "d" };
+        static readonly string[] NIVEIS = { "perto", "meio", "longe" };
+        // fração da altura da tela: candidato ao de perto / abaixo, o de longe (com folga)
+        const float NIVEL_PERTO = 0.19f, NIVEL_PERTO_VOLTA = 0.17f;
+        const float NIVEL_LONGE = 0.09f, NIVEL_LONGE_VOLTA = 0.11f;
+        const float ALTURA_BICHO = 0.95f;   // do pé ao topo da cabeça (m)
         const float PASSO_DUR = 0.22f;      // duração de um passinho automático (s)
         const float PASSO_ALTURA = 0.045f;  // quanto o pé sobe no passinho (m)
         const float DIST_PASSO = 0.13f;     // pé travado longe assim do lugar certo = dá um passo
         const float TROCA_PE = 0.14f;       // prender/soltar o pé leva este tempo (s)
-        // a mão direita no antebraço (modelador: MAO - COTOVELO) e a bola logo abaixo dela
-        static readonly Vector3 BOLA_NA_MAO = new Vector3(0.038f, -0.116f, 0.012f) + new Vector3(0f, -0.118f, 0.028f);
         static readonly string[] OCIOSO_CLIPES = { "acenar_uma", "olhar_volta", "danca_curta", "acenar_uma", "danca_curta" };
 
         public event Action<Vector3> SoltouBola;
@@ -62,11 +70,23 @@ namespace StrikeKids
         readonly Dictionary<string, Vector3> _posRepouso = new Dictionary<string, Vector3>();
         readonly Dictionary<string, MeshFilter> _mf = new Dictionary<string, MeshFilter>();
         readonly Dictionary<string, MeshRenderer> _mr = new Dictionary<string, MeshRenderer>();
-        readonly List<MeshRenderer> _acesos = new List<MeshRenderer>();
-        readonly Dictionary<string, Vector3> _centro = new Dictionary<string, Vector3>();
-        MaterialPropertyBlock _mpb;
-        Malhas.Pacote _padrao;
+        readonly List<Material> _mats = new List<Material>();
+        Material _matCabeca, _matCorpo, _matMembros, _matRabo, _matContorno;
+        Dictionary<string, object> _meta;
         readonly HashSet<string> _pedidos = new HashSet<string>();
+        // as malhas de cada nível da roupa de agora (junta -> malha)
+        readonly Dictionary<string, Dictionary<string, Mesh>> _malhasNivel = new Dictionary<string, Dictionary<string, Mesh>>();
+        string _nivel = "meio";
+        float _fracao;
+        bool _dentro;
+        int _custoPerto;
+        int _forcar;
+        /// <summary>Os níveis de detalhe ligados (os detalhes extras: Ajustes.Detalhes).</summary>
+        public bool niveis;
+        /// <summary>O jogo deixou vestir o de perto (o orçamento do quadro: Principal).</summary>
+        public bool podePerto { get; private set; }
+        /// <summary>Contornos (a casca escura em volta): desligados na qualidade baixa.</summary>
+        public static bool contornos = true;
         Transform _bolaMao;
         Transform _rabo, _helice;
         Transform _sombra;
@@ -112,28 +132,92 @@ namespace StrikeKids
         bool _ocioso;
         float _ociosoT;
 
-        public static Personagem Criar(Transform pai, string nome)
+        public static Personagem Criar(Transform pai, string nome, bool niveis = false)
         {
             var go = new GameObject(nome);
             go.transform.SetParent(pai, false);
             var p = go.AddComponent<Personagem>();
+            p.niveis = niveis;
             p.Montar(nome);
             return p;
         }
 
-        static Material MaterialDe(Malhas.Parte p)
+        // ------------------------------------------------------------ dados dos bichinhos
+        static Dictionary<string, object> _personagens;
+
+        /// <summary>Rosto, mão, tornozelo e estampa de cada pacote (Palco/personagens.json, da
+        /// edição Godot: os pontos no espaço de lá).</summary>
+        public static Dictionary<string, object> Meta(string pacote)
         {
-            if (p.material == "luz") return Materiais.SemLuz;
-            if (p.material == "vidro") return Materiais.Vidro;
-            return Materiais.Facetado;
+            if (_personagens == null)
+            {
+                var ta = Resources.Load<TextAsset>("Palco/personagens");
+                _personagens = ta != null ? Json.Dic(Json.Ler(ta.text)) : null;
+                if (ta != null) Resources.UnloadAsset(ta);
+                if (_personagens == null) _personagens = new Dictionary<string, object>();
+            }
+            return _personagens.TryGetValue(pacote, out var m) ? Json.Dic(m) : null;
+        }
+
+        static Vector4 V(object o) => Palco.Vetor(o);
+
+        /// <summary>O toon de personagem com os parâmetros dos bichinhos (borda iluminada, faixa
+        /// da luz, luz mínima na sombra e o brilho) — um material por bichinho (o destaque e a
+        /// cara são dele).</summary>
+        Material Toon(string nome, bool brilho)
+        {
+            var m = Materiais.Novo("G/toon_personagem", nomeModelo + "_" + nome);
+            m.SetFloat("_borda", 0.22f);
+            m.SetFloat("_faixa", 0.15f);
+            m.SetFloat("_luz_minima", 0.32f);
+            if (brilho)
+            {
+                m.SetVector("_cor_borda", new Vector4(1f, 0.92f, 1f, 1f));
+                m.SetFloat("_brilho_luz", 1.4f);
+            }
+            _mats.Add(m);
+            return m;
+        }
+
+        Material[] MateriaisDa(string junta)
+        {
+            Material m;
+            switch (junta)
+            {
+                case "cabeca": m = _matCabeca; break;
+                case "corpo": m = _matCorpo; break;
+                case "rabo":
+                case "helice": m = _matRabo; break;
+                default: m = _matMembros; break;
+            }
+            return _matContorno != null ? new[] { m, _matContorno } : new[] { m };
         }
 
         void Montar(string nome)
         {
             nomeModelo = nome;
-            _mpb = new MaterialPropertyBlock();
-            _padrao = Malhas.Ler(nome);
-            Malhas.Montar(_padrao, transform, _nos, MaterialDe);
+            _meta = Meta(nome) ?? new Dictionary<string, object>();
+            // os materiais (braços, antebraços, coxas, canelas e pés têm os MESMOS parâmetros:
+            // um material só para todos)
+            _matCabeca = Toon("cabeca", true);
+            _matCabeca.SetFloat("_usa_rosto", 1f);
+            _matCabeca.SetTexture("_rosto", Palco.Textura("rosto_" + nome));
+            if (_meta.TryGetValue("rosto", out var ro) && Json.Dic(ro) is Dictionary<string, object> rosto && rosto.ContainsKey("centro"))
+            {
+                _matCabeca.SetVector("_rosto_centro", V(rosto["centro"]));
+                _matCabeca.SetVector("_rosto_tamanho", V(rosto["tamanho"]));
+            }
+            _matCorpo = Toon("corpo", true);
+            AplicarEstampa(Json.Dic(Json.Pegar(_meta, "estampa")));
+            _matMembros = Toon("membros", true);
+            _matRabo = Toon("rabo", false);
+            if (contornos)
+            {
+                _matContorno = Materiais.Novo("G/contorno", nome + "_contorno");
+                _matContorno.SetFloat("_espessura", 0.0032f);
+            }
+            var padrao = Malhas.Ler(nome);
+            Malhas.Montar(padrao, transform, _nos, p => MateriaisDa(p.nome)[0]);
             foreach (var j in JUNTAS)
             {
                 if (!_nos.TryGetValue(j, out var no)) continue;
@@ -143,23 +227,24 @@ namespace StrikeKids
             foreach (var kv in _nos)
             {
                 var mf = kv.Value.GetComponent<MeshFilter>();
-                var mr = kv.Value.GetComponent<MeshRenderer>();
                 if (mf == null) continue;
                 _mf[kv.Key] = mf;
-                _mr[kv.Key] = mr;
-                if (mr.sharedMaterial == Materiais.Facetado) _acesos.Add(mr);
-                if (mf.sharedMesh != null) _centro[kv.Key] = mf.sharedMesh.bounds.center;
+                _mr[kv.Key] = kv.Value.GetComponent<MeshRenderer>();
+                _mr[kv.Key].sharedMaterials = MateriaisDa(kv.Key);
             }
             _nos.TryGetValue("rabo", out _rabo);
-            // bola na mão direita
+            _malhasNivel["meio"] = MalhasDe(nome);
+            _malhasNivel["perto"] = niveis ? MalhasDe(nome + "_hd") : new Dictionary<string, Mesh>();
+            _malhasNivel["longe"] = niveis ? MalhasDe(nome + "_longe") : new Dictionary<string, Mesh>();
+            // bola na mão direita (a mão do modelo e a bola logo abaixo dela)
             var bm = Malhas.Objeto("bola_mao", Bola.Malha, Bola.MaterialDe(nome), juntas["antebraco_d"]);
             _bolaMao = bm.transform;
-            _bolaMao.localPosition = BOLA_NA_MAO;
+            var mao = Json.Lst(Json.Pegar(_meta, "mao_d"));
+            Vector3 maoG = mao != null && mao.Count == 3 ? new Vector3((float)Json.Num(mao[0]), (float)Json.Num(mao[1]), (float)Json.Num(mao[2])) : new Vector3(-0.034f, -0.15f, 0.025f);
+            _bolaMao.localPosition = Medidas.G(maoG.x, maoG.y, maoG.z) + new Vector3(0f, -0.118f, 0.028f);
             bm.SetActive(false);
             // pernas: comprimentos e altura do tornozelo
-            float y = 0f;
-            for (var t = juntas["pe_e"]; t != null && t != transform; t = t.parent) y += t.localPosition.y;
-            _tornY = y;
+            _tornY = (float)Json.Num(Json.Pegar(_meta, "tornozelo_y", 0.078), 0.078);
             foreach (var lado in LADOS)
             {
                 _l1[lado] = _posRepouso["canela_" + lado].magnitude;
@@ -188,6 +273,16 @@ namespace StrikeKids
             _piscarEm = UnityEngine.Random.Range(1f, 3f);
         }
 
+        /// <summary>junta -> malha das peças de um pacote (vazio se ele não existe).</summary>
+        static Dictionary<string, Mesh> MalhasDe(string pacote)
+        {
+            var d = new Dictionary<string, Mesh>();
+            if (!Malhas.Existe(pacote)) return d;
+            foreach (var p in Malhas.Ler(pacote).partes)
+                if (p.malha != null) d[p.nome] = p.malha;
+            return d;
+        }
+
         public bool Visivel
         {
             get => gameObject.activeSelf;
@@ -204,6 +299,7 @@ namespace StrikeKids
         public void Tocar(string nome, float mistura = 0.22f, bool reiniciar = false)
         {
             if (nome == _nomeClip && !reiniciar) return;
+            _forcar = 3;
             // o que está na tela agora e para onde estava indo (velocidade)
             var antes = new Dictionary<string, Vector3>(_ultimaPose);
             var vel = new Dictionary<string, Vector3>();
@@ -344,16 +440,124 @@ namespace StrikeKids
             _ultimaPose = _pose;
             _pose = livre;
             _dtAnt = dt;
+            // FORA DO QUADRO: a animação continua contando (eventos, fim do clipe, a pose
+            // para as transições), mas juntas, pernas, olhar e rosto só mexem quando ele
+            // aparece. Segurando a bola ou logo depois de mudar de lugar/animação, sempre.
+            if (_forcar > 0) _forcar--;
+            else if (!_bolaMao.gameObject.activeSelf && !NaTela())
+            {
+                FimDoQuadro(terminou, c);
+                return;
+            }
+            if (niveis) EscolherNivel();
             Aplicar(_ultimaPose, dt);
             Rosto(dt);
             if (_helice != null && _helice.gameObject.activeSelf)
                 _helice.Rotate(0, -dt * (7f + 9f * _alegriaSuave) * Mathf.Rad2Deg, 0, Space.Self);
             _festa.pos = transform.position + new Vector3(0, 0.25f, 0);
-            if (terminou)
+            FimDoQuadro(terminou, c);
+        }
+
+        void FimDoQuadro(bool terminou, Animacoes.Clipe c)
+        {
+            if (!terminou) return;
+            AnimacaoTerminou?.Invoke(_nomeClip);
+            // clipe que emenda em outro (ex.: vitória -> festa, aceno -> parado)
+            if (_clip == c && !string.IsNullOrEmpty(c.depois)) Tocar(c.depois, 0.35f);
+        }
+
+        // ------------------------------------------------------------ na tela e níveis
+        static readonly Plane[] _planos = new Plane[6];
+        static int _quadroPlanos = -1;
+        static Camera _camPlanos;
+
+        /// <summary>A caixa que ele pode ocupar (com braços, pulos e voo) está no quadro?</summary>
+        bool NaTela()
+        {
+            var cam = Camera.main;
+            if (cam == null) return true;
+            if (_quadroPlanos != Time.frameCount || _camPlanos != cam)
             {
-                AnimacaoTerminou?.Invoke(_nomeClip);
-                // clipe que emenda em outro (ex.: vitória -> festa, aceno -> parado)
-                if (_clip == c && !string.IsNullOrEmpty(c.depois)) Tocar(c.depois, 0.35f);
+                GeometryUtility.CalculateFrustumPlanes(cam, _planos);
+                _quadroPlanos = Time.frameCount;
+                _camPlanos = cam;
+            }
+            var b = new Bounds(transform.position + new Vector3(0f, 1.2f, 0f), new Vector3(2f, 3f, 2f));
+            return GeometryUtility.TestPlanesAABB(_planos, b);
+        }
+
+        /// <summary>Escolhe o nível pelo tamanho na tela (a altura do bichinho dividida pela da
+        /// tela), com folga para não ficar trocando. O de perto só com o meio dele dentro da tela.</summary>
+        void EscolherNivel()
+        {
+            var cam = Camera.main;
+            if (cam == null) return;
+            var pe = transform.position;
+            var a = cam.WorldToScreenPoint(pe);
+            var b = cam.WorldToScreenPoint(pe + new Vector3(0f, ALTURA_BICHO, 0f));
+            if (a.z <= 0f || b.z <= 0f) return;
+            float tela = Mathf.Max(Mathf.Max(cam.pixelWidth, cam.pixelHeight), 1f);
+            _fracao = Vector2.Distance(a, b) / tela;
+            var meio = (a + b) * 0.5f;
+            _dentro = meio.x > 0f && meio.y > 0f && meio.x < cam.pixelWidth && meio.y < cam.pixelHeight;
+            string novo = "meio";
+            if (podePerto) novo = "perto";
+            else if (_fracao < NIVEL_LONGE || (_nivel == "longe" && _fracao < NIVEL_LONGE_VOLTA)) novo = "longe";
+            if (novo != _nivel)
+            {
+                _nivel = novo;
+                VestirNivel();
+            }
+        }
+
+        /// <summary>O jogo deixa (ou não) vestir o de perto. Tirando, volta ao do meio na hora.</summary>
+        public void PermitirPerto(bool sim)
+        {
+            if (sim == podePerto) return;
+            podePerto = sim;
+            if (!sim && _nivel == "perto")
+            {
+                _nivel = "meio";
+                VestirNivel();
+            }
+        }
+
+        /// <summary>Pode ganhar o de perto: grande na tela e inteiro dentro dela.</summary>
+        public bool CandidatoPerto()
+        {
+            if (!niveis || !Visivel || _malhasNivel["perto"].Count == 0) return false;
+            return _dentro && _fracao > (podePerto ? NIVEL_PERTO_VOLTA : NIVEL_PERTO);
+        }
+
+        /// <summary>Quantos índices o de perto desenha a mais que o do meio (com o contorno: x2).</summary>
+        public int CustoPerto => _custoPerto;
+
+        public float TamanhoNaTela => _fracao;
+
+        public string Nivel => _nivel;
+
+        static int Indices(Dictionary<string, Mesh> malhas)
+        {
+            int t = 0;
+            foreach (var m in malhas.Values)
+                if (m != null) t += (int)m.GetIndexCount(0);
+            return t;
+        }
+
+        /// <summary>Põe em cada peça a malha do nível atual (a do meio onde o nível não tem).</summary>
+        void VestirNivel()
+        {
+            var meio = _malhasNivel["meio"];
+            var perto = _malhasNivel["perto"];
+            if (perto.Count > 0) _custoPerto = (_matContorno != null ? 2 : 1) * (Indices(perto) - Indices(meio));
+            var outro = _malhasNivel[_nivel];
+            foreach (var j in PECAS)
+            {
+                if (!_mf.TryGetValue(j, out var mf)) continue;
+                Mesh m = null;
+                if (!outro.TryGetValue(j, out m) || m == null) meio.TryGetValue(j, out m);
+                mf.sharedMesh = m;
+                _mr[j].enabled = m != null;
             }
         }
 
@@ -607,73 +811,27 @@ namespace StrikeKids
         }
 
         // ------------------------------------------------------------ rosto
-        struct Cara
+        static readonly Dictionary<string, float> ALEGRIA = new Dictionary<string, float>
         {
-            public string olhos;     // "olho" | "feliz" | "piscadinha"
-            public string boca;
-            public float sobe;       // sobrancelhas para cima (m)
-            public float inclina;    // graus: + = ponta de dentro para cima (tristinho), - = franzida
-            public float olhoEsc;
-            public float alegria;
-        }
-
-        static readonly Dictionary<string, Cara> CARAS = new Dictionary<string, Cara>
-        {
-            ["feliz"] = new Cara { olhos = "olho", boca = "sorriso", sobe = 0f, inclina = 0f, olhoEsc = 1f, alegria = 0.7f },
-            ["empolgado"] = new Cara { olhos = "olho", boca = "aberta", sobe = 0.012f, inclina = 0f, olhoEsc = 1.08f, alegria = 1f },
-            ["triste"] = new Cara { olhos = "olho", boca = "triste", sobe = 0.004f, inclina = 14f, olhoEsc = 0.95f, alegria = 0f },
-            ["concentrado"] = new Cara { olhos = "olho", boca = "reta", sobe = -0.006f, inclina = -10f, olhoEsc = 1f, alegria = 0.25f },
-            ["surpreso"] = new Cara { olhos = "olho", boca = "o", sobe = 0.016f, inclina = 0f, olhoEsc = 1.15f, alegria = 0.5f },
-            ["risada"] = new Cara { olhos = "feliz", boca = "aberta", sobe = 0.01f, inclina = 0f, olhoEsc = 1f, alegria = 1f },
-            ["piscadinha"] = new Cara { olhos = "piscadinha", boca = "sorriso", sobe = 0.006f, inclina = 0f, olhoEsc = 1f, alegria = 0.8f },
-            ["piscando"] = new Cara { olhos = "fechado", boca = "sorriso", sobe = 0f, inclina = 0f, olhoEsc = 1f, alegria = 0.5f },
+            ["empolgado"] = 1f, ["risada"] = 1f, ["feliz"] = 0.7f, ["piscadinha"] = 0.8f, ["triste"] = 0f, ["concentrado"] = 0.25f, ["surpreso"] = 0.5f,
         };
+        static readonly int ID_CELULA = Shader.PropertyToID("_rosto_celula");
 
         public string ExpressaoAtual => _expressao;
 
         public void Expressao(string nome)
         {
-            if (!CARAS.ContainsKey(nome)) nome = "feliz";
             _expressao = nome;
-            _alegria = CARAS[nome].alegria;
-            MostrarCara(nome, false);
+            DefinirCelula(nome);
+            _alegria = ALEGRIA.TryGetValue(nome, out var a) ? a : 0.5f;
         }
 
-        void Ligar(string parte, bool sim)
+        /// <summary>A célula da expressão na arte do rosto (4 colunas x 2 linhas).</summary>
+        void DefinirCelula(string nome)
         {
-            if (_nos.TryGetValue(parte, out var t) && t.gameObject.activeSelf != sim) t.gameObject.SetActive(sim);
-        }
-
-        /// <summary>Liga as peças do rosto da expressão. piscar = só os olhos fechados.</summary>
-        void MostrarCara(string nome, bool piscar)
-        {
-            var c = CARAS[nome];
-            string olhos = piscar ? "fechado" : c.olhos;
-            Ligar("olho_e", olhos == "olho" || olhos == "piscadinha");
-            Ligar("olho_d", olhos == "olho");
-            Ligar("fechado_e", olhos == "fechado");
-            Ligar("fechado_d", olhos == "fechado");
-            Ligar("feliz_e", olhos == "feliz");
-            Ligar("feliz_d", olhos == "feliz" || olhos == "piscadinha");
-            if (piscar) return;
-            foreach (var b in BOCAS) Ligar("boca_" + b, b == c.boca);
-            // sobrancelhas: sobem / inclinam em volta do próprio centro
-            for (int k = 0; k < 2; k++)
-            {
-                string nm = "sobrancelha_" + LADOS[k];
-                if (!_nos.TryGetValue(nm, out var t) || !_centro.TryGetValue(nm, out var centro)) continue;
-                float s = k == 0 ? 1f : -1f;   // a esquerda fica em -X: ponta de dentro em +X
-                var r = Quaternion.Euler(0, 0, s * c.inclina);
-                t.localRotation = r;
-                t.localPosition = centro + new Vector3(0, c.sobe, 0) - r * centro;
-            }
-            // olhos arregalados (surpresa) ou apertadinhos
-            foreach (var nm in new[] { "olho_e", "olho_d" })
-            {
-                if (!_nos.TryGetValue(nm, out var t) || !_centro.TryGetValue(nm, out var centro)) continue;
-                t.localScale = Vector3.one * c.olhoEsc;
-                t.localPosition = centro - centro * c.olhoEsc;
-            }
+            int i = Array.IndexOf(EXPRESSOES, nome);
+            if (i < 0) i = 0;
+            _matCabeca.SetVector(ID_CELULA, new Vector4(i % 4, i / 4, 0f, 0f));
         }
 
         void Rosto(float dt)
@@ -681,7 +839,7 @@ namespace StrikeKids
             if (_piscando > 0f)
             {
                 _piscando -= dt;
-                if (_piscando <= 0f) MostrarCara(_expressao, false);
+                if (_piscando <= 0f) DefinirCelula(_expressao);
                 return;
             }
             _piscarEm -= dt;
@@ -691,8 +849,47 @@ namespace StrikeKids
                 if (_expressao == "feliz" || _expressao == "concentrado" || _expressao == "surpreso" || _expressao == "empolgado")
                 {
                     _piscando = 0.13f;
-                    MostrarCara(_expressao, true);
+                    DefinirCelula("piscando");
                 }
+            }
+        }
+
+        /// <summary>A estampa da roupa (estrela do Bob, bolinhas da Mia, listras do pirata),
+        /// desenhada no shader com os dados que o modelador gravou.</summary>
+        void AplicarEstampa(Dictionary<string, object> e)
+        {
+            var m = _matCorpo;
+            if (e == null || e.Count == 0)
+            {
+                m.SetFloat("_estampa", 0f);
+                return;
+            }
+            m.SetVector("_estampa_base", Materiais.Hex(Json.Str(e["base"])));
+            m.SetVector("_estampa_cor", Materiais.Hex(Json.Str(e["cor"])));
+            m.SetFloat("_estampa_raio", (float)Json.Num(e["raio"]));
+            string tipo = Json.Str(e["tipo"]);
+            if (tipo == "estrela")
+            {
+                m.SetFloat("_estampa", 1f);
+                m.SetVector("_estampa_centro", V(e["centro"]));
+                m.SetFloat("_estampa_dentro", (float)Json.Num(e["dentro"]));
+            }
+            else if (tipo == "listras")
+            {
+                // listras de marinheiro (pirata): faixas de 2 x raio a cada "periodo"
+                m.SetFloat("_estampa", 3f);
+                m.SetFloat("_bolinhas_y0", (float)Json.Num(e["y0"]));
+                m.SetFloat("_bolinhas_dy", (float)Json.Num(e["periodo"]));
+                m.SetFloat("_bolinhas_y_max", (float)Json.Num(e["y_max"]));
+            }
+            else
+            {
+                m.SetFloat("_estampa", 2f);
+                m.SetFloat("_bolinhas_y0", (float)Json.Num(e["y0"]));
+                m.SetFloat("_bolinhas_dy", (float)Json.Num(e["dy"]));
+                m.SetFloat("_bolinhas_fileiras", Json.Int(e["fileiras"]));
+                m.SetFloat("_bolinhas_n0", Json.Int(e["n0"]));
+                m.SetFloat("_bolinhas_y_max", (float)Json.Num(e["y_max"]));
             }
         }
 
@@ -701,14 +898,23 @@ namespace StrikeKids
         public void Jatos(bool ligar) => _festa.emitindo = ligar;
 
         // ------------------------------------------------------------ roupinhas das fases
-        string Pacote(string r) => nomeModelo + "_" + r;
+        string Pacote(string r) => r == "" ? nomeModelo : nomeModelo + "_" + r;
+
+        IEnumerable<string> Pacotes(string r)
+        {
+            yield return Pacote(r);
+            if (!niveis) yield break;
+            yield return Pacote(r) + "_hd";
+            yield return Pacote(r) + "_longe";
+        }
 
         /// <summary>Carrega uma roupinha antes de usar (numa hora calma: a troca fica instantânea).</summary>
         public void PedirRoupa(string r)
         {
             if (string.IsNullOrEmpty(r) || r == roupa || _pedidos.Contains(r)) return;
             if (!Malhas.Existe(Pacote(r))) return;
-            Malhas.Ler(Pacote(r));
+            foreach (var pc in Pacotes(r))
+                if (Malhas.Existe(pc)) Malhas.Ler(pc);
             _pedidos.Add(r);
         }
 
@@ -716,60 +922,45 @@ namespace StrikeKids
         public void SoltarPedidos()
         {
             foreach (var r in _pedidos)
-                if (r != roupa) Malhas.Soltar(Pacote(r));
+                if (r != roupa)
+                    foreach (var pc in Pacotes(r)) Malhas.Soltar(pc);
             _pedidos.Clear();
         }
 
-        /// <summary>Veste a roupinha `r` ("" = a de sempre).</summary>
+        /// <summary>Veste a roupinha `r` ("" = a de sempre). A roupinha tem as MESMAS juntas:
+        /// só a malha de cada junta troca — animações, pernas, rosto e piscadas valem igual.</summary>
         public void TrocarRoupa(string r)
         {
             if (r == null) r = "";
             if (r == roupa) return;
-            Malhas.Pacote pc = _padrao;
-            if (r != "")
-            {
-                if (Malhas.Existe(Pacote(r))) pc = Malhas.Ler(Pacote(r));
-                else r = "";
-            }
+            if (r != "" && !Malhas.Existe(Pacote(r))) r = "";
             if (r == roupa) return;
             string antiga = roupa;
             roupa = r;
-            foreach (var j in PECAS)
+            _malhasNivel["meio"] = MalhasDe(Pacote(r));
+            _malhasNivel["perto"] = niveis ? MalhasDe(Pacote(r) + "_hd") : new Dictionary<string, Mesh>();
+            _malhasNivel["longe"] = niveis ? MalhasDe(Pacote(r) + "_longe") : new Dictionary<string, Mesh>();
+            VestirNivel();
+            AplicarEstampa(Json.Dic(Json.Pegar(Meta(Pacote(r)) ?? new Dictionary<string, object>(), "estampa")));
+            // a hélice do boné (filha da cabeça): gira sozinha
+            var ph = Malhas.Ler(Pacote(r)).Achar("helice");
+            if (ph != null && ph.malha != null)
             {
-                if (!_mf.TryGetValue(j, out var mf)) continue;
-                var p = pc.Achar(j);
-                var m = p != null ? p.malha : null;
-                if (m == null && pc != _padrao) m = _padrao.Malha(j);
-                mf.sharedMesh = m;
-                _mr[j].enabled = m != null;
-            }
-            // extras (hélice do boné, capacete do astronauta): filhos da cabeça
-            foreach (var nm in EXTRAS)
-            {
-                var p = pc.Achar(nm);
-                _nos.TryGetValue(nm, out var t);
-                if (p == null || p.malha == null)
+                if (_helice == null)
                 {
-                    if (t != null) t.gameObject.SetActive(false);
-                    continue;
+                    var go = Malhas.Objeto("helice", ph.malha, _matRabo, juntas["cabeca"]);
+                    go.GetComponent<MeshRenderer>().sharedMaterials = MateriaisDa("helice");
+                    _helice = go.transform;
                 }
-                if (t == null)
-                {
-                    var go = Malhas.Objeto(nm, p.malha, MaterialDe(p), juntas["cabeca"]);
-                    t = go.transform;
-                    _nos[nm] = t;
-                    if (nm == "helice") _helice = t;
-                    var mr = go.GetComponent<MeshRenderer>();
-                    if (mr.sharedMaterial == Materiais.Facetado) _acesos.Add(mr);
-                }
-                t.GetComponent<MeshFilter>().sharedMesh = p.malha;
-                t.localPosition = p.pos;
-                t.localRotation = Quaternion.identity;
-                t.gameObject.SetActive(true);
+                _helice.GetComponent<MeshFilter>().sharedMesh = ph.malha;
+                _helice.localPosition = ph.pos;
+                _helice.localRotation = Quaternion.identity;
+                _helice.gameObject.SetActive(true);
             }
+            else if (_helice != null) _helice.gameObject.SetActive(false);
             _pedidos.Remove(r);
-            if (antiga != "") Malhas.Soltar(Pacote(antiga));
-            Destaque(_flash);
+            if (antiga != "")
+                foreach (var pc in Pacotes(antiga)) Malhas.Soltar(pc);
         }
 
         // ------------------------------------------------------------ utilidades
@@ -780,6 +971,7 @@ namespace StrikeKids
         /// <summary>Coloca o personagem num lugar, olhando para `direcaoY` (graus, Unity).</summary>
         public void Posicionar(Vector3 pos, float direcaoY)
         {
+            _forcar = 3;
             transform.localPosition = pos;
             chao = pos.y;
             transform.localRotation = Quaternion.Euler(0, direcaoY, 0);
@@ -809,8 +1001,7 @@ namespace StrikeKids
         public void Destaque(float valor)
         {
             _flash = valor;
-            _mpb.SetFloat(Materiais.ID_FLASH, valor);
-            foreach (var mr in _acesos) mr.SetPropertyBlock(_mpb);
+            foreach (var m in _mats) m.SetFloat(Materiais.ID_FLASH_G, valor);
         }
 
         /// <summary>Onde a mão direita fica (para a câmera mirar).</summary>
