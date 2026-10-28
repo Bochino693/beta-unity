@@ -73,9 +73,9 @@ namespace StrikeKids
             if (!ligado) return;
             if (n != _jogN) Pular(_jogCartoes[n - 1]);
             _jogN = n;
-            _jogDica.text = n == 1
-                ? "Vão jogar em 2? Aperte START de novo agora!\nSe não, começa com 1 jogador em " + Mathf.Max(segundos, 1) + "..."
-                : "2 JOGADORES: BOB x MIA!\nPreparem-se...";
+            if (n != 1) _jogDica.text = "2 JOGADORES: BOB x MIA!\nPreparem-se...";
+            else if (_modoBola) _jogDica.text = "Vão jogar em 2? A outra criança rola uma bola agora!\nSe não, começa com 1 jogador em " + Mathf.Max(segundos, 1) + "...";
+            else _jogDica.text = "Vão jogar em 2? Aperte START de novo agora!\nSe não, começa com 1 jogador em " + Mathf.Max(segundos, 1) + "...";
             var tt = Ui.Tam(_jogTrilho);
             Ui.Ret(_jogBarra, 0, 0, Mathf.Max(tt.x * Mathf.Clamp01(fracao), tt.y), tt.y);
             Ui.Ver(_jogBarra, fracao > 0f);
@@ -237,6 +237,8 @@ namespace StrikeKids
             public int vencedor = -9;
             public bool recorde;
             public int recordeValor;
+            /// <summary>teve a rodada extra do desempate</summary>
+            public bool desempate;
             public List<Classificacao.Entrada> classificacao = new List<Classificacao.Entrada>();
         }
 
@@ -278,19 +280,32 @@ namespace StrikeKids
             for (int i = 0; i < js.Count; i++) CartaoFim(js[i], i, js.Count, areaC, dados.vencedor == i && js.Count > 1);
             QuadroClassificacao(dados.classificacao, js, areaQ);
             // (só se ainda for este fim de jogo: com START logo, a partida nova já começou)
+            // (com rodada extra: quem venceu no desempate, ou os dois campeões; um depois do
+            // outro: o do recorde espera o do empate / desempate sair)
+            bool extra = dados.desempate;
+            float tRecorde = 3.4f;
             if (dados.vencedor == -1 && js.Count > 1)
-                Tarefas.DepoisReal(3f, () => { if (vez == _fimVez) Letreiro("empate", "", 2.5f, 0.55f); });
+            {
+                string sub = extra ? "OS DOIS SÃO CAMPEÕES!" : "";
+                Tarefas.DepoisReal(3f, () => { if (vez == _fimVez) Letreiro("empate", sub, 2.5f, 0.55f); });
+                tRecorde = 5.2f;
+            }
+            else if (extra && js.Count > 1)
+            {
+                Tarefas.DepoisReal(3f, () => { if (vez == _fimVez) Letreiro("venceu", "NO DESEMPATE!", 2.5f, 0.55f); });
+                tRecorde = 5.2f;
+            }
             if (dados.recorde)
             {
                 string sub = dados.recordeValor + " PONTOS";
                 float alt = retrato ? 0.42f : 0.3f;
-                Tarefas.DepoisReal(3.4f, () => { if (vez == _fimVez) Letreiro("novo_recorde", sub, 3f, alt); });
+                Tarefas.DepoisReal(tRecorde, () => { if (vez == _fimVez) Letreiro("novo_recorde", sub, 3f, alt); });
             }
             // botão "jogar de novo"
             float bw = Mathf.Min(T.x * 0.92f, 940 * u);
             _fimBotao = Ui.Placa(_fim, DESTAQUE, 58, 14, 7);
             Ui.Ret(_fimBotao, (T.x - bw) / 2, yBotao, bw, bh);
-            _fimAperte = R(_fimBotao.transform, "APERTE START PARA JOGAR DE NOVO", 44 * u, MARINHO, 0, MARINHO, true);
+            _fimAperte = R(_fimBotao.transform, JogarDeNovo(), 44 * u, MARINHO, 0, MARINHO, true);
             _fimAperte.corSombra = new Color(1, 1, 1, 0.55f);
             Ui.Ret(_fimAperte, 0, 0, bw, bh - 14 * u);
             _fimAperte.Caber(44 * u, bw - 70 * u);
@@ -444,11 +459,30 @@ namespace StrikeKids
             }
         }
 
+        string JogarDeNovo() => _modoBola ? "ROLE A BOLA PARA JOGAR DE NOVO" : "APERTE START PARA JOGAR DE NOVO";
+
+        /// <summary>MODO LIVRE PELA BOLA (7.5, máquina sem botões): "ROLE A BOLA!" (e o lado
+        /// escolhe o amigo) no lugar do START, na espera, no "QUANTOS VÃO JOGAR?" e no fim.</summary>
+        public void ModoBola(bool sim)
+        {
+            if (sim == _modoBola) return;
+            _modoBola = sim;
+            _aperte.text = sim ? "ROLE A BOLA!" : "APERTE START";
+            Ui.Ver(_aperteSub, sim);
+            for (int i = 0; i < _jogPecas.Count; i++)
+            {
+                _jogPecas[i].botaoTexto.text = sim ? "ROLE" : "START";
+                _jogPecas[i].vezes.text = sim ? (i == 0 ? "1 BOLA" : "2 BOLAS") : (i == 0 ? "1 VEZ" : "2 VEZES");
+            }
+            _chaveMelhores = "";
+            Layout();
+        }
+
         public void FimContagem(int segundos)
         {
             if (_fimAperte != null)
             {
-                _fimAperte.text = "APERTE START PARA JOGAR DE NOVO  (" + segundos + ")";
+                _fimAperte.text = JogarDeNovo() + "  (" + segundos + ")";
                 _fimAperte.Caber(44 * u, Ui.Tam(_fimAperte).x - 70 * u);
             }
             if (_fimBotao != null) Ui.Escala(_fimBotao, 1f + Mathf.Sin(_tempo * 4f) * 0.025f);

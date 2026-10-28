@@ -192,6 +192,7 @@ namespace StrikeKids
                     int soma = 0;
                     foreach (int b in bolas) soma += b;
                     var corCel = new Color(1, 1, 1, 0.22f);
+                    if (r >= placar.rodadasNormais) corCel = new Color(1f, 0.83f, 0.23f, 0.45f);   // a rodada extra (desempate)
                     string txt = "";
                     bool estrela = false;
                     if (bolas.Count > 0)
@@ -226,7 +227,7 @@ namespace StrikeKids
                 Ui.Alfa(c.painel, ativo || so ? 1f : 0.9f);
                 Ui.Escala(c.painel, ativo ? 1f : 0.94f);
             }
-            _info.text = "RODADA " + (placar.rodadaAtual + 1) + " de " + placar.rodadas;
+            _info.text = placar.desempate ? "DESEMPATE!" : "RODADA " + (placar.rodadaAtual + 1) + " de " + placar.rodadasNormais;
             for (int k = _bolasBox.childCount - 1; k >= 0; k--) Destroy(_bolasBox.GetChild(k).gameObject);
             float tb = 34 * u, sb = 14 * u;
             float largura = placar.tentativas * tb + (placar.tentativas - 1) * sb;
@@ -381,6 +382,65 @@ namespace StrikeKids
             tw.Chamar(() => Destroy(l.gameObject));
         }
 
+        /// <summary>Um jogador no DUELO do desempate.</summary>
+        public struct Duelista
+        {
+            public string personagem;
+            public int pontos;
+            public Texture foto;
+        }
+
+        RectTransform _duelo;
+
+        /// <summary>DUELO do desempate: os cartões dos dois (a foto da criança ou o mascote, o nome
+        /// e os pontos), no desenho dos cartões do fim de jogo, entram dos lados com o "=" dourado
+        /// no meio; saem depois de `dur` segundos.</summary>
+        public void Duelo(IList<Duelista> js, float dur = 4f)
+        {
+            if (_duelo != null) Destroy(_duelo.gameObject);
+            var duelo = _duelo = Ui.Camada("duelo", _centro);
+            Ui.Ret(duelo, 0, 0, T.x, T.y);
+            float w = Mathf.Min(T.x * 0.38f, 400 * u);
+            float h = 236 * u;
+            float d = 150 * u;
+            float meio = 150 * u;
+            float y = T.y * (retrato ? 0.74f : 0.6f);
+            for (int i = 0; i < Mathf.Min(js.Count, 2); i++)
+            {
+                var j = js[i];
+                var c = Ui.Placa(duelo, j.personagem == "bob" ? COR_BOB : COR_MIA, 40, 16, 7);
+                float xFim = i == 0 ? T.x / 2 - meio / 2 - w : T.x / 2 + meio / 2;
+                float xFora = i == 0 ? -w - 60 * u : T.x + 60 * u;
+                Ui.Ret(c, xFora, y, w, h);
+                var fr = Ui.Figura(c.transform, j.foto != null ? j.foto : Retrato(j.personagem));
+                fr.material = j.foto != null ? Ui.MaterialFoto(Color.white) : null;
+                fr.manter = j.foto == null;
+                Ui.Ret(fr, (w - d) / 2, -d * 0.5f, d, d);
+                var nome = R(c.transform, j.personagem.ToUpperInvariant(), 46 * u, Color.white, 10 * u, MARINHO, true);
+                Ui.Ret(nome, 0, d * 0.5f + 4 * u, w, 58 * u);
+                var pts = R(c.transform, j.pontos.ToString(), 96 * u, CREME, 20 * u, MARINHO, true);
+                Ui.Ret(pts, 0, d * 0.5f + 54 * u, w, 100 * u);
+                var tw = Tw.Novo(c);
+                tw.Espera(0.15f + i * 0.12f);
+                tw.PosX(c, xFim, 0.45f, Facil.BackOut);
+                tw.Espera(dur);
+                tw.PosX(c, xFora, 0.35f, Facil.BackIn);
+            }
+            // o "=" dourado entre os dois
+            var b = Ui.Placa(duelo, DESTAQUE, meio * 0.4f, 12, 6);
+            Ui.Ret(b, T.x / 2 - meio * 0.4f, y + h / 2 - meio * 0.4f, meio * 0.8f, meio * 0.8f);
+            Ui.Escala(b, 0f);
+            var igual = R(b.transform, "=", 96 * u, CREME, 20 * u, MARINHO, true);
+            Ui.Ret(igual, 0, 0, meio * 0.8f, meio * 0.8f);
+            var tb = Tw.Novo(b);
+            tb.Espera(0.5f);
+            tb.Escala(b, 1.15f, 0.25f, Facil.BackOut);
+            tb.Escala(b, 1f, 0.15f);
+            tb.Espera(dur - 0.3f);
+            tb.Escala(b, 0f, 0.25f, Facil.BackIn);
+            tb.Chamar(() => { if (duelo != null) Destroy(duelo.gameObject); });
+        }
+
         /// <summary>"+120" voando até o placar do jogador.</summary>
         public void PontosVoando(int pontos, int jogador)
         {
@@ -499,8 +559,9 @@ namespace StrikeKids
         // ================================================================ atração
         RectTransform _atracao;
         Figura _logo;
-        Rotulo _aperte;
+        Rotulo _aperte, _aperteSub;
         Placa _aperteBotao;
+        bool _modoBola;
         Rotulo _recorde;
         Placa _recordePlaca;
         Rotulo _creditos;
@@ -517,6 +578,9 @@ namespace StrikeKids
             _aperteBotao = Ui.Placa(_atracao, DESTAQUE, 70, 18, 8);
             _aperte = R(_aperteBotao.transform, "APERTE START", 88, MARINHO, 0, MARINHO, true);
             _aperte.corSombra = new Color(1, 1, 1, 0.55f);
+            // (modo livre pela bola: o lado da bola escolhe o amigo)
+            _aperteSub = R(_aperteBotao.transform, "ESQUERDA = BOB  ·  DIREITA = MIA", 36, MARINHO, 0, MARINHO, true);
+            Ui.Ver(_aperteSub, false);
             // placa do recorde
             _recordePlaca = Ui.Placa(_atracao, AZUL, 40, 10, 5);
             _recorde = R(_recordePlaca.transform, "", 40, CREME, 8);
@@ -792,14 +856,17 @@ namespace StrikeKids
             if (retrato) Ui.Ret(_logo, (T.x - lw) / 2, T.y * 0.05f, lw, lh);
             else Ui.Ret(_logo, T.x * 0.03f, T.y * 0.05f, lw, lh);
             float bw = retrato ? Mathf.Min(T.x * 0.78f, 780 * u) : T.x * 0.34f;
-            float bh = 150 * u;
+            float bh = (_modoBola ? 196 : 150) * u;
             if (retrato) Ui.Ret(_aperteBotao, (T.x - bw) / 2, T.y * 0.69f, bw, bh);
             else Ui.Ret(_aperteBotao, T.x * 0.03f + (lw - bw) / 2, T.y * 0.6f, bw, bh);
             _aperte.Tamanho(84 * u);
             _aperte.sombraDy = 3 * u;
-            Ui.Ret(_aperte, 0, 0, bw, bh - 18 * u);
+            Ui.Ret(_aperte, 0, 0, bw, (_modoBola ? 128 : 132) * u);
             _aperte.Caber(84 * u, bw - 90 * u);
             _aperte.sombraDy = 3 * u;
+            _aperteSub.Tamanho(34 * u);
+            Ui.Ret(_aperteSub, 0, 118 * u, bw, 50 * u);
+            _aperteSub.Caber(34 * u, bw - 70 * u);
             _recorde.Tamanho(40 * u, 8 * u);
             _creditos.Tamanho(30 * u, 8 * u);
             Ui.Ret(_creditos, 0, T.y - (retrato ? 90 : 64) * u, T.x, 46 * u);

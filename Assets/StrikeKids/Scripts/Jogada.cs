@@ -8,18 +8,21 @@ namespace StrikeKids
     /// pinos é a física de verdade: a bola bate, os pinos voam, batem uns nos
     /// outros, nas paredes, e caem. Nenhum pino é empurrado "de mentira".
     ///
-    /// A mira é sempre o STRIKE (o "bolso" entre os pinos 1 e 3, ou 1 e 2). O
-    /// sensor diz POR ONDE a bola passou (5 posições): no centro é mais fácil
-    /// acertar o bolso; nas pontas a bola chega torta. A dificuldade escolhida
-    /// pelo operador define o quanto a bola "erra" o bolso.
+    /// A BOLA VAI PARA ONDE A CRIANÇA JOGOU (6.5, como na edição Godot): o sensor
+    /// diz por onde a bola passou e ela segue por ali até os pinos —
+    ///   Z (A) = canto esquerdo: pega o 4, o 7 e o 8 (2 ou 3 pinos)
+    ///   X (S) = lado esquerdo: o 2, o 4, o 5, o 7, o 8... (uns 6 ou 7)
+    ///   C (D) = CENTRO: o "bolso" entre o 1 e o 3 (ou o 1 e o 2) — o strike
+    ///   V (F) e B (G) = o mesmo do lado direito.
+    /// A dificuldade escolhida pelo operador define o quanto a bola se espalha em
+    /// volta da linha (e, sem para-choques, a chance de ir para a canaleta pelos
+    /// cantos). No centro as linhas vêm de uma tabela de jogadas simuladas com a
+    /// MESMA física (Editor/Calibrar.cs -&gt; Resources/Dados/tabela_jogadas.json): o
+    /// jogo sorteia quão boa foi a jogada e pega uma linha do bolso que, na
+    /// simulação, rendeu aquilo.
     ///
-    /// As linhas vêm de uma tabela de jogadas simuladas com a MESMA física
-    /// (Editor/Calibrar.cs -&gt; Resources/Dados/tabela_jogadas.json): o jogo sorteia
-    /// quão boa foi a jogada e pega uma linha que, na simulação, rendeu aquilo.
-    /// Na hora, a física pode dar um pino a mais ou a menos — como no boliche.
-    ///
-    ///   Z = esquerda   X = meio-esquerda   C = CENTRO   V = meio-direita   B = direita
-    /// (de quem joga; na Unity a esquerda de quem olha para os pinos é o X positivo)
+    /// (de quem joga; na Unity a esquerda de quem olha para os pinos é o X positivo:
+    /// as contas de mira são feitas nas coordenadas do Godot, com o X trocado)
     /// </summary>
     public class Jogada
     {
@@ -27,40 +30,33 @@ namespace StrikeKids
         {
             ["Z"] = 0.43f, ["X"] = 0.21f, ["C"] = 0f, ["V"] = -0.21f, ["B"] = -0.43f,
         };
+        /// <summary>por onde ela passa na fileira do pino 1 (fora do centro), no Godot: o canto pega
+        /// 4-7-8 (com para-choques ela não passa de 0,52 — encosta neles); o lado, 2-4-5-7-8</summary>
+        static readonly Dictionary<string, float> MIRA_G = new Dictionary<string, float>
+        {
+            ["Z"] = -0.5f, ["X"] = -0.28f, ["V"] = 0.28f, ["B"] = 0.5f,
+        };
+        /// <summary>quanto a linha se espalha (metros, para cada lado) por dificuldade</summary>
+        static readonly Dictionary<string, float> ESPALHA = new Dictionary<string, float>
+        {
+            ["facil"] = 0.03f, ["normal"] = 0.05f, ["dificil"] = 0.08f,
+        };
         public const string ARQUIVO = "Dados/tabela_jogadas";
 
-        /// <summary>Chance (%) de cada resultado na 1ª bola, por posição e dificuldade. Chave = pinos derrubados.</summary>
-        static readonly Dictionary<string, Dictionary<string, int[,]>> TABELA = new Dictionary<string, Dictionary<string, int[,]>>
+        /// <summary>Chance (%) de cada resultado na 1ª bola NO CENTRO, por dificuldade. Chave = pinos derrubados.</summary>
+        static readonly Dictionary<string, int[,]> TABELA = new Dictionary<string, int[,]>
         {
-            ["facil"] = new Dictionary<string, int[,]>
-            {
-                ["C"] = new[,] { { 10, 60 }, { 9, 14 }, { 8, 10 }, { 7, 8 }, { 6, 5 }, { 5, 3 } },
-                ["X"] = new[,] { { 10, 34 }, { 9, 17 }, { 8, 15 }, { 7, 13 }, { 6, 10 }, { 5, 7 }, { 4, 4 } },
-                ["Z"] = new[,] { { 10, 14 }, { 9, 12 }, { 8, 14 }, { 7, 15 }, { 6, 14 }, { 5, 12 }, { 4, 10 }, { 3, 6 }, { 2, 3 } },
-            },
-            ["normal"] = new Dictionary<string, int[,]>
-            {
-                ["C"] = new[,] { { 10, 42 }, { 9, 18 }, { 8, 14 }, { 7, 11 }, { 6, 8 }, { 5, 5 }, { 4, 2 } },
-                ["X"] = new[,] { { 10, 22 }, { 9, 16 }, { 8, 16 }, { 7, 15 }, { 6, 12 }, { 5, 10 }, { 4, 6 }, { 3, 3 } },
-                ["Z"] = new[,] { { 10, 7 }, { 9, 9 }, { 8, 12 }, { 7, 14 }, { 6, 15 }, { 5, 14 }, { 4, 12 }, { 3, 9 }, { 2, 6 }, { 1, 2 } },
-            },
-            ["dificil"] = new Dictionary<string, int[,]>
-            {
-                ["C"] = new[,] { { 10, 28 }, { 9, 18 }, { 8, 16 }, { 7, 14 }, { 6, 10 }, { 5, 8 }, { 4, 6 } },
-                ["X"] = new[,] { { 10, 12 }, { 9, 13 }, { 8, 15 }, { 7, 16 }, { 6, 15 }, { 5, 12 }, { 4, 9 }, { 3, 8 } },
-                ["Z"] = new[,] { { 10, 4 }, { 9, 6 }, { 8, 9 }, { 7, 12 }, { 6, 14 }, { 5, 15 }, { 4, 14 }, { 3, 12 }, { 2, 9 }, { 1, 5 } },
-            },
+            ["facil"] = new[,] { { 10, 60 }, { 9, 14 }, { 8, 10 }, { 7, 8 }, { 6, 5 }, { 5, 3 } },
+            ["normal"] = new[,] { { 10, 42 }, { 9, 18 }, { 8, 14 }, { 7, 11 }, { 6, 8 }, { 5, 5 }, { 4, 2 } },
+            ["dificil"] = new[,] { { 10, 28 }, { 9, 18 }, { 8, 16 }, { 7, 14 }, { 6, 10 }, { 5, 8 }, { 4, 6 } },
         };
 
-        /// <summary>Chance (%) da bola acertar em cheio o que sobrou (spare), conforme a linha do
-        /// sensor passa perto do grupo de pinos.</summary>
-        static readonly Dictionary<string, int[]> SPARE = new Dictionary<string, int[]>
+        /// <summary>Sem para-choques: chance (%) de canaleta, por dificuldade e posição (cantos e
+        /// lados; no centro, nunca).</summary>
+        static readonly Dictionary<string, (int canto, int lado)> CANALETA = new Dictionary<string, (int, int)>
         {
-            ["facil"] = new[] { 72, 45, 20 }, ["normal"] = new[] { 58, 32, 12 }, ["dificil"] = new[] { 42, 22, 7 },
+            ["facil"] = (10, 0), ["normal"] = (20, 3), ["dificil"] = (30, 6),
         };
-
-        /// <summary>Sem para-choques: chance (%) de canaleta na 1ª bola, por posição.</summary>
-        static readonly Dictionary<string, int> CANALETA = new Dictionary<string, int> { ["C"] = 0, ["X"] = 4, ["Z"] = 12 };
 
         public string zona = "C";
         /// <summary>por onde a bola passa na linha de falta (z = 0,35)</summary>
@@ -94,7 +90,6 @@ namespace StrikeKids
         {
             var j = new Jogada { zona = z };
             float linha = LINHA.TryGetValue(z, out var l) ? l : 0f;
-            string grupo = z == "C" ? "C" : (z == "X" || z == "V" ? "X" : "Z");
             string dif = TABELA.ContainsKey(dificuldade) ? dificuldade : "facil";
             int desejado = -1;
             if (Forcar.Count > 0)
@@ -104,21 +99,50 @@ namespace StrikeKids
             }
             if (primeiraBola && emPe.Count == 10)
             {
-                if (desejado < 0)
+                // resultado pedido (testes, abertura): a linha da tabela
+                if (desejado >= 0)
                 {
-                    desejado = Sortear(TABELA[dif][grupo]);
-                    if (!protecao && Random.Range(0, 100) < CANALETA[grupo]) desejado = 0;
+                    if (desejado == 0 && !protecao)
+                    {
+                        Canaleta(j, linha);
+                        return j;
+                    }
+                    if (DaTabela(j, z, desejado, protecao)) return j;
                 }
-                if (desejado == 0 && !protecao)
+                else if (z == "C")
                 {
-                    Canaleta(j, linha);
+                    if (DaTabela(j, z, Sortear(TABELA[dif]), protecao)) return j;
+                }
+                else
+                {
+                    var c = CANALETA[dif];
+                    int chance = z == "Z" || z == "B" ? c.canto : c.lado;
+                    if (!protecao && Random.Range(0, 100) < chance)
+                    {
+                        Canaleta(j, linha);
+                        return j;
+                    }
+                    NaLinha(j, z, dif, protecao);
                     return j;
                 }
-                if (DaTabela(j, z, desejado, protecao)) return j;
             }
-            Resto(j, linha, emPe, dif, desejado, protecao);
+            Resto(j, z, emPe, dif, desejado, protecao);
             return j;
         }
+
+        /// <summary>A bola segue a linha da posição do sensor (espalhando um pouco).</summary>
+        static void NaLinha(Jogada j, string z, string dif, bool protecao)
+        {
+            float e = ESPALHA[dif];
+            j.origemX = LINHA[z];
+            float miraG = MIRA_G.TryGetValue(z, out var m) ? m : 0f;
+            j.alvoX = -Limite(miraG + Random.Range(-e, e), protecao);
+            j.velocidade = Random.Range(7.4f, 8.6f);
+            j.efeito = 0f;
+            j.esperado = -1;
+        }
+
+        static float Limite(float x, bool protecao) => Mathf.Clamp(x, protecao ? -0.58f : -0.62f, protecao ? 0.58f : 0.62f);
 
         static int Sortear(int[,] t)
         {
@@ -232,57 +256,98 @@ namespace StrikeKids
         }
 
         // ------------------------------------------------------------ bolas seguintes
-        /// <summary>Mira no que sobrou: o pino da frente do grupo, batendo do lado que joga
-        /// ele em cima dos outros. Errou a mira? A bola passa raspando ou de lado.</summary>
-        static void Resto(Jogada j, float linha, List<int> emPe, string dif, int desejado, bool protecao)
+        /// <summary>A bola (raio 0,14) pega o pino que passa a menos de 0,22 m do centro dela. Com
+        /// 2 cm de folga, mirando no MEIO, ela pega de uma vez todos os pinos que cabem numa faixa
+        /// de 2 x ALCANCE (um pino só, 3-6, 1-3-6, 3-6-10, 2-4-7...).</summary>
+        const float ALCANCE = 0.2f;
+        /// <summary>As bolas seguintes também vão para onde a criança jogou. Uma ajudinha: se tem
+        /// pino em pé perto da linha (até AJUDA), a bola passa pelo MEIO da faixa que pega mais
+        /// deles — senão ela segue a linha e passa direto (tem que mirar).</summary>
+        const float AJUDA = 0.15f;
+
+        static void Resto(Jogada j, string z, List<int> emPe, string dif, int desejado, bool protecao)
         {
-            j.origemX = Mathf.Clamp(linha, -0.45f, 0.45f);
+            // (as contas no Godot: x ao contrário; a faixa cresce para o +x de lá)
+            float linhaG = -(LINHA.TryGetValue(z, out var l) ? l : 0f);
+            float naMira = MIRA_G.TryGetValue(z, out var m) ? m : 0f;
+            float origemG = Mathf.Clamp(linhaG, -0.45f, 0.45f);
+            j.origemX = -origemG;
             j.velocidade = Random.Range(8.0f, 8.8f);
             j.efeito = 0f;
             if (emPe.Count == 0)
             {
-                j.alvoX = 0f;
+                j.alvoX = -naMira;
                 return;
             }
-            // centro do grupo e o pino "chave" (o mais da frente; empate: o mais central)
-            float cx = 0f, xmin = 9f, xmax = -9f;
+            // o pino "chave" (o mais da frente; empate: o mais central)
             int chave = emPe[0];
             foreach (int n in emPe)
             {
                 var p = Pinos.PosicaoDoPino(n);
-                cx += p.x;
-                xmin = Mathf.Min(xmin, p.x);
-                xmax = Mathf.Max(xmax, p.x);
                 var pc = Pinos.PosicaoDoPino(chave);
                 if (p.z > pc.z + 0.01f || (Mathf.Abs(p.z - pc.z) < 0.01f && Mathf.Abs(p.x) < Mathf.Abs(pc.x))) chave = n;
             }
-            cx /= emPe.Count;
-            var pk = Pinos.PosicaoDoPino(chave);
-            float lado = Mathf.Sign(cx - pk.x);
-            float mira = Mathf.Abs(cx - pk.x) > 0.03f ? pk.x - lado * 0.07f : pk.x + Random.Range(-0.03f, 0.03f);
-            float dist = 0f;
-            if (linha < xmin) dist = xmin - linha;
-            else if (linha > xmax) dist = linha - xmax;
-            var chances = SPARE[dif];
-            int chance = dist < 0.12f ? chances[0] : (dist < 0.32f ? chances[1] : chances[2]);
-            bool acertou = Random.Range(0, 100) < chance;
-            if (desejado >= 0) acertou = desejado >= emPe.Count;
-            if (acertou)
+            // cada pino na conta da mira: a bola vem em linha reta da origem (z = 0,35) até a
+            // mira (no pino 1) e segue torta assim até as fileiras de trás
+            float vai = 0.35f - Medidas.Z_PINO1;
+            var ax = new Dictionary<int, float>();
+            foreach (int n in emPe)
             {
-                j.alvoX = mira + Random.Range(-0.015f, 0.015f);
-                j.esperado = emPe.Count;
+                var p = Pinos.PosicaoDoPino(n);
+                float d = Medidas.Z_PINO1 - p.z;
+                ax[n] = (-p.x + origemG * d / vai) / (1f + d / vai);
             }
-            else
+            // a faixa que pega mais pinos — só as que passam perto da linha (ou qualquer uma,
+            // quando o resultado foi pedido: testes)
+            float mira = naMira, notaMelhor = -1f, largura = 0f;
+            int cabem = 0;
+            foreach (int a in emPe)
             {
-                // erra para o lado de fora do grupo (raspando ou passando direto)
-                float fora = mira != 0f ? Mathf.Sign(mira) : (Random.value < 0.5f ? 1f : -1f);
-                float erro = Random.Range(0.1f, 0.32f);
-                if (desejado == 0) erro = 0.45f;
-                j.alvoX = mira + fora * erro;
-                j.esperado = -1;
+                float x0 = ax[a];
+                float lo = 9f, hi = -9f, nota = 0f;
+                int dentro = 0;
+                foreach (int n in emPe)
+                {
+                    float x = ax[n];
+                    if (x >= x0 - 0.001f && x <= x0 + 2f * ALCANCE)
+                    {
+                        dentro++;
+                        lo = Mathf.Min(lo, x);
+                        hi = Mathf.Max(hi, x);
+                        nota += n == chave ? 1.5f : 1f;
+                    }
+                }
+                float meio = (lo + hi) * 0.5f;
+                if (desejado < 0 && Mathf.Abs(meio - naMira) > AJUDA + (hi - lo) * 0.5f) continue;
+                if (nota > notaMelhor)
+                {
+                    notaMelhor = nota;
+                    mira = meio;
+                    cabem = dentro;
+                    largura = hi - lo;
+                }
             }
-            float lim = protecao ? 0.58f : 0.62f;
-            j.alvoX = Mathf.Clamp(j.alvoX, -lim, lim);
+            // um pino só (ou um atrás do outro): em cheio, um pouquinho de cada lado
+            if (cabem > 0 && largura < 0.02f) mira += Random.Range(-0.03f, 0.03f);
+            float e = ESPALHA[dif];
+            if (desejado >= 0)
+            {
+                if (desejado >= emPe.Count)
+                {
+                    j.alvoX = -Limite(mira + Random.Range(-0.015f, 0.015f), protecao);
+                    j.esperado = cabem;
+                }
+                else
+                {
+                    // erra para o lado de fora do grupo (raspando ou passando direto)
+                    float fora = mira != 0f ? Mathf.Sign(mira) : (Random.value < 0.5f ? 1f : -1f);
+                    j.alvoX = -Limite(mira + fora * (desejado == 0 ? 0.45f : Random.Range(0.1f, 0.32f)), protecao);
+                    j.esperado = -1;
+                }
+                return;
+            }
+            j.alvoX = -Limite(mira + Random.Range(-e, e), protecao);
+            j.esperado = cabem > 0 ? cabem : -1;
         }
 
         // ------------------------------------------------------------ a linha no mundo

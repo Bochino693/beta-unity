@@ -35,6 +35,10 @@ namespace StrikeKids
         public int rodadaAtual;     // 0..rodadas-1
         public int bolaAtual;       // 0..tentativas-1
         public int pinosNaRodada;
+        /// <summary>DESEMPATE: 2 jogadores empatados no fim das rodadas jogam mais uma, a rodada
+        /// extra (na 4ª pista, a que não saiu no sorteio da partida).</summary>
+        public int rodadasNormais = 3;
+        public bool desempate;
 
         public void Comecar(IList<string> personagens, int nRodadas, int nTentativas)
         {
@@ -46,6 +50,8 @@ namespace StrikeKids
                 jogadores.Add(j);
             }
             rodadas = nRodadas;
+            rodadasNormais = nRodadas;
+            desempate = false;
             tentativas = nTentativas;
             jogadorAtual = 0;
             rodadaAtual = 0;
@@ -112,6 +118,21 @@ namespace StrikeKids
             return "rodada";
         }
 
+        /// <summary>Empate de 2 jogadores no fim das rodadas (e a extra ainda não foi jogada).</summary>
+        public bool PedeDesempate() => jogadores.Count == 2 && !desempate && Vencedor() == -1;
+
+        /// <summary>Abre a RODADA EXTRA de desempate: mais uma rodada para cada um, do começo.</summary>
+        public void RodadaExtra()
+        {
+            desempate = true;
+            rodadas++;
+            foreach (var j in jogadores) j.rodadas.Add(new List<int>());
+            rodadaAtual = rodadas - 1;
+            jogadorAtual = 0;
+            bolaAtual = 0;
+            pinosNaRodada = 0;
+        }
+
         public int Total(int i) => jogadores[i].pontos;
 
         /// <summary>0 ou 1; -1 = empate.</summary>
@@ -122,8 +143,9 @@ namespace StrikeKids
             return Total(0) > Total(1) ? 0 : 1;
         }
 
-        /// <summary>Pontuação máxima possível (para as estrelas do fim).</summary>
-        public int Maximo() => rodadas * (10 * PONTOS_PINO + BONUS_STRIKE);
+        /// <summary>Pontuação máxima possível (para as estrelas do fim; a rodada extra do
+        /// desempate não conta).</summary>
+        public int Maximo() => rodadasNormais * (10 * PONTOS_PINO + BONUS_STRIKE);
 
         public int Estrelas(int i)
         {

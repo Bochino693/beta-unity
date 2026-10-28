@@ -32,6 +32,7 @@ namespace StrikeKids
                 ["protecao_canaleta"] = true, // para-choques nas canaletas (bumpers)
                 ["replay_strike"] = true,
                 ["modo_livre"] = true,        // sem crédito: START sempre começa
+                ["inicio_bola"] = true,       // modo livre: rolar a bola começa (1 bola = 1 jogador, 2 = 2; o lado escolhe Bob/Mia)
                 ["creditos_por_partida"] = 1,
                 ["tempo_inatividade"] = 45,   // segundos sem jogar até o aviso
                 ["demo"] = true,

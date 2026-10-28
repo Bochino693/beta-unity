@@ -32,8 +32,19 @@ namespace StrikeKids
         const float Z_INICIO = 3.15f;
         const float X_MAO = 0.28f;          // a mão direita fica 0,28 m à direita do corpo
         const float MESMA_BOLA = 1.2f;      // s: o mesmo sensor de novo logo depois = a mesma bola
-        const float VALIDADE_PENDENTE = 10f;
+        /// <summary>o tempo da tela "QUANTOS VÃO JOGAR?" (START de novo dentro dele = 2 jogadores)</summary>
         const float TEMPO_JOGADORES = 4f;
+        /// <summary>MODO LIVRE PELA BOLA (7.5, máquina sem botões): a bola rolada na espera começa a
+        /// partida e já escolhe o amigo pelo lado (esquerda = Bob, direita = Mia, meio = Bob); outra
+        /// bola na tela "QUANTOS VÃO JOGAR?" = 2 jogadores. A 2ª criança precisa pegar outra bola:
+        /// o tempo é maior.</summary>
+        const float TEMPO_JOGADORES_BOLA = 7f;
+        /// <summary>a mesma bola pode passar por 2 sensores (ou o sensor piscar): a 2ª só vale depois disto</summary>
+        const float OUTRA_BOLA = 1.5f;
+        /// <summary>1 jogador pela bola: o amigo já vem escolhido e confirma sozinho neste tempo</summary>
+        const float TEMPO_AMIGO_BOLA = 6f;
+        /// <summary>o tempo máximo esperando a câmera assentar na pista (segundos de tela)</summary>
+        const float ASSENTAR_MAX = 2.2f;
         static readonly Vector3[] PODIOS = { Medidas.G(-0.62f, 0f, 2.5f), Medidas.G(0.62f, 0f, 2.5f) };
         static readonly Vector3 POS_PISTA = Medidas.G(0f, 1.05f, 2.2f);
         static readonly Vector3 ALVO_PISTA = Medidas.G(0f, 0.18f, Medidas.Z_PINO1 + 0.6f);
@@ -66,9 +77,12 @@ namespace StrikeKids
         bool demo;
         int _seq;
         bool _pular;
-        string _pendente = "";
-        float _pendenteT;
         float _ultimaJogada = -1000f;
+        /// <summary>a jogada só vale com o "ROLE A BOLA!" na tela (6.4: nem fica guardada para depois)</summary>
+        bool _liberada;
+        string _quemBola = "";
+        float _bolaT = -1000f;
+        int _seqDesempate = -1;
         float _inativo, _modalInativo;
         string _ativo = "bob", _plateia = "mia";
         List<int> _emPeAntes = new List<int>();
@@ -350,6 +364,13 @@ namespace StrikeKids
                 FecharInatividade();
                 return;
             }
+            // a DEMONSTRAÇÃO (os bichinhos jogando) passa pelos estados da jogada — arremesso,
+            // bola rolando, resultado, replay: o START vale nela inteira, como na abertura
+            if (demo && EmDemo())
+            {
+                StartNaEspera();
+                return;
+            }
             switch (estado)
             {
                 case E.TESTE:
@@ -363,38 +384,89 @@ namespace StrikeKids
                 case E.ABERTURA:
                 case E.ATRACAO:
                 case E.DEMO:
-                    if (Ajustes.PodeComecar()) EscolherJogadores();
-                    else hud.TextoGrande("INSIRA FICHA", Hud.CREME, 1f, 0.55f);
+                    StartNaEspera();
                     break;
                 case E.JOGADORES:
                     // como no Dragon Bowling: o 2º START = 2 jogadores (mostra e já começa)
-                    if (_escolhaN == 1)
-                    {
-                        _escolhaN = 2;
-                        _escolhaT = Mathf.Min(_escolhaT, 1.1f);
-                        Sons.Tocar("selecao");
-                        ArduinoBridge.SendLed("RED");
-                    }
+                    DoisJogadores();
                     break;
                 case E.PERSONAGEM:
                     StartCoroutine(ConfirmarPersonagem());
                     break;
                 case E.FIM:
-                    if (_fimT > 2.5f && Ajustes.PodeComecar()) EscolherJogadores();
+                    if (_fimT > 2.5f && Ajustes.PodeComecar())
+                    {
+                        _quemBola = "";
+                        EscolherJogadores();
+                    }
                     break;
             }
+        }
+
+        bool EmDemo() => estado == E.DEMO || estado == E.ARREMESSO || estado == E.ROLANDO || estado == E.RESULTADO || estado == E.REPLAY;
+
+        void DoisJogadores()
+        {
+            if (_escolhaN != 1) return;
+            _escolhaN = 2;
+            _escolhaT = Mathf.Min(_escolhaT, 1.1f);
+            Sons.Tocar("selecao");
+            ArduinoBridge.SendLed("RED");
+        }
+
+        /// <summary>Modo livre começando pela bola (menu do operador: "Começar rolando a bola"): a
+        /// porta das bolas fica aberta também na espera.</summary>
+        bool InicioPelaBola() => Ajustes.ModoLivre() && Ajustes.Bool("jogo", "inicio_bola");
+
+        float TempoJogadores() => InicioPelaBola() ? TEMPO_JOGADORES_BOLA : TEMPO_JOGADORES;
+
+        /// <summary>Bola rolada na espera (abertura, atração, demonstração, fim): começa a partida,
+        /// como o START, e o lado dela já escolhe o amigo.</summary>
+        void ComecarPelaBola(string zona)
+        {
+            hud.SensorAcendeu(zona);
+            _quemBola = zona == "V" || zona == "B" ? "mia" : "bob";
+            _bolaT = Time.realtimeSinceStartup;
+            EscolherJogadores();
+        }
+
+        /// <summary>START na espera (abertura, atração ou demonstração, a qualquer momento): com
+        /// crédito (ou no modo livre) já vai para a escolha dos jogadores.</summary>
+        void StartNaEspera()
+        {
+            if (Ajustes.PodeComecar())
+            {
+                _quemBola = "";
+                EscolherJogadores();
+            }
+            else hud.TextoGrande("INSIRA FICHA", Hud.CREME, 1f, 0.55f);
         }
 
         void JogadaRecebida(string zona)
         {
             _inativo = 0f;
             if (_modalInativo > 0f) FecharInatividade();
+            // modo livre pela bola: na demonstração inteira a bola de verdade começa, como o START
+            if (demo && EmDemo() && InicioPelaBola())
+            {
+                ComecarPelaBola(zona);
+                return;
+            }
             switch (estado)
             {
                 case E.PRONTO:
-                    Arremessar(zona);
+                    if (_liberada) Arremessar(zona);
+                    break;
+                case E.JOGADORES:
+                    // outra bola (não a mesma passando por 2 sensores) = 2 jogadores
+                    if (InicioPelaBola() && Time.realtimeSinceStartup - _bolaT > OUTRA_BOLA)
+                    {
+                        _bolaT = Time.realtimeSinceStartup;
+                        DoisJogadores();
+                    }
                     break;
                 case E.PERSONAGEM:
+                    if (Time.realtimeSinceStartup - _bolaT < OUTRA_BOLA) return;
                     if (zona == "Z" || zona == "X") MarcarDestaque(0);
                     else if (zona == "V" || zona == "B") MarcarDestaque(1);
                     else StartCoroutine(ConfirmarPersonagem());
@@ -402,19 +474,19 @@ namespace StrikeKids
                 case E.ATRACAO:
                 case E.DEMO:
                 case E.ABERTURA:
-                    // rolar a bola no menu também convida a jogar
-                    hud.SensorAcendeu(zona);
-                    Sons.Tocar("selecao");
+                    if (InicioPelaBola()) ComecarPelaBola(zona);
+                    else
+                    {
+                        // rolar a bola no menu também convida a jogar
+                        hud.SensorAcendeu(zona);
+                        Sons.Tocar("selecao");
+                    }
                     break;
-                case E.ARREMESSO:
-                case E.ROLANDO:
-                case E.RESULTADO:
-                case E.REPLAY:
-                    if (Time.realtimeSinceStartup - _ultimaJogada < MESMA_BOLA) return;
-                    _pendente = zona;
-                    _pendenteT = Time.realtimeSinceStartup;
-                    _pular = true;
+                case E.FIM:
+                    if (InicioPelaBola() && _fimT > 2.5f) ComecarPelaBola(zona);
                     break;
+                // (arremesso, bola rolando, resultado, replay, começo da vez: a jogada não vale —
+                // nem fica guardada para quando a pista abrir)
             }
         }
 
@@ -497,7 +569,8 @@ namespace StrikeKids
         IEnumerator Abertura()
         {
             estado = E.ABERTURA;
-            ArduinoBridge.Porta(false);
+            ArduinoBridge.Porta(InicioPelaBola());
+            hud.ModoBola(InicioPelaBola());
             int s = NovoSeq();
             hud.Atracao(false);
             hud.MostrarSensores(false);
@@ -616,8 +689,10 @@ namespace StrikeKids
                 _fatorSalvar = false;
                 Ajustes.Definir("video", "fator", Mathf.Round(_fator * 100f) / 100f);
             }
-            // a porta das bolas fica FECHADA na espera; o Arduino pode pedir a permissão USB aqui
-            ArduinoBridge.Porta(false);
+            // a porta das bolas fica FECHADA na espera (no modo livre pela bola, aberta: a bola
+            // começa); o Arduino pode pedir a permissão USB aqui
+            ArduinoBridge.Porta(InicioPelaBola());
+            hud.ModoBola(InicioPelaBola());
             ArduinoBridge.NaEspera(true);
             demo = false;
             Sons.MudoDemo = false;
@@ -697,13 +772,14 @@ namespace StrikeKids
             // a câmera pode ter sido ligada depois: procura de novo e já liga (imagem pronta no "SORRIA!")
             Fotos.Preparar();
             _escolhaN = 1;
-            _escolhaT = TEMPO_JOGADORES;
+            _escolhaT = TempoJogadores();
             ArduinoBridge.SendLed("MENU");
             bola.Guardar();
             PararLenta();
             // escolha e fotos com a roupa de sempre; a roupinha da 1ª fase já vai sendo carregada
             RoupaDeSempre();
-            SortearTemas(Ajustes.Rodadas());
+            // (uma fase a mais que as rodadas: a do DESEMPATE)
+            SortearTemas(Ajustes.Rodadas() + 1);
             _temasProntos = true;
             PedirRoupas(_temasPartida[0]);
         }
@@ -721,12 +797,15 @@ namespace StrikeKids
             estado = E.PERSONAGEM;
             NovoSeq();
             hud.Etapa(2);
-            _escolhaT = 8f;
+            // pela bola: o amigo do lado da bola já vem escolhido e confirma sozinho (quem não liga
+            // fica com o Bob; rolar de novo troca)
+            _escolhaT = _quemBola != "" ? TEMPO_AMIGO_BOLA : 8f;
             SubirNosPodios();
             personagens["bob"].Tocar("acenar", 0.3f, true);
             personagens["mia"].Tocar("parado", 0.3f, true);
             cam.Ir(G(0f, 1.05f, 6.1f), G(0f, 0.78f, 2.5f), 32, 52, 3f);
-            MarcarDestaque(0);
+            _destaque = _quemBola == "mia" ? 1 : 0;
+            MarcarDestaque(_destaque);
         }
 
         void MarcarDestaque(int i)
@@ -791,9 +870,9 @@ namespace StrikeKids
             placar.Comecar(lista, Ajustes.Rodadas(), Ajustes.Tentativas());
             mundo.DefinirProtecao(Ajustes.ProtecaoCanaleta());
             maquina.Instantaneo();
-            if (!_temasProntos || _temasPartida.Count != Mathf.Max(Ajustes.Rodadas(), 1))
+            if (!_temasProntos || _temasPartida.Count != Mathf.Max(Ajustes.Rodadas(), 1) + 1)
             {
-                SortearTemas(Ajustes.Rodadas());
+                SortearTemas(Ajustes.Rodadas() + 1);
                 PedirRoupas(_temasPartida[0]);
             }
             _temasProntos = false;
@@ -868,7 +947,8 @@ namespace StrikeKids
         }
 
         /// <summary>FASES SORTEADAS: todas aparecem antes de alguma se repetir, e nunca a mesma
-        /// duas rodadas seguidas.</summary>
+        /// duas rodadas seguidas. Sai sempre uma a mais que as rodadas: a do DESEMPATE (com 3
+        /// rodadas, as 3 primeiras são 3 pistas diferentes e a 4ª fica para o desempate).</summary>
         void SortearTemas(int n)
         {
             _temasPartida.Clear();
@@ -964,8 +1044,11 @@ namespace StrikeKids
                 hud.Flash(Color.white, 0.95f, 0.6f);
                 mundo.AplicarTema(tema);
                 Vestir(tema);
-                // a roupinha da próxima fase já vai carregando durante esta rodada
-                if (placar.rodadaAtual + 1 < _temasPartida.Count) PedirRoupas(_temasPartida[placar.rodadaAtual + 1]);
+                // a roupinha da próxima fase já vai carregando durante esta rodada (na última, com
+                // 2 jogadores, a da pista do desempate: se empatar)
+                int prox = placar.rodadaAtual + 1;
+                if (prox < _temasPartida.Count && (prox < placar.rodadas || (placar.jogadores.Count == 2 && !placar.desempate)))
+                    PedirRoupas(_temasPartida[prox]);
                 NoClarao();
                 Sons.Tocar("brilho");
                 Sons.Tocar("whoosh", 0.6f);
@@ -984,8 +1067,10 @@ namespace StrikeKids
             if (novaRodada)
             {
                 string artigo = _ativo == "bob" ? "DO" : "DA";
-                hud.Faixa(_ativo, "VEZ " + artigo + " " + _ativo.ToUpperInvariant() + "!", "RODADA " + (placar.rodadaAtual + 1),
-                    Fotos.Foto("j" + placar.jogadorAtual));
+                string sub = "RODADA " + (placar.rodadaAtual + 1) + " DE " + placar.rodadasNormais;
+                if (placar.desempate) sub = "DESEMPATE!";
+                else if (placar.rodadaAtual + 1 == placar.rodadasNormais && placar.rodadasNormais > 1) sub = "ÚLTIMA RODADA!";
+                hud.Faixa(_ativo, "VEZ " + artigo + " " + _ativo.ToUpperInvariant() + "!", sub, Fotos.Foto("j" + placar.jogadorAtual));
                 Sons.Tocar("vez");
                 ArduinoBridge.SendLed(_ativo == "bob" ? "BLUE" : "RED");
                 yield return Esperar(1.6f, s, false);
@@ -1005,22 +1090,25 @@ namespace StrikeKids
         IEnumerator Pronto()
         {
             estado = E.PRONTO;
-            NovoSeq();
-            _pular = false;
+            int s = NovoSeq();
+            _liberada = false;
             _inativo = 0f;
             PlanoPista();
+            hud.Convite(false);
+            personagens[_ativo].Expressao("concentrado");
+            // a jogada só vale com a pista na tela: a câmera assenta, aparece o ROLE A BOLA! e
+            // só então os sensores e as teclas valem
+            float t = 0f;
+            while (t < ASSENTAR_MAX && !cam.Assentou())
+            {
+                yield return null;
+                if (s != _seq || estado != E.PRONTO) yield break;
+                t += Time.unscaledDeltaTime;
+            }
+            if (s != _seq || estado != E.PRONTO) yield break;
             hud.Convite(true);
             ArduinoBridge.SendLed("IDLE");
-            personagens[_ativo].Expressao("concentrado");
-            // jogada que chegou enquanto a pista não estava pronta
-            if (_pendente != "" && Time.realtimeSinceStartup - _pendenteT < VALIDADE_PENDENTE)
-            {
-                string z = _pendente;
-                _pendente = "";
-                yield return new WaitForSecondsRealtime(0.35f);
-                if (estado == E.PRONTO) Arremessar(z);
-            }
-            _pendente = "";
+            _liberada = true;
         }
 
         void Arremessar(string zona)
@@ -1028,6 +1116,7 @@ namespace StrikeKids
             if (estado != E.PRONTO && estado != E.DEMO) return;
             if (Time.realtimeSinceStartup - _ultimaJogada < MESMA_BOLA) return;
             _ultimaJogada = Time.realtimeSinceStartup;
+            _liberada = false;
             NovoSeq();
             estado = E.ARREMESSO;
             hud.SensorAcendeu(zona);
@@ -1146,13 +1235,15 @@ namespace StrikeKids
                     break;
                 case E.JOGADORES:
                     _escolhaT -= real;
-                    hud.Jogadores(true, _escolhaN, _escolhaT / TEMPO_JOGADORES, Mathf.CeilToInt(_escolhaT));
+                    hud.Jogadores(true, _escolhaN, _escolhaT / TempoJogadores(), Mathf.CeilToInt(_escolhaT));
                     if (_escolhaT <= 0f) ConfirmarJogadores();
                     break;
                 case E.PERSONAGEM:
                     _escolhaT -= real;
-                    hud.Selecao(true, _destaque, "ROLE A BOLA PARA ESCOLHER SEU AMIGO\nbola no MEIO ou START confirma   (" +
-                        Mathf.CeilToInt(_escolhaT) + ")", PesNaTela());
+                    string dica = InicioPelaBola()
+                        ? "QUER O OUTRO AMIGO? ROLE A BOLA DO LADO DELE\nbola no MEIO = JOGAR JÁ · sem bola, começa em " + Mathf.CeilToInt(_escolhaT)
+                        : "ROLE A BOLA PARA ESCOLHER SEU AMIGO\nbola no MEIO ou START confirma   (" + Mathf.CeilToInt(_escolhaT) + ")";
+                    hud.Selecao(true, _destaque, dica, PesNaTela());
                     if (_escolhaT <= 0f) StartCoroutine(ConfirmarPersonagem());
                     break;
                 case E.ATRACAO:
@@ -1399,6 +1490,11 @@ namespace StrikeKids
             }
             string proximo = placar.Avancar(res.fimRodada);
             bola.Guardar();
+            if (proximo == "fim" && placar.PedeDesempate())
+            {
+                StartCoroutine(Desempate());
+                yield break;
+            }
             if (proximo == "fim")
             {
                 FimDeJogo();
@@ -1452,7 +1548,7 @@ namespace StrikeKids
         /// depois volta para a mesa repondo os pinos.</summary>
         void AlcapaoMaquina(bool abrindo)
         {
-            if (estado != E.RESULTADO) return;
+            if (estado != E.RESULTADO || _seq == _seqDesempate) return;
             if (abrindo)
             {
                 cam.Corte(G(0.98f, 1.08f, Medidas.ALCAPAO_Z0 - 0.15f), G(-0.12f, -0.45f, Medidas.ALCAPAO_Z1 + 0.75f), 56, 56);
@@ -1616,12 +1712,77 @@ namespace StrikeKids
             pinos.AplicarFoto(_fotoP, _fotoR);
         }
 
+        // ================================================================ desempate
+        /// <summary>DESEMPATE (2 jogadores empatados no fim): letreiro EMPATE! e o DUELO (os cartões
+        /// de cada um com os pontos iguais); depois o letreiro DESEMPATE! avisa a rodada extra,
+        /// jogada na pista que ficou de fora do sorteio (a 4ª, com 3 rodadas) — a troca de cenário
+        /// anuncia a pista e a faixa de cada um diz "DESEMPATE!". Empatou de novo: fim com os dois
+        /// campeões.</summary>
+        IEnumerator Desempate()
+        {
+            estado = E.RESULTADO;
+            int s = NovoSeq();
+            _seqDesempate = s;
+            placar.RodadaExtra();
+            PedirRoupas(TemaDaRodada());
+            hud.MostrarSensores(false);
+            hud.MostrarPlacar(true);
+            hud.AtualizarPlacar(placar);
+            hud.Sequencia(0);
+            bola.Fogo(false);
+            ArduinoBridge.SendLed("MENU");
+            var t = personagens["bob"];
+            var r = personagens["mia"];
+            foreach (var pp in new[] { t, r })
+            {
+                pp.SegurarBola(false);
+                pp.Jatos(false);
+                pp.Destaque(0f);
+                pp.olharAlvo = null;
+                pp.Expressao("empolgado");
+            }
+            t.Posicionar(G(-0.62f, 0f, 2.3f), 0f);
+            r.Posicionar(G(0.62f, 0f, 2.3f), 0f);
+            t.Tocar("quase", 0.25f, true);
+            r.Tocar("quase", 0.25f, true);
+            cam.Corte(G(0f, 1.3f, 5.6f), G(0f, 1f, 2.3f), 40, 44);
+            // a mesa já arruma os 10 pinos para a rodada extra (fora do quadro: o alçapão não
+            // puxa a câmera nesta sequência)
+            maquina.RackNovo();
+            hud.Flash(Color.white, 0.7f, 0.4f);
+            Sons.Tocar("whoosh");
+            Sons.Tocar("brilho");
+            hud.Letreiro("empate", "", 2.6f, 0.25f);
+            var js = new List<Hud.Duelista>();
+            for (int i = 0; i < placar.jogadores.Count; i++)
+                js.Add(new Hud.Duelista { personagem = placar.jogadores[i].personagem, pontos = placar.jogadores[i].pontos, foto = Fotos.Foto("j" + i) });
+            hud.Duelo(js, 4.4f);
+            yield return Esperar(2.6f, s, false);
+            if (s != _seq) yield break;
+            t.Tocar("torcida", 0.25f, true);
+            r.Tocar("torcida", 0.25f, true);
+            Sons.Tocar("torcida");
+            Sons.Tocar("vez");
+            string onde = placar.rodadasNormais < Temas.ORDEM.Length ? "NA PISTA QUE FALTAVA!" : "VALENDO A VITÓRIA!";
+            hud.Letreiro("desempate", "RODADA EXTRA " + onde, 3f, 0.25f);
+            yield return Esperar(3f, s, false);
+            if (s != _seq) yield break;
+            while (maquina.trabalhando)
+            {
+                yield return Esperar(0.1f, s, false);
+                if (s != _seq) yield break;
+            }
+            hud.MostrarMapa(pinos.EmPe());
+            StartCoroutine(Vez(true));
+        }
+
         // ================================================================ fim de jogo
         void FimDeJogo()
         {
             estado = E.FIM;
-            // fim da partida: a porta FECHA (as bolas da última jogada voltam e ficam)
-            ArduinoBridge.Porta(false);
+            // fim da partida: a porta FECHA (as bolas da última jogada voltam e ficam); no modo
+            // livre pela bola fica aberta (a bola começa outra)
+            ArduinoBridge.Porta(InicioPelaBola());
             NovoSeq();
             _fimT = 0f;
             hud.MostrarPlacar(false);
@@ -1629,7 +1790,7 @@ namespace StrikeKids
             Sons.Musica("musica_fim");
             Sons.Tocar("fim");
             ArduinoBridge.SendLed("MENU");
-            var dados = new Hud.DadosFim { vencedor = placar.Vencedor() };
+            var dados = new Hud.DadosFim { vencedor = placar.Vencedor(), desempate = placar.desempate };
             int melhor = 0, melhorI = 0;
             string quem = "";
             for (int i = 0; i < placar.jogadores.Count; i++)
