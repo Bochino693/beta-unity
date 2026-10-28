@@ -122,6 +122,12 @@ RESOLUCAO = {"dino": 1.6, "trex": 1.6, "triceratops": 1.6, "estegossauro": 1.6, 
 
 def main(args):
     """Grava os .bytes pedidos (todos, se nenhum) e faz as prévias."""
+    # o cenário do jogo agora vem da edição Godot 7.6 (tools/godot/exportar_cenario.gd):
+    # gravar estes modelos antigos por cima estragaria as fases
+    if "--forcar" not in args:
+        print("O cenário agora vem da edição Godot (tools/godot/exportar_cenario.gd).\n"
+              "Estes são os modelos ANTIGOS desta edição: para gravá-los mesmo assim, use --forcar.")
+        return 1
     sem_previa = "--sem-previa" in args
     global PREVIA
     for a in args:

@@ -78,6 +78,56 @@ partir da 2023.1 a Unity tirou o OpenGL ES 2.0.
 * **Ajustes, recordes, classificação**: JSON em `Application.persistentDataPath`
   (`Json.cs`, sem dependências).
 
+## Cenário — o mesmo da edição Godot 7.6
+
+Os 4 cenários são os da edição Godot que roda na TV Box
+(`../beta/strike-kids-gles2`, `scripts/temas.gd` 7.6), trazidos sem
+redesenhar nada:
+
+* **Malhas e texturas exportadas do Godot** (`tools/godot/exportar_cenario.gd`):
+  cada peça nos 3 níveis (`Malhas/cenario/<nome>`, `_meio` ~45% dos
+  triângulos, `_longe` ~18%), o terreno com os morros e os PATAMARES das
+  peças grandes (`Malhas/terreno`), o ATLAS de cada fase (4096², ETC1 com
+  mipmaps: 8 MB + 2,7 MB na placa de vídeo), os fundos pintados do céu
+  (4096x1024, ETC1) e os detalhes do chão (`chao_*`, pesos de cor: RGB sem
+  perda, repetindo). No SKP1 o X vem trocado de sinal e o V da textura
+  invertido; a ordem dos triângulos é a mesma.
+* **O plano em C# puro** (`Scripts/Cenario/PlanoCenario.cs` + `Geometria.cs`):
+  a cópia do `temas.gd` nas coordenadas do Godot, com as mesmas contas do
+  Godot 3 (Basis por eixo e ângulo, Euler YXZ, `scaled`, a pose do Spatial)
+  e o MESMO SORTEADOR (o PCG32 do `RandomNumberGenerator`, com o `randf` de
+  precisão do Godot): as mesmas sementes dão as mesmas peças nos mesmos
+  lugares, a conferência pelos pontos do modelo para nada entrar no morro, a
+  pegada para nada atravessar nada, o lugar firme, os pilares, a escolha do
+  nível pelo tamanho na tela, quem balança ao vento, quem se mexe, as vozes
+  e as partículas.
+* **Conferido peça por peça** (`tools/godot/conferir_cenario.sh`): o plano
+  roda no .NET com as malhas exportadas e o Godot despeja o dele
+  (`tools/godot/despejar_cenario.gd`) — 422 peças (579 no cenário completo),
+  diferença máxima de 0,1 mm na posição e 0,0001 na base, as mesmas
+  animações, vozes e partículas, nos 4 jeitos (leve/completo, com e sem os
+  detalhes extras).
+* **Na tela** (`Temas.cs`): cada nó do plano vira um GameObject com o X
+  espelhado (`x_unity = -x_godot`, giro `(ax, -ay, -az)`); as peças paradas
+  vão para o lote estático da Unity (`StaticBatchingUtility.Combine`), as que
+  têm versão mais leve ficam no nó `alto` e a gêmea no `leve` (o nível do
+  cenário: `NivelCenario`), as que se mexem trocam de malha. As animações
+  são as do `_process` do `temas.gd`, nas poses do Godot; os sons de ambiente
+  saem do lado da tela onde está o bicho (`Sons.TocarEm`).
+* **Shaders** (as mesmas contas dos `toon_leve*.shader` do Godot, em
+  `StrikeCenario.cginc`: `CnS2L`, `CnViva`, `CnTela`): `CenarioAtlas`
+  (luz do material pronta na CPU — `Temas.Fatores` —, por pixel só a divisa
+  sol/sombra e o atlas), `CenarioAtlasVento` (UV3: o quanto cada vértice
+  balança), `CenarioAtlasAsas` (as asas do pterodáctilo no vértice),
+  `CenarioCor` (nuvens brancas, fio dos balões), `Borboleta`, `Terreno`
+  (o `terreno_leve`: listras, lua, areia, selva + os detalhes) e o `Ceu`
+  (o `ceu_leve`: degradê por pixel, nebulosa, raios do mar e o fundo
+  pintado). A luz do cenário (`Temas.Luz`) é a do Godot: sol e ambiente
+  lineares com a força de cada fase e a neblina por vértice.
+* **Ajustes**: `video/cenario` (auto = leve, como na TV Box), `video/cenario3d`
+  (auto = leve nas Mali-400/450) e `video/detalhes` (vento, enfeites que se
+  mexem, borboletas e as vozes).
+
 ## Geração (Windows)
 
 `GERAR_APK.bat` → `GERAR_APK.ps1`: acha o Unity 2022.3 (Hub), espelha o
@@ -98,4 +148,6 @@ Assets/Plugins/Android        Java (atividade, Arduino, câmera) + manifesto
 tools/modelador               modelador 3D (Python) + prévias + retratos
 tools/verificar               compila o C# sem a Unity (referências do NuGet)
                               e confere os shaders (glslangValidator, HLSL)
+tools/godot                   traz o cenário da edição Godot (exportar_cenario.gd)
+                              e confere o plano contra ela (conferir_cenario.sh)
 ```

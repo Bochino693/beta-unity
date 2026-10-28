@@ -30,6 +30,45 @@ rapido), refeito do zero na Unity para provar que o motor nao e o problema:
     automaticas (medidas enquanto o jogo roda).
 
 
+NOVIDADE: O CENARIO DA EDICAO GODOT 7.6
+---------------------------------------
+Os 4 cenarios agora sao os MESMOS da edicao Godot que roda na TV Box
+(strike-kids-gles2 7.6): os mesmos modelos com textura (atlas de cada
+fase), em 3 niveis de detalhe, o terreno com os patamares (nada entra no
+morro), as mesmas pecas nos mesmos lugares (conferido peca por peca, ate
+0,1 mm), as animacoes (roda-gigante, carrossel, bau que abre, dinos que
+rugem, pterossauros batendo as asas, peixes, borboletas, vento nas
+plantas), os enfeites em cima dos pilares, as nuvens brancas, o ceu com o
+fundo pintado de cada fase e os sons de ambiente (baleia, dino, vulcao,
+carrossel, disco voador, bolhas...).
+  * Trazer de novo depois de mexer na edicao Godot:
+      godot3 --no-window --path <beta>\strike-kids-gles2 -s tools\godot\exportar_cenario.gd -- --saida=<esta pasta>\Assets\StrikeKids\Resources
+  * Conferir contra o Godot (precisa do .NET e do Godot 3.6.3):
+      bash tools/godot/conferir_cenario.sh
+  * Menu do operador / ajustes.json: video > cenario3d (auto/alto/leve) e
+    video > detalhes (vento, enfeites que se mexem, borboletas, vozes).
+
+NOVIDADE: O JOGO DA EDICAO GODOT 7.6
+------------------------------------
+  * MODO LIVRE PELA BOLA (maquina sem botoes, menu: "Modo livre: comecar
+    rolando a bola", ligado de fabrica): a bola rolada na espera, na
+    demonstracao ou no fim comeca a partida; outra bola na tela "QUANTOS VAO
+    JOGAR?" = 2 jogadores; o lado da bola ja escolhe o amigo (esquerda = BOB,
+    direita = MIA, meio = BOB) e confirma sozinho. A porta das bolas fica
+    aberta na espera nesse modo. As telas dizem "ROLE A BOLA!".
+  * TRAVA DA JOGADA: o sensor so vale com o "ROLE A BOLA!" na tela (a camera
+    ja assentada na pista); bola que passa antes nao vale nem fica guardada.
+  * START (e a bola) valem a qualquer momento da demonstracao.
+  * MIRA HONESTA: a bola vai para onde a crianca jogou (A canto esquerdo,
+    S lado esquerdo, D centro = strike, F e G o mesmo do lado direito).
+  * DESEMPATE: as fases sao sorteadas com uma a mais; 2 jogadores empatados
+    jogam a RODADA EXTRA na pista que faltava (letreiros EMPATE! e
+    DESEMPATE!, o duelo com os pontos iguais, "VEZ DO BOB! DESEMPATE!");
+    empatou de novo: os dois sao campeoes.
+  * Letreiros novos da edicao Godot (STRIKE!, SPARE!, EMPATE!, DESEMPATE!,
+    PARABENS!, logo e os nomes das fases).
+
+
 ABRIR NO EDITOR DA UNITY (num PC com a Unity 2022.3 instalada)
 -------------------------------------------------------------
 1. Copie esta pasta para um caminho CURTO, sem acentos (ex.: C:\StrikeKids)

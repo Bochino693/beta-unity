@@ -13,8 +13,10 @@ namespace StrikeKids.Editor
     ///     transparência limpa nas bordas;
     ///   * texturas do 3D: com mipmaps (a pista vista de longe não cintila);
     ///   * na TV Box (OpenGL ES 2.0 = só ETC1): sem transparência vai em ETC1
-    ///     (4 bits por ponto); com transparência fica sem perda (RGBA 32) —
-    ///     a ETC2 não existe na Mali-400/450;
+    ///     (4 bits por ponto: o atlas 4096 de cada fase do cenário fica com
+    ///     8 MB + mipmaps); com transparência fica sem perda (RGBA 32) —
+    ///     a ETC2 não existe na Mali-400/450; os detalhes do chão
+    ///     (Texturas/cenario/chao_*) são pesos e ficam sem perda (RGB 24);
     ///   * sons curtos: ADPCM descomprimido ao carregar (toca na hora, quase sem
     ///     processador); músicas: Vorbis tocando direto do arquivo.
     /// </summary>
@@ -35,10 +37,22 @@ namespace StrikeKids.Editor
             ti.filterMode = FilterMode.Bilinear;
             ti.anisoLevel = 1;
             ti.textureCompression = TextureImporterCompression.Uncompressed;
+            // os detalhes do chão (Texturas/cenario/chao_*: florzinhas, crateras,
+            // conchinhas) são PESOS de cor, não imagem: comprimidos em ETC1 os
+            // blocos de 4x4 viram manchas — ficam sem perda (como na edição
+            // Godot) e se repetem pelo terreno
+            bool pesos = assetPath.Contains("/Texturas/cenario/chao_");
+            if (pesos)
+            {
+                ti.sRGBTexture = false;
+                ti.alphaIsTransparency = false;
+                ti.wrapMode = TextureWrapMode.Repeat;
+            }
             var a = ti.GetPlatformTextureSettings("Android");
             a.overridden = true;
             a.maxTextureSize = 4096;
-            a.format = TemTransparencia(assetPath) ? TextureImporterFormat.RGBA32 : TextureImporterFormat.ETC_RGB4;
+            a.format = pesos ? TextureImporterFormat.RGB24
+                : TemTransparencia(assetPath) ? TextureImporterFormat.RGBA32 : TextureImporterFormat.ETC_RGB4;
             a.compressionQuality = 100;
             ti.SetPlatformTextureSettings(a);
         }

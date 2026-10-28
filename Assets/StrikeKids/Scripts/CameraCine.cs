@@ -196,6 +196,14 @@ namespace StrikeKids
         }
 
         /// <summary>Quanto falta para o trilho acabar (segundos).</summary>
+        /// <summary>A câmera chegou no plano (nem trilho, nem órbita, nem perseguição)?</summary>
+        public bool Assentou(float folga = 0.08f)
+        {
+            if (_trilho || _orbita || _seguir != null) return false;
+            return Vector3.Distance(_pos, _posDest) < folga && Vector3.Distance(_alvo, _alvoDest) < folga * 4f
+                && Mathf.Abs(_fovV - _fovVDest) < 1f && Mathf.Abs(_fovH - _fovHDest) < 1f;
+        }
+
         public float FaltaTrilho => _trilho && _trTempos.Count > 0 ? Mathf.Max(0f, _trTempos[_trTempos.Count - 1] - _trT) : 0f;
 
         public void Tremer(float forca, float dur = 0.35f)
