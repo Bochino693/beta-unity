@@ -77,10 +77,26 @@ namespace StrikeKids
         public static void Tocar(string nome, float volume = 1f, float tom = 1f)
         {
             if (I == null) return;
-            I.TocarEfeito(nome, volume, tom);
+            I.TocarEfeito(nome, volume, tom, 0f);
         }
 
-        void TocarEfeito(string nome, float volume, float tom)
+        /// <summary>Toca um efeito que SAI DE UM PONTO do mundo (os sons de ambiente das fases:
+        /// a baleia, o dino, o vulcão...): do lado da tela em que ele está e sem ficar mais
+        /// baixo de longe, como o AudioStreamPlayer3D sem atenuação da edição Godot.</summary>
+        public static void TocarEm(Vector3 ponto, string nome, float volume = 1f, float tom = 1f)
+        {
+            if (I == null) return;
+            float lado = 0f;
+            var cam = Camera.main;
+            if (cam != null)
+            {
+                var v = cam.WorldToViewportPoint(ponto);
+                lado = Mathf.Clamp((v.x - 0.5f) * 1.6f, -0.8f, 0.8f);
+            }
+            I.TocarEfeito(nome, volume, tom, lado);
+        }
+
+        void TocarEfeito(string nome, float volume, float tom, float lado)
         {
             string baseNome = nome;
             if (VARIACOES.TryGetValue(nome, out int n)) nome = nome + "_" + Random.Range(1, n + 1);
@@ -92,6 +108,7 @@ namespace StrikeKids
             p.clip = clip;
             p.volume = Mathf.Clamp01(vol);
             p.pitch = tom;
+            p.panStereo = lado;
             p.Play();
             var voz = Carregar("voz/" + baseNome);
             if (voz != null)
@@ -100,6 +117,7 @@ namespace StrikeKids
                 pv.clip = voz;
                 pv.volume = Mathf.Clamp01(vol);
                 pv.pitch = 1f;
+                pv.panStereo = lado;
                 pv.Play();
             }
         }

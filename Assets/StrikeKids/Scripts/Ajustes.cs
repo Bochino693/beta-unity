@@ -53,7 +53,9 @@ namespace StrikeKids
             ["video"] = new Dictionary<string, object>
             {
                 ["qualidade"] = "auto",          // auto, alta, media, baixa
-                ["cenario"] = "auto",            // fundo: auto (leve só nas placas de vídeo bem fracas), leve, completo
+                ["cenario"] = "auto",            // fundo: auto (= leve, como a edição Godot da TV Box), leve, completo
+                ["cenario3d"] = "auto",          // nível do cenário 3D: auto (leve nas Mali-400/450), alto, leve
+                ["detalhes"] = true,             // vento nas plantas, enfeites que se mexem, borboletas, sons de ambiente
                 ["nitidez"] = "auto",            // resolução do 3D: auto ou 100%/90%/80%/70%
                 ["fator"] = 1.0,                 // o último fator automático bom (começa dele ao ligar)
                 ["medidor"] = false,             // painel de desempenho na tela (F3 no PC)
@@ -201,17 +203,32 @@ namespace StrikeKids
         public static bool ProtecaoCanaleta() => Bool("jogo", "protecao_canaleta");
         public static bool ModoLivre() => Bool("jogo", "modo_livre");
 
-        /// <summary>Cenário leve (menos objetos no fundo)? "auto": só nas placas de vídeo bem
-        /// fracas (Mali-400/450 e parecidas).</summary>
-        public static bool CenarioLeve()
+        /// <summary>Cenário leve (65% das peças espalhadas, menos partículas)? É o padrão da
+        /// edição Godot da TV Box (strike/video/cenario = leve): "auto" = leve.</summary>
+        public static bool CenarioLeve() => Texto("video", "cenario") != "completo";
+
+        /// <summary>Uma placa de vídeo bem fraca (Mali-400/450 e parecidas)?</summary>
+        public static bool PlacaFraca()
         {
-            string c = Texto("video", "cenario");
-            if (c == "leve") return true;
-            if (c == "completo") return false;
             string g = (SystemInfo.graphicsDeviceName ?? "").ToLowerInvariant();
             return g.Contains("mali-4") || g.Contains("mali-3") || g.Contains("mali-2") || g.Contains("sgx") || g.Contains("videocore")
                 || g.Contains("adreno (tm) 3") || g.Contains("adreno (tm) 2");
         }
+
+        /// <summary>O cenário 3D no nível LEVE (um passo mais leve em cada peça)? "auto": nas placas
+        /// bem fracas (a Mali-450), como na edição Godot; "Detalhes extras" desligado também.</summary>
+        public static bool Cenario3dLeve()
+        {
+            if (!Detalhes()) return true;
+            string c = Texto("video", "cenario3d");
+            if (c == "leve") return true;
+            if (c == "alto") return false;
+            return PlacaFraca();
+        }
+
+        /// <summary>Detalhes extras: vento nas plantas, enfeites perto da pista que se mexem,
+        /// borboletas e os sons de ambiente das fases.</summary>
+        public static bool Detalhes() => Bool("video", "detalhes");
 
         // ------------------------------------------------------------ créditos
         public static int Creditos => _creditos;

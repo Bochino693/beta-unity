@@ -1114,6 +1114,11 @@ namespace StrikeKids
         {
             Controles.Atualizar();
             Tela.Atualizar();
+            // sons de ambiente das fases (Temas): na espera da jogada, na abertura e nas telas —
+            // não durante a bola, o resultado, o replay e as fotos
+            if (mundo != null && mundo.temas != null)
+                mundo.temas.somAmbiente = _menu == null && (estado == E.PRONTO || estado == E.ATRACAO || estado == E.DEMO
+                    || estado == E.JOGADORES || estado == E.PERSONAGEM || estado == E.FIM);
             if (_menu != null) return;
             if (Time.frameCount != _quadroFechou) LerEntrada();
             if (_menu != null) return;
@@ -1860,6 +1865,9 @@ namespace StrikeKids
             Destroy(_menu.gameObject);
             _menu = null;
             _quadroFechou = Time.frameCount;
+            // o nível do cenário 3D troca na hora (é só ligar um nó e desligar o outro)
+            if (mundo != null && mundo.temas != null && Ajustes.Cenario3dLeve() != mundo.temas.cenarioLeve)
+                mundo.temas.NivelCenario(Ajustes.Cenario3dLeve());
             Ui.Ver(hud.Raiz, true);
             cam.cam.enabled = true;
             _parado3d = false;
@@ -1898,7 +1906,7 @@ namespace StrikeKids
         public bool MenuAberto => _menu != null;
 
         /// <summary>O que muda a MONTAGEM do jogo (e não dá para trocar com ele montado).</summary>
-        string AjustesQueRemontam() => "cenario=" + Ajustes.CenarioLeve();
+        string AjustesQueRemontam() => "cenario=" + Ajustes.CenarioLeve() + "|detalhes=" + Ajustes.Detalhes();
 
         IEnumerator Remontar()
         {

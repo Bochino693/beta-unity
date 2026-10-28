@@ -30,6 +30,25 @@ rapido), refeito do zero na Unity para provar que o motor nao e o problema:
     automaticas (medidas enquanto o jogo roda).
 
 
+NOVIDADE: O CENARIO DA EDICAO GODOT 7.6
+---------------------------------------
+Os 4 cenarios agora sao os MESMOS da edicao Godot que roda na TV Box
+(strike-kids-gles2 7.6): os mesmos modelos com textura (atlas de cada
+fase), em 3 niveis de detalhe, o terreno com os patamares (nada entra no
+morro), as mesmas pecas nos mesmos lugares (conferido peca por peca, ate
+0,1 mm), as animacoes (roda-gigante, carrossel, bau que abre, dinos que
+rugem, pterossauros batendo as asas, peixes, borboletas, vento nas
+plantas), os enfeites em cima dos pilares, as nuvens brancas, o ceu com o
+fundo pintado de cada fase e os sons de ambiente (baleia, dino, vulcao,
+carrossel, disco voador, bolhas...).
+  * Trazer de novo depois de mexer na edicao Godot:
+      godot3 --no-window --path <beta>\strike-kids-gles2 -s tools\godot\exportar_cenario.gd -- --saida=<esta pasta>\Assets\StrikeKids\Resources
+  * Conferir contra o Godot (precisa do .NET e do Godot 3.6.3):
+      bash tools/godot/conferir_cenario.sh
+  * Menu do operador / ajustes.json: video > cenario3d (auto/alto/leve) e
+    video > detalhes (vento, enfeites que se mexem, borboletas, vozes).
+
+
 ABRIR NO EDITOR DA UNITY (num PC com a Unity 2022.3 instalada)
 -------------------------------------------------------------
 1. Copie esta pasta para um caminho CURTO, sem acentos (ex.: C:\StrikeKids)

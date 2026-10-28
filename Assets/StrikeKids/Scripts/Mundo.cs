@@ -23,7 +23,8 @@ namespace StrikeKids
         public Transform bola;          // a bola do jogo (as tiras da caçapa abrem quando ela passa)
         public float bolaZ = 100f;      // distância da bola à linha de falta (o brilho da pista)
 
-        Material _matPista, _matCeu, _matAstro, _matBumper, _matLogo;
+        Material _matPista, _matCeu, _matAstro, _matBumper, _matLogo, _matAsasMarca;
+        readonly Dictionary<string, Texture2D> _fundos = new Dictionary<string, Texture2D>();
         readonly Dictionary<string, GameObject> _estruturas = new Dictionary<string, GameObject>();
         readonly List<GameObject> _bumpers = new List<GameObject>();
         readonly List<Collider> _colBumpers = new List<Collider>();
@@ -89,7 +90,23 @@ namespace StrikeKids
             var tg = new GameObject("Temas");
             tg.transform.SetParent(transform, false);
             temas = tg.AddComponent<Temas>();
-            temas.Construir(leve);
+            temas.Construir(this, leve, Ajustes.Detalhes(), Ajustes.Cenario3dLeve());
+            // o pterossauro do símbolo da selva: o mesmo material dos do cenário (as asas
+            // batem no shader); no nível leve, a malha do meio
+            if (_pteroMarca != null)
+            {
+                var mr = _pteroMarca.GetComponentInChildren<MeshRenderer>();
+                if (mr != null)
+                {
+                    _matAsasMarca = temas.MatAsas("dinos");
+                    mr.sharedMaterial = _matAsasMarca;
+                    if (temas.cenarioLeve)
+                    {
+                        var meio = Malhas.Ler("cenario/ptero_meio").partes;
+                        if (meio.Count > 0 && meio[0].malha != null) mr.GetComponent<MeshFilter>().sharedMesh = meio[0].malha;
+                    }
+                }
+            }
             AplicarTema(Temas.ORDEM[0]);
             DefinirProtecao(Ajustes.ProtecaoCanaleta());
         }
@@ -125,8 +142,9 @@ namespace StrikeKids
             _matPista.renderQueue = Reflexos.FILA_PISTA;
             _matBumper = Materiais.Novo("Bumper", "bumper");
             var pc = Malhas.Ler("pista", true);
-            var pular = new HashSet<string> { "lampadas", "tira", "bumper", "mesa", "barra", "porta", "podio_0", "podio_1", "podio_anel_0", "podio_anel_1" };
+            var pular = new HashSet<string> { "lampadas", "tira", "bumper", "mesa", "barra", "porta", "podio_0", "podio_1", "podio_anel_0", "podio_anel_1", "terreno" };
             Malhas.Montar(pc, transform, null, MaterialDaParte, pular);
+            Terreno();
             // o que muda em cada fase (cores e desenhos)
             foreach (var f in Temas.ORDEM)
             {
@@ -162,13 +180,44 @@ namespace StrikeKids
             }
         }
 
+        // ================================================================ terreno
+        /// <summary>metros de um ladrilho da textura de detalhes do chão de cada modo
+        /// (Texturas/cenario/chao_&lt;modo&gt;)</summary>
+        static readonly float[] LADRILHO_CHAO = { 25.2f, 22.4f, 25.3f, 25.0f };
+        Material _matTerreno;
+        readonly Texture2D[] _texturasChao = new Texture2D[4];
+
+        /// <summary>O CHÃO DOS CENÁRIOS: o relevo da edição Godot (Malhas/terreno: os morros e os
+        /// PATAMARES das peças grandes, Temas.AlturaTerreno) e o desenho de cada fase no shader
+        /// (Terreno.shader). As 4 texturas de detalhe já carregadas (trocar de fase não lê do disco).</summary>
+        void Terreno()
+        {
+            _matTerreno = Materiais.Novo("Terreno", "terreno");
+            for (int i = 0; i < _texturasChao.Length; i++)
+            {
+                _texturasChao[i] = Resources.Load<Texture2D>("Texturas/cenario/chao_" + i);
+                if (_texturasChao[i] != null) _texturasChao[i].wrapMode = TextureWrapMode.Repeat;
+            }
+            var pc = Malhas.Ler("terreno");
+            foreach (var p in pc.partes)
+                if (p.malha != null) Malhas.Objeto("terreno", p.malha, _matTerreno, transform);
+        }
+
         // ================================================================ céu e sol
         void Ceu()
         {
             _matCeu = Materiais.Novo("Ceu", "ceu");
             _matCeu.SetTexture(Materiais.ID_TEX, Materiais.Textura("estrelas_ceu"));
+            // os fundos pintados das 4 fases já carregados (trocar de fase não lê do disco)
+            foreach (var f in Temas.ORDEM)
+            {
+                var t = Resources.Load<Texture2D>("Texturas/cenario/fundo_" + f);
+                if (t != null) _fundos[f] = t;
+            }
             var m = new Mesh { name = "ceu" };
-            int gomos = 32, aneis = 16;
+            // (o degradê é por pixel; por vértice só a nebulosa e os raios do mar, que
+            // mudam devagar: 48 x 24 basta)
+            int gomos = 48, aneis = 24;
             var V = new List<Vector3>();
             var U = new List<Vector2>();
             var T = new List<int>();
@@ -362,24 +411,30 @@ namespace StrikeKids
         {
             var pts = Malhas.Ler("pista", true).Achar("lampadas");
             if (pts == null || pts.vertices == null) return;
+            Malhas.Objeto("lampadas", MalhaLampadas(pts.vertices, 0), Materiais.Lampadas, transform);
+        }
+
+        /// <summary>Uma fileira de lâmpadas numa malha só: uma bolinha facetada (octaedro) por
+        /// ponto, com a cor de cada uma (amarela, laranja, azul, verde) e o número dela (UV.x, a
+        /// partir de `fase0`) para o brilho andar (Lampadas.shader).</summary>
+        public static Mesh MalhaLampadas(IList<Vector3> pontos, int fase0, float r = 0.052f)
+        {
             var cores = new[] { Materiais.Hex("#FFE14D"), Materiais.Hex("#FF9F2E"), Materiais.Hex("#4FD8FF"), Materiais.Hex("#8DFF6A") };
-            // uma bolinha facetada (octaedro alongado) por lâmpada, numa malha só
             var bolinha = new[] { new Vector3(0, 1, 0), new Vector3(1, 0, 0), new Vector3(0, 0, 1), new Vector3(-1, 0, 0), new Vector3(0, 0, -1), new Vector3(0, -1, 0) };
             int[] tris = { 0, 2, 1, 0, 3, 2, 0, 4, 3, 0, 1, 4, 5, 1, 2, 5, 2, 3, 5, 3, 4, 5, 4, 1 };
             var V = new List<Vector3>();
             var C = new List<Color32>();
             var U = new List<Vector2>();
             var T = new List<int>();
-            float r = 0.052f;
-            for (int i = 0; i < pts.vertices.Length; i++)
+            for (int i = 0; i < pontos.Count; i++)
             {
-                var c = pts.vertices[i];
+                var c = pontos[i];
                 int b = V.Count;
                 for (int k = 0; k < bolinha.Length; k++)
                 {
                     V.Add(c + bolinha[k] * r);
                     C.Add(cores[i % cores.Length]);
-                    U.Add(new Vector2(i, bolinha[k].z > 0.5f ? 1f : 0.35f));
+                    U.Add(new Vector2(i + fase0, bolinha[k].z > 0.5f ? 1f : 0.35f));
                 }
                 for (int k = 0; k < tris.Length; k++) T.Add(b + tris[k]);
             }
@@ -389,7 +444,7 @@ namespace StrikeKids
             m.SetUVs(0, U);
             m.SetTriangles(T, 0);
             m.RecalculateBounds();
-            Malhas.Objeto("lampadas", m, Materiais.Lampadas, transform);
+            return m;
         }
 
         void Logos()
@@ -443,15 +498,18 @@ namespace StrikeKids
             b.transform.localPosition = new Vector3(0, -0.35f, 0);
             Logo(parque, 0.42f, new Vector3(0, 0.0f, 0.26f));
             _marcas["parque"] = parque;
-            // Espaço: um planetinha roxo com anel, a logo na frente
+            // Espaço: um planetinha roxo com anel amarelo, a logo na frente (como na edição Godot)
             var espaco = Novo("marca_espaco");
             var mp = Materiais.Novo("Facetado", "planeta_marca");
-            mp.SetColor(Materiais.ID_TINTA, Materiais.Hex("#B9A8FF"));
-            var pl = Malhas.Montar(Malhas.Ler("cenario/planeta_anel"), espaco, null, p => p.material == "luz" ? Materiais.SemLuz : mp);
-            pl.transform.localScale = Vector3.one * 0.3f;
-            // o anel deitado passa por baixo da logo (não cobre o desenho da bola)
-            pl.transform.localRotation = Quaternion.Euler(0, 0, 20.6f);
-            Logo(espaco, 0.4f, new Vector3(0, 0, 0.33f));
+            mp.SetColor(Materiais.ID_TINTA, Materiais.Hex("#7B61FF"));
+            Malhas.Objeto("planeta", EsferaSimples(0.27f, 24, 12, new Color32(255, 255, 255, 255)), mp, espaco);
+            // o anel passa por baixo da logo (inclinado para a frente)
+            var ma = Materiais.Novo("Facetado", "anel_marca");
+            ma.SetColor(Materiais.ID_TINTA, Materiais.Hex("#FFD43B"));
+            var anel = Malhas.Objeto("anel", Toro(1.32f * 0.27f, 1.62f * 0.27f, 48, 8), ma, espaco);
+            anel.transform.localRotation = Medidas.GRot(32f, 0f, -12f);
+            anel.transform.localScale = new Vector3(1f, 0.35f, 1f);
+            Logo(espaco, 0.4f, new Vector3(0, 0, 0.29f));
             _marcas["espaco"] = espaco;
             // Mar: uma bolha de vidro com a logo dentro e bolhinhas subindo
             var mar = Novo("marca_mar");
@@ -464,26 +522,88 @@ namespace StrikeKids
                 _bolhinhas.Add(bi.transform);
             }
             _marcas["mar"] = mar;
-            // Selva dos Dinos: o pterossauro segurando a plaquinha de madeira com a logo
+            // Selva dos Dinos: um pterossauro BATENDO AS ASAS (no shader do cenário, Temas.MatAsas)
+            // segurando pelas patas a plaquinha de madeira com a logo: as duas cordinhas saem dos
+            // cantos de cima da placa (argolinhas douradas) e terminam nas patas dele. Ele, as
+            // cordas e a placa sobem e descem juntos ("voo") no ritmo das asas.
             var dinos = Novo("marca_dinos");
-            var placa = Malhas.Objeto("placa", CaixaSimples(0.74f, 0.52f, 0.05f, new Color32(122, 74, 34, 255)), Materiais.Facetado, dinos);
+            _vooMarca = new GameObject("voo").transform;
+            _vooMarca.SetParent(dinos, false);
+            var placa = Malhas.Objeto("placa", CaixaSimples(0.74f, 0.52f, 0.05f, new Color32(122, 74, 34, 255)), Materiais.Facetado, _vooMarca);
             placa.transform.localPosition = new Vector3(0, 0, -0.012f);
-            var frente = Malhas.Objeto("frente", CaixaSimples(0.68f, 0.46f, 0.05f, new Color32(255, 233, 194, 255)), Materiais.Facetado, dinos);
+            var frente = Malhas.Objeto("frente", CaixaSimples(0.68f, 0.46f, 0.05f, new Color32(255, 233, 194, 255)), Materiais.Facetado, _vooMarca);
             frente.transform.localPosition = new Vector3(0, 0, 0.002f);
-            Logo(dinos, 0.6f, new Vector3(0, 0, 0.03f));
-            var nos = new Dictionary<string, Transform>();
-            var pt = Malhas.Montar(Malhas.Ler("cenario/ptero"), dinos, nos);
-            pt.transform.localPosition = new Vector3(0, 0.66f, 0.02f);
-            pt.transform.localScale = Vector3.one * 0.62f;
+            Logo(_vooMarca, 0.6f, new Vector3(0, 0, 0.03f));
+            var mc = Materiais.Novo("Facetado", "corda_marca");
+            mc.SetColor(Materiais.ID_TINTA, Materiais.Hex("#5A3A1A"));
+            var ouro = Materiais.Novo("Facetado", "argola_marca");
+            ouro.SetColor(Materiais.ID_TINTA, Materiais.Hex("#FFC93B"));
+            foreach (float lado in new[] { -1f, 1f })
+            {
+                var canto = new Vector3(lado * 0.3f, 0.258f, -0.012f);
+                var pe = PTERO_MARCA_POS + new Vector3(lado * PTERO_PE.x, PTERO_PE.y, PTERO_PE.z) * PTERO_MARCA_ESC;
+                var corda = Malhas.Objeto("corda", EsferaSimples(1f, 5, 2, new Color32(255, 255, 255, 255)), mc, _vooMarca);
+                corda.transform.localPosition = (canto + pe) * 0.5f;
+                corda.transform.localRotation = Quaternion.FromToRotation(Vector3.up, pe - canto);
+                corda.transform.localScale = new Vector3(0.0065f, (pe - canto).magnitude * 0.5f, 0.0065f);
+                var argola = Malhas.Objeto("argola", EsferaSimples(0.016f, 8, 4, new Color32(255, 255, 255, 255)), ouro, _vooMarca);
+                argola.transform.localPosition = canto;
+            }
+            var pt = Malhas.Montar(Malhas.Ler("cenario/ptero"), _vooMarca);
+            pt.transform.localPosition = PTERO_MARCA_POS;
+            pt.transform.localScale = Vector3.one * PTERO_MARCA_ESC;
             _pteroMarca = pt.transform;
-            _asasMarca = new[] { nos.TryGetValue("asa_e", out var ae) ? ae : null, nos.TryGetValue("asa_d", out var ad) ? ad : null };
             _marcas["dinos"] = dinos;
             balao = parque;
         }
 
-        Transform[] _asasMarca = new Transform[0];
+        Transform _vooMarca;
+        static readonly Vector3 PTERO_MARCA_POS = new Vector3(0f, 0.66f, 0.02f);
+        const float PTERO_MARCA_ESC = 0.62f;
+        /// <summary>a pata no modelo (espelhada: x ao contrário do Godot; o par é simétrico)</summary>
+        static readonly Vector3 PTERO_PE = new Vector3(0.06f, -0.135f, -0.215f);
+        const float ASAS_MARCA = 6.2f;   // batidas (rad/s)
 
-        static Mesh EsferaSimples(float r, int gomos, int aneis)
+        /// <summary>Um toroide deitado (no plano XZ): raio de dentro e de fora.</summary>
+        static Mesh Toro(float dentro, float fora, int gomos, int lados)
+        {
+            float rm = (dentro + fora) * 0.5f, rt = (fora - dentro) * 0.5f;
+            var V = new List<Vector3>();
+            var N = new List<Vector3>();
+            var C = new List<Color32>();
+            var T = new List<int>();
+            for (int i = 0; i <= gomos; i++)
+            {
+                float a = 2f * Mathf.PI * i / gomos;
+                var d = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                for (int j = 0; j <= lados; j++)
+                {
+                    float b = 2f * Mathf.PI * j / lados;
+                    var n = d * Mathf.Cos(b) + Vector3.up * Mathf.Sin(b);
+                    V.Add(d * rm + n * rt);
+                    N.Add(n);
+                    C.Add(new Color32(255, 255, 255, 255));
+                }
+            }
+            for (int i = 0; i < gomos; i++)
+                for (int j = 0; j < lados; j++)
+                {
+                    int a = i * (lados + 1) + j, b = a + lados + 1;
+                    T.Add(a); T.Add(a + 1); T.Add(b);
+                    T.Add(b); T.Add(a + 1); T.Add(b + 1);
+                }
+            var m = new Mesh { name = "toro" };
+            m.SetVertices(V);
+            m.SetNormals(N);
+            m.SetColors(C);
+            m.SetTriangles(T, 0);
+            m.RecalculateBounds();
+            return m;
+        }
+
+        static Mesh EsferaSimples(float r, int gomos, int aneis) => EsferaSimples(r, gomos, aneis, new Color32(220, 248, 255, 60));
+
+        static Mesh EsferaSimples(float r, int gomos, int aneis, Color32 cor)
         {
             var V = new List<Vector3>();
             var N = new List<Vector3>();
@@ -498,7 +618,7 @@ namespace StrikeKids
                     var n = new Vector3(Mathf.Cos(a) * Mathf.Sin(b), Mathf.Cos(b), Mathf.Sin(a) * Mathf.Sin(b));
                     V.Add(n * r);
                     N.Add(n);
-                    C.Add(new Color32(220, 248, 255, 60));
+                    C.Add(cor);
                 }
             }
             for (int j = 0; j < aneis; j++)
@@ -658,6 +778,12 @@ namespace StrikeKids
             _matCeu.SetColor("_CorSol", c.corSol);
             _matCeu.SetFloat("_ForcaSol", c.forcaSol);
             _matCeu.SetFloat("_Estrelas", c.estrelas);
+            _matCeu.SetColor("_CorNebulosa", c.nebulosa);
+            _matCeu.SetFloat("_Raios", c.raios);
+            // o fundo pintado da fase (a paisagem lá longe), com os detalhes extras
+            bool temFundo = _fundos.TryGetValue(nome, out var fundo);
+            _matCeu.SetFloat("_FaixaLiga", temFundo && temas.detalhes ? 1f : 0f);
+            if (temFundo) _matCeu.SetTexture("_Faixa", fundo);
             var cam = Camera.main;
             if (cam != null) cam.backgroundColor = c.ceu[2];
             // a luz: sol, céu e chão (ambiente), contraluz e neblina
@@ -669,12 +795,37 @@ namespace StrikeKids
             Materiais.DefinirLuz(DIR_SOL, sol, ceu, chao, borda, c.neblina, dens);
             // o que as peças lustrosas (pinos, bola) refletem: o céu da fase, a pista, o neon
             Materiais.DefinirMatcap(c.ceu[0], c.ceu[2], PISO_REFLETIDO, c.neon);
-            // o chão da fase
-            var mc = Materiais.Chao;
-            mc.SetColor("_Cor0", c.chao[0]);
-            mc.SetColor("_Cor1", c.chao[1]);
-            mc.SetColor("_Cor2", c.chao[2]);
-            mc.SetColor("_Cor3", c.chao[3]);
+            // A LUZ DO CENÁRIO (a decoração e o chão), a mesma da edição Godot: sol e ambiente
+            // lineares, com a força de cada fase, e a neblina do fundo (por vértice: é ela
+            // que deixa o mar verde-água ao longe)
+            Color amb = Materiais.Vezes(c.ambiente.linear, c.ambienteForcaCenario);
+            Color solLin = Materiais.Vezes(c.sol.linear, c.solForcaCenario);
+            Color nb = c.neblina.linear;
+            var solCor = new Vector3(solLin.r, solLin.g, solLin.b);
+            var ambV = new Vector3(amb.r, amb.g, amb.b);
+            var neblinaV = new Vector3(nb.r, nb.g, nb.b);
+            temas.Luz(DIR_SOL, solCor, ambV, neblinaV, c.neblinaDensidadeCenario);
+            // o chão da fase: o desenho (modo), os detalhes que se repetem e as cores (lineares)
+            var mt = _matTerreno;
+            if (mt != null)
+            {
+                mt.SetVector("_SolCor", solCor);
+                mt.SetVector("_Ambiente", ambV);
+                mt.SetVector("_NeblinaCor", neblinaV);
+                mt.SetFloat("_NeblinaDensidade", c.neblinaDensidadeCenario);
+                int modo = Mathf.Clamp(c.chaoModo, 0, 3);
+                mt.SetFloat("_Modo", modo);
+                if (_texturasChao[modo] != null) mt.SetTexture("_Detalhe", _texturasChao[modo]);
+                mt.SetFloat("_DetalheTile", LADRILHO_CHAO[modo]);
+                string[] cores = { "_LinA", "_LinB", "_LinC", "_LinD" };
+                for (int i = 0; i < 4; i++)
+                {
+                    var l = c.chao[i].linear;
+                    mt.SetVector(cores[i], new Vector4(l.r, l.g, l.b, 0f));
+                }
+                // a terra da selva
+                mt.SetVector("_Terra", new Vector4(0.45f, 0.32f, 0.17f, 0f));
+            }
             // a pista: neon e reflexo do portal; para-choques
             _matPista.SetColor("_CorLuz", c.neon);
             _matPista.SetColor("_CorReflexo", c.portal[0]);
@@ -686,6 +837,10 @@ namespace StrikeKids
             MostrarAstro(nome);
             temas.Mostrar(nome);
         }
+
+        /// <summary>A baleia do Fundo do Mar canta (a voz dela no Temas). A baleia 3D nadando no
+        /// céu da edição Godot ainda não existe nesta edição: por enquanto só o canto.</summary>
+        public void BaleiaCantar(float dur) { }
 
         // ================================================================ animação
         public void AcenderPista(bool ligar) => _luzAlvo = ligar ? 1f : 0f;
@@ -738,16 +893,14 @@ namespace StrikeKids
                 case "dinos":
                     {
                         balao.localRotation = Quaternion.Euler(Mathf.Sin(_t * 0.7f) * 2.9f, -Mathf.Sin(_t * 0.4f) * 12.6f, -Mathf.Sin(_t * 0.9f) * 3.4f);
-                        if (_pteroMarca != null)
+                        // bate as asas (o shader) e, a cada batida para baixo, o bicho sobe um
+                        // pouquinho levando a placa junto, e balança de leve
+                        float batida = Mathf.Repeat(_t * ASAS_MARCA, Mathf.PI * 2f);
+                        if (_matAsasMarca != null) _matAsasMarca.SetFloat("_AsaTempo", batida);
+                        if (_vooMarca != null)
                         {
-                            _pteroMarca.localPosition = new Vector3(0, 0.66f + Mathf.Sin(_t * 5f) * 0.025f, 0.02f);
-                            _pteroMarca.localRotation = Quaternion.Euler(Mathf.Sin(_t * 5f) * 4.6f, 0, 0);
-                            float bate = Mathf.Sin(_t * 10f) * 30f;
-                            if (_asasMarca.Length > 1)
-                            {
-                                if (_asasMarca[0] != null) _asasMarca[0].localRotation = Quaternion.Euler(0, 0, bate);
-                                if (_asasMarca[1] != null) _asasMarca[1].localRotation = Quaternion.Euler(0, 0, -bate);
-                            }
+                            _vooMarca.localPosition = new Vector3(0f, -Mathf.Cos(batida) * 0.028f, 0f);
+                            _vooMarca.localRotation = Quaternion.Euler(Mathf.Sin(batida) * 0.035f * Mathf.Rad2Deg, 0f, 0f);
                         }
                         break;
                     }
