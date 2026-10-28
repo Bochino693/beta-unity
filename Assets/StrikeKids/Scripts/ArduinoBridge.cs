@@ -21,13 +21,20 @@ namespace StrikeKids
     ///   * a fita de LED (MENU, STRIKE, SPARE...).
     ///
     /// Protocolo (linhas de texto, 9600):
-    ///   Arduino -> jogo: OLA:STRIKE_KIDS:2, PONG:STRIKE_KIDS:2, S:1..S:5, CFG,
+    ///   Arduino -> jogo: OLA:STRIKE_KIDS:3, PONG:STRIKE_KIDS:3, S:1..S:5, CFG,
     ///     START, FICHA, SENS:00100 (ao vivo, no teste), PORTA:ABERTA/FECHADA
     ///     (com a ponte H, quando a porta chega), CAL:OK:HHHHH, INFO:...,
-    ///     AVISO:SEM_JOGO, AVISO:PORTA_TRAVOU (o fim de curso não chegou)
-    ///   (o firmware 1, sem a ponte H, também conecta: o protocolo é o mesmo)
+    ///     PONTE:TEMPO:1500:FC:0, AVISO:SEM_JOGO, AVISO:PORTA_TRAVOU (o fim de
+    ///     curso não chegou)
+    ///   (os firmwares 1 e 2 também conectam: o protocolo é o mesmo)
     ///   jogo -> Arduino: PING, PORTA:ABRE, PORTA:FECHA, PORTA?, SENS?, TESTE:1,
-    ///     TESTE:0, CALIBRA, INFO?, MENU, IDLE, STRIKE...
+    ///     TESTE:0, CALIBRA, INFO?, PONTE:TEMPO:&lt;ms&gt;, PONTE:FC:&lt;0|1&gt;, PONTE?,
+    ///     MENU, IDLE, STRIKE...
+    /// PONTE H da porta (firmware 3): o tempo do motor e o fim de curso vêm do
+    /// menu do operador ("Porta: tempo do motor", "Porta: fim de curso"); o jogo
+    /// manda ao conectar (antes da porta) e a cada mudança, e o Arduino guarda
+    /// na EEPROM (vale já ao ligar, antes de o jogo abrir). O firmware 2 ignora
+    /// (usa os PONTE_* do .ino).
     /// O firmware antigo só de LEDs (DRAGON_BOWLING) também conecta (só LEDs).
     ///
     /// No PC não tem Arduino: o teclado faz tudo (A S D F G = sensores, 1 =
@@ -72,6 +79,8 @@ namespace StrikeKids
         public static bool PortaQuer;
         /// <summary>O último AVISO: do Arduino (PORTA_TRAVOU, SEM_JOGO); a porta chegou = "".</summary>
         public static string Aviso = "";
+        /// <summary>O que o Arduino usa na ponte H: "TEMPO:1500:FC:0" ("" = não disse).</summary>
+        public static string Ponte = "";
 
         /// <summary>STRIKE_KIDS:1 (ou DRAGON_BOWLING:1, o antigo só de LEDs); "" = desconectado.</summary>
         public static string Firmware { get; private set; } = "";
@@ -502,6 +511,7 @@ namespace StrikeKids
             Firmware = "";
             Sensores = "";
             Aviso = "";
+            Ponte = "";
             _lastLedSent = "";
             _fase = Fase.Procurando;
             _ultimaProcura = Agora();
@@ -569,6 +579,11 @@ namespace StrikeKids
                 Info = linha.Substring(5);
                 Mudar();
             }
+            else if (linha.StartsWith("PONTE:", StringComparison.Ordinal))
+            {
+                Ponte = linha.Substring(6);
+                Mudar();
+            }
             else if (linha.StartsWith("AVISO:", StringComparison.Ordinal))
             {
                 Aviso = linha.Substring(6);
@@ -593,6 +608,8 @@ namespace StrikeKids
             if (fw.StartsWith("STRIKE_KIDS", StringComparison.Ordinal))
             {
                 DefinirStatus("Arduino conectado (" + Chip + "): sensores, botão e porta OK");
+                Ponte = "";
+                EnviarPonte();   // antes da porta: ela já anda no tempo/fim de curso do menu
                 EnviarPorta();
                 Enviar(_teste ? "TESTE:1" : "TESTE:0");
                 Enviar("INFO?");
@@ -626,6 +643,29 @@ namespace StrikeKids
             if (!Completo()) return;
             bool abre = PortaQuer != Ajustes.Bool("arduino", "porta_invertida");
             Enviar(abre ? "PORTA:ABRE" : "PORTA:FECHA");
+        }
+
+        /// <summary>A versão do firmware (STRIKE_KIDS:3 -> 3; 0 = sem Arduino ou o antigo).</summary>
+        public static int Versao()
+        {
+            if (!Completo()) return 0;
+            int.TryParse(Firmware.Substring(Firmware.IndexOf(':') + 1), out int v);
+            return v;
+        }
+
+        /// <summary>A ponte H como o menu do operador escolheu, no jeito da resposta do Arduino ("TEMPO:1500:FC:0").</summary>
+        public static string PontePedida() =>
+            "TEMPO:" + Ajustes.Int("arduino", "porta_tempo") + ":FC:" + (Ajustes.Bool("arduino", "porta_fim_de_curso") ? 1 : 0);
+
+        /// <summary>
+        /// O tempo do motor e o fim de curso (menu do operador) para o Arduino, que
+        /// guarda na EEPROM e responde PONTE:TEMPO:...:FC:... (o firmware 2 ignora).
+        /// </summary>
+        public static void EnviarPonte()
+        {
+            if (!Completo()) return;
+            Enviar("PONTE:TEMPO:" + Ajustes.Int("arduino", "porta_tempo"));
+            Enviar("PONTE:FC:" + (Ajustes.Bool("arduino", "porta_fim_de_curso") ? 1 : 0));
         }
 
         /// <summary>Teste dos sensores (menu): o Arduino manda o estado ao vivo (Sensores).</summary>

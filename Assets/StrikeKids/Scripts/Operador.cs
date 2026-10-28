@@ -68,6 +68,9 @@ namespace StrikeKids
             new Item("Sensores invertidos (direita/esquerda)", "arduino", "sensores_invertidos", "bool"),
             new Item("> TESTE DA PORTA (trava das bolas)", "", "porta", "acao"),
             new Item("Porta invertida", "arduino", "porta_invertida", "bool"),
+            new Item("Porta: tempo do motor (ponte H sem fim de curso)", "arduino", "porta_tempo", "lista",
+                500, 800, 1000, 1200, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000),
+            new Item("Porta: fim de curso (micro-switch A3/A4)", "arduino", "porta_fim_de_curso", "bool"),
             new Item("> TESTE DA CÂMERA", "", "camera", "acao"),
             new Item("> ZERAR RECORDES", "", "recordes", "acao"),
             new Item("> RESTAURAR PADRÃO DE FÁBRICA", "", "padrao", "acao"),
@@ -178,6 +181,7 @@ namespace StrikeKids
         {
             if (it.tipo == "acao") return "";
             var v = ValorAtual(it);
+            if (it.chave == "porta_tempo") return Segundos(Json.Int(v));
             switch (it.tipo)
             {
                 case "bool": return Json.Bool(v) ? "SIM" : "NÃO";
@@ -192,6 +196,14 @@ namespace StrikeKids
                 }
             }
             return Json.Str(v);
+        }
+
+        /// <summary>1500 -> "1,5 s"</summary>
+        static string Segundos(int ms)
+        {
+            string t = (ms / 1000).ToString();
+            if (ms % 1000 != 0) t += "," + (ms % 1000 / 100);
+            return t + " s";
         }
 
         void Atualizar()
@@ -369,6 +381,7 @@ namespace StrikeKids
                 if (Json.Bool(v)) Fotos.PedirPermissaoAgora();
             }
             if (it.chave == "porta_invertida") ArduinoBridge.ReenviarPorta();
+            if (it.chave == "porta_tempo" || it.chave == "porta_fim_de_curso") ArduinoBridge.EnviarPonte();
             Sons.AtualizarVolume();
             Sons.Tocar("selecao");
         }
@@ -426,6 +439,8 @@ namespace StrikeKids
                     break;
                 case "padrao":
                     Ajustes.RestaurarPadrao();
+                    ArduinoBridge.EnviarPonte();   // a ponte H volta ao de fábrica também
+                    ArduinoBridge.ReenviarPorta();
                     Sons.Tocar("pop");
                     break;
                 case "voltar":
@@ -465,6 +480,22 @@ namespace StrikeKids
         }
 
         /// <summary>Teste da porta: o que o jogo pediu e o que o Arduino confirmou.</summary>
+        /// <summary>A ponte H como o Arduino está usando (o tempo e o fim de curso do menu).</summary>
+        static string TextoPonte()
+        {
+            int versao = ArduinoBridge.Versao();
+            if (versao < 3)
+                return "Firmware antigo (versão " + versao + "): grave o arduino/strike_kids novo\n" +
+                    "para o tempo e o fim de curso do menu valerem";
+            if (ArduinoBridge.Info.Contains("PONTE_H=0")) return "Ponte H desligada no Arduino (USAR_PONTE_H 0): só servo/relé";
+            string t = Ajustes.Bool("arduino", "porta_fim_de_curso")
+                ? "Ponte H: anda até o FIM DE CURSO (A3 aberta, A4 fechada)"
+                : "Ponte H: anda " + Segundos(Ajustes.Int("arduino", "porta_tempo")) + " (\"Porta: tempo do motor\")";
+            if (ArduinoBridge.Ponte != "" && ArduinoBridge.Ponte != ArduinoBridge.PontePedida())
+                t += "\n(mandando ao Arduino...)";
+            return t;
+        }
+
         void MostrarPorta()
         {
             string t = "TESTE DA PORTA (trava das bolas)\n\n";
@@ -475,6 +506,7 @@ namespace StrikeKids
                 t += "Porta: " + pedida + "\n" + (confirmada == pedida ? "(o Arduino confirmou)" : "(esperando o Arduino...)") + "\n\n";
                 if (ArduinoBridge.Aviso == "PORTA_TRAVOU")
                     t += "A PORTA NÃO CHEGOU: confira o motor, a ponte H e o fim de curso\n\n";
+                t += TextoPonte() + "\n\n";
                 t += "C ou START: abre / fecha\nCONFIGURAÇÃO: sai (a porta fecha)\n\n" +
                     "Abriu quando devia fechar? Ligue \"Porta invertida\" no menu\n(ponte H com fim de curso: inverta os fios do motor).";
             }
