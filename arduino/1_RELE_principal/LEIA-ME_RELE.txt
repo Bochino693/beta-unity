@@ -1,0 +1,209 @@
+STRIKE KIDS - ARDUINO VERSAO 1: RELE (A PRINCIPAL)
+===================================================
+Pasta arduino/1_RELE_principal/:
+  strike_kids_rele/strike_kids_rele.ino   o codigo para gravar no Arduino
+  ligacao_arduino_rele.pdf                o desenho da montagem (A3, imprima)
+  ligacao_arduino_rele.png / .svg         o mesmo desenho em imagem
+  LEIA-ME_RELE.txt                        este passo a passo
+
+
+1. PARA QUE SERVE
+-----------------
+A porta (trava) das bolas e acionada por um RELE: o Arduino liga e desliga
+o rele, e o contato do rele liga a TRAVA SOLENOIDE 12 V (ou um ELETROIMA)
+na fonte de 12 V. Junto com o rele (ou no lugar dele) pode ir um SERVO.
+E a montagem da PRIMEIRA VERSAO da maquina - SEM ponte H.
+
+Use esta versao se a porta das bolas tem:
+  - trava solenoide 12 V (fechadura eletrica), ou
+  - eletroima 12 V que segura a porta fechada, ou
+  - servo motor (MG996R e parecidos), ou
+  - nenhuma trava (maquina so no modo livre).
+Porta aberta e fechada por MOTOR DC ou ATUADOR LINEAR: use a 2_PONTE_H.
+
+
+2. LISTA DE PECAS
+-----------------
+Obrigatorio:
+  - 1 Arduino Nano (original ou clone CH340) - ou Uno, Pro Mini 5 V, Mega
+  - 1 cabo USB do Arduino ate a TV Box (dados + alimenta o Arduino)
+  - 5 sensores da pista: optico/infravermelho com saida NPN, chave ou
+    micro-switch
+  - 1 modulo rele 5 V de 1 canal (SRD-05VDC; pinos IN, VCC, GND e o borne
+    NO / COM / NC)
+  - 1 trava solenoide 12 V (fechadura eletrica) OU 1 eletroima 12 V
+  - 1 diodo 1N4007 (protege o rele e o Arduino do pico da bobina da trava)
+  - 1 fonte 12 V, 2 A ou mais (trava + moedeiro)
+  - 1 botao CONFIGURACAO (entra e sai do menu do operador)
+Opcional:
+  - servo MG996R (ou parecido) + 1 fonte 5-6 V so para ele
+  - botao START (na maquina sem botoes a BOLA e o START; o START da placa
+    Zero Delay tambem vale)
+  - moedeiro CH-926 (ou parecido) - so no MODO FICHAS
+  - fita de LED WS2812 (60 LEDs) + fonte 5 V propria (3,6 A) + resistor de
+    330 ohm + capacitor de 1000 uF
+  - bornes, fios, termo-retratil
+
+
+3. LIGACAO PINO A PINO (Nano / Uno / Pro Mini; Mega: servo no D11)
+-------------------------------------------------------------------
+  PINO  LIGA EM                                   OBS
+  ----  ----------------------------------------  ------------------------
+  D2    sinal do sensor S1 (ESQUERDA)             olhando da crianca
+  D3    sinal do sensor S2 (meio-esquerda)          para os pinos
+  D4    sinal do sensor S3 (CENTRO)
+  D5    sinal do sensor S4 (meio-direita)
+  D7    sinal do sensor S5 (DIREITA)
+  D6    DIN da fita de LED (330 ohm no caminho)   opcional
+  D8    IN do modulo rele                         A TRAVA
+  D9    sinal do servo (fio laranja/amarelo)      opcional
+  D13   LED da placa (pisca a cada sensor/botao)  ja vem na placa
+  A0    botao CONFIGURACAO (o outro fio no GND)
+  A1    botao START (o outro fio no GND)          opcional
+  A2    COIN do moedeiro                          opcional (modo fichas)
+  5V    VCC do modulo rele; + dos sensores de 5 V
+  GND   GND de TUDO: rele, sensores, botoes, moedeiro, fontes, servo
+  D10, D11, D12, A3 e A4 ficam LIVRES (sao da ponte H na outra versao).
+
+Sensores: o sinal no pino e o - no GND (o pino ja tem pull-up). Cores
+comuns: marrom = +, azul = -, preto = sinal. Sensor de 12 V: o + na fonte
+de 12 V, o - no GND comum e SO o preto no pino. Sempre saida NPN - NUNCA
+PNP (o PNP manda 12 V no pino e queima o Arduino).
+Moedeiro: COIN no A2, GND no GND, DC12V na fonte de 12 V, COUNTER solto.
+NA ou NF, os dois funcionam (1 pulso = 1 ficha). Se ele manda 12 V no
+COIN, use um optoacoplador.
+
+
+4. A TRAVA PELO RELE
+--------------------
+      + da fonte 12 V  ------------>  COM do rele
+      NO do rele       ------------>  + da trava
+      - da trava       ------------>  - da fonte 12 V (e no GND do Arduino)
+      diodo 1N4007 entre os 2 fios da trava, a FAIXA no +
+      NC do rele: solto
+
+  - O rele LIGA com a porta ABERTA (RELE_LIGADO_ABERTA 1): a trava
+    solenoide comum (fechadura) solta a lingueta quando recebe 12 V.
+  - ELETROIMA que segura a porta fechada (precisa ficar ligado com a porta
+    fechada): ligue no NC no lugar do NO e deixe RELE_TEMPO_MAX_S 0. Assim,
+    se faltar energia, a porta fica presa.
+  - Trava solenoide comum ESQUENTA se ficar ligada muito tempo: no comeco
+    do .ino troque RELE_TEMPO_MAX_S 0 para 5 (liga 5 s e solta; para o jogo
+    a porta continua "aberta").
+  - Modulo rele que liga com HIGH (alguns tem o jumper H/L no H):
+    RELE_LIGA_EM_LOW 0.
+  - A trava NUNCA direto no Arduino: so pelo contato do rele.
+
+
+5. O SERVO (opcional, junto com o rele ou no lugar dele)
+-------------------------------------------------------
+  sinal (laranja/amarelo) -> D9 (Mega: D11)
+  + (vermelho) e - (marrom) -> fonte 5-6 V propria (nunca o 5 V do Arduino)
+  o - dessa fonte tambem no GND do Arduino
+  Angulos: SERVO_FECHADA 0 e SERVO_ABERTA 90 (de 0 a 180). Sem servo:
+  USAR_SERVO 0.
+
+
+6. AJUSTES NO COMECO DO .INO (secao "AJUSTES")
+----------------------------------------------
+  USAR_PONTE_H 0         esta versao (NAO mude; com ponte H use a 2_PONTE_H)
+  USAR_RELE 1            0 = sem rele (o D8 fica livre)
+  USAR_SERVO 1           0 = sem servo (o D9 fica livre)
+  USAR_LEDS 1            0 = sem fita de LED (ou sem a biblioteca NeoPixel)
+  NUM_LEDS 60            quantos LEDs tem a fita
+  BRILHO 180             brilho da fita (0 a 255)
+  RELE_LIGA_EM_LOW 1     modulo comum (liga com LOW); 0 = liga com HIGH
+  RELE_LIGADO_ABERTA 1   rele ligado com a porta ABERTA; 0 = ao contrario
+  RELE_TEMPO_MAX_S 0     0 = sem limite; trava solenoide comum: 5
+  SERVO_FECHADA 0        angulo do servo com a porta fechada
+  SERVO_ABERTA 90        angulo do servo com a porta aberta
+  SERVO_GRAUS_POR_S 240  velocidade do servo
+  SERVO_SOLTA_PARADO 0   1 = o servo para de segurar 1 s depois de chegar
+  SEM_JOGO_FECHA_MS      15000 = sem noticia do jogo por 15 s, fecha a porta
+  (os PONTE_* e FC_* nao valem nesta versao)
+
+
+7. COMO GRAVAR NO ARDUINO
+-------------------------
+  1. Instale a IDE do Arduino (arduino.cc) no PC.
+  2. Arquivo > Abrir > arduino/1_RELE_principal/strike_kids_rele/
+     strike_kids_rele.ino (deixe o .ino dentro da pasta strike_kids_rele:
+     a IDE exige a pasta com o mesmo nome do arquivo).
+  3. Com a fita de LED: Ferramentas > Gerenciar bibliotecas > procure
+     "Adafruit NeoPixel" > Instalar. Sem a fita: troque USAR_LEDS 1 para
+     USAR_LEDS 0.
+  4. Ferramentas > Placa: "Arduino Nano" (ou Uno / Mega).
+     Nano clone (CH340): Ferramentas > Processador: "ATmega328P (Old
+     Bootloader)". Ferramentas > Porta: a COM do Arduino.
+  5. Carregar (botao da seta ->). "Carregado." = pronto.
+
+
+8. TESTAR SEM O JOGO (Monitor Serial da IDE)
+--------------------------------------------
+Ferramentas > Monitor Serial, 9600 baud, "Nova linha". Ao abrir aparece:
+    OLA:STRIKE_KIDS:3
+Mande (digite e Enter):
+    PORTA:ABRE   o rele liga (clique), o servo vai a 90 graus
+                 resposta: PORTA:ABERTA
+    PORTA:FECHA  o rele desliga, o servo volta a 0
+                 resposta: PORTA:FECHADA
+    INFO?        INFO:STRIKE_KIDS:3:LEDS=1:SERVO=9:RELE=8:PONTE_H=0:...
+                 (PONTE_H=0 = esta versao, sem ponte H)
+    TESTE:1      os sensores ao vivo: SENS:00000 (1 = bola passando)
+    TESTE:0      para
+    CALIBRA      com a pista VAZIA: guarda o "sem bola" de cada sensor
+                 resposta: CAL:OK:HHHHH
+    STRIKE / MENU / OFF   efeitos da fita de LED
+Passe a mao num sensor: aparece S:1 ... S:5. Botoes: CFG, START, FICHA.
+Com a porta aberta e sem nenhum comando por 15 s, ela fecha sozinha
+(AVISO:SEM_JOGO) - e o que acontece se o cabo da TV Box soltar.
+
+
+9. NO JOGO (TV Box)
+-------------------
+  - Cabo USB do Arduino na TV Box e abra o jogo; na janela do Android
+    marque "Usar por padrao" e OK (uma vez so).
+  - Botao CONFIGURACAO -> MENU DO OPERADOR:
+      > TESTE DOS SENSORES: passe a bola em cada sensor (acende ao vivo)
+      > CALIBRAR SENSORES (pista vazia)
+      > TESTE DA PORTA (trava das bolas): C ou START abre e fecha; aparece
+        "Arduino do RELE/SERVO (sem ponte H): confirma a porta na hora"
+      Porta invertida ................ troca aberta e fechada
+      Sensores invertidos ............ esquerda e direita trocadas
+      Modo livre (sem ficha e sem trava) ... SIM ou NAO
+      Fichas por jogador ............. 1 (padrao)
+    ("Porta: tempo do motor" e "Porta: fim de curso" sao so da ponte H:
+    com este Arduino aparecem como "rele: nao usa".)
+  - O QUE O JOGO FAZ COM A TRAVA:
+      MODO LIVRE: sem trava - a porta fica sempre aberta e a BOLA e o
+        START (outra bola logo depois = 2 jogadores).
+      MODO FICHAS: sem ficha a trava fica FECHADA (a tela pede INSIRA
+        FICHA). A FICHA ABRE a trava e a BOLA e o START:
+          1 ficha  = 1 jogador: bola na ESQUERDA = BOB, na DIREITA = MIA;
+                     no meio ou sem bola por 10 s, o jogo sorteia;
+          2 fichas = BOB x MIA.
+        Fim da partida: a trava FECHA (com ficha sobrando, fica aberta).
+
+
+10. PROBLEMAS COMUNS
+--------------------
+  - Nao aparece OLA no Monitor Serial: porta COM errada, velocidade
+    diferente de 9600, ou falta o driver CH340 do Nano clone.
+  - Erro "Adafruit_NeoPixel.h: No such file": instale a biblioteca
+    Adafruit NeoPixel ou ponha USAR_LEDS 0.
+  - Erro ao carregar no Nano clone: Processador "ATmega328P (Old
+    Bootloader)".
+  - O rele nao clica: VCC no 5V, GND no GND e IN no D8; modulo que liga
+    com HIGH: RELE_LIGA_EM_LOW 0.
+  - O rele clica mas a trava nao mexe: + da fonte 12 V no COM, + da trava
+    no NO, - da trava no - da fonte.
+  - A porta abre quando devia fechar: menu "Porta invertida" (ou
+    RELE_LIGADO_ABERTA 0 no .ino).
+  - A trava esquenta: RELE_TEMPO_MAX_S 5.
+  - O Arduino reinicia quando a trava liga: falta o diodo 1N4007 na trava
+    ou os GND nao estao todos juntos.
+  - Sensor sempre aceso ou nunca acende: CALIBRAR SENSORES com a pista
+    vazia; confira se o sensor e NPN.
+  - Esquerda e direita trocadas: "Sensores invertidos" no menu.
+  - O TESTE DA PORTA diz "Ponte H: anda ...": o Arduino esta com a versao
+    da ponte H - grave o strike_kids_rele.ino desta pasta.

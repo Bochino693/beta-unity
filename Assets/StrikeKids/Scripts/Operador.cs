@@ -221,7 +221,7 @@ namespace StrikeKids
                 return "";
             }
             var v = ValorAtual(it);
-            // só a ponte H usa; o Arduino do relé (arduino/strike_kids) ignora
+            // só a ponte H usa; o Arduino do relé (arduino/1_RELE_principal) ignora
             if (it.chave == "porta_tempo" || it.chave == "porta_fim_de_curso")
                 return (it.chave == "porta_tempo" ? Segundos(Json.Int(v)) : Json.Bool(v) ? "SIM" : "NÃO") +
                     (ArduinoBridge.SemPonte() ? " · relé: não usa" : "");
@@ -564,14 +564,14 @@ namespace StrikeKids
             return string.Join("\n", linhas, 0, Mathf.Min(12, linhas.Length));
         }
 
-        /// <summary>A porta como o Arduino está usando: a versão do RELÉ (arduino/strike_kids, confirma
+        /// <summary>A porta como o Arduino está usando: a versão do RELÉ (arduino/1_RELE_principal, confirma
         /// na hora) ou a da PONTE H (o tempo e o fim de curso do menu).</summary>
         static string TextoPonte()
         {
             int versao = ArduinoBridge.Versao();
             if (versao < 3)
-                return "Firmware antigo (versão " + versao + "): grave o arduino/strike_kids (relé/servo)\n" +
-                    "ou o arduino/strike_kids_ponte_h (ponte H)";
+                return "Firmware antigo (versão " + versao + "): grave o Arduino da pasta arduino/1_RELE_principal (relé)\n" +
+                    "ou da arduino/2_PONTE_H (ponte H)";
             if (ArduinoBridge.SemPonte())
                 return "Arduino do RELÉ/SERVO (sem ponte H): confirma a porta na hora\n" +
                     "(\"tempo do motor\" e \"fim de curso\" são só da ponte H)";

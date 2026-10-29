@@ -1,7 +1,7 @@
 #!/bin/bash
 # TESTE DO FIRMWARE DO ARDUINO NO PC (sem placa): compila as duas versoes
-# - arduino/strike_kids (RELE/SERVO, sem ponte H) e
-# arduino/strike_kids_ponte_h (PONTE H) - com um Arduino de mentira (mock/)
+# - arduino/1_RELE_principal (RELE/SERVO, sem ponte H) e
+# arduino/2_PONTE_H (PONTE H) - com um Arduino de mentira (mock/)
 # e simula a porta (ponte H pelo tempo e com fim de curso, porta presa,
 # inversao, o tempo e o fim de curso escolhidos no menu, so a ponte H sem
 # servo e rele; o rele e o servo sem ponte H), o moedeiro NA e NF, o START
@@ -13,8 +13,8 @@
 # Precisa so do g++. Cada variante troca um ajuste do .ino (sed) e compila.
 set -e
 AQUI="$(cd "$(dirname "$0")" && pwd)"
-RELE="$AQUI/../../../arduino/strike_kids/strike_kids.ino"
-PONTE="$AQUI/../../../arduino/strike_kids_ponte_h/strike_kids_ponte_h.ino"
+RELE="$AQUI/../../../arduino/1_RELE_principal/strike_kids_rele/strike_kids_rele.ino"
+PONTE="$AQUI/../../../arduino/2_PONTE_H/strike_kids_ponte_h/strike_kids_ponte_h.ino"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 falhou=0
@@ -23,7 +23,7 @@ corpo() { sed -n '/^#include <EEPROM.h>/,$p' "$1" | grep -v '^#define USAR_PONTE
 if ! diff <(corpo "$RELE") <(corpo "$PONTE") > "$TMP/diferenca"; then
   echo "  FALHOU: as duas versoes do .ino tem codigo diferente:"; cat "$TMP/diferenca"; falhou=1
 fi
-grep -q '^#define USAR_PONTE_H 0 ' "$RELE" || { echo "  FALHOU: strike_kids sem USAR_PONTE_H 0"; falhou=1; }
+grep -q '^#define USAR_PONTE_H 0 ' "$RELE" || { echo "  FALHOU: strike_kids_rele sem USAR_PONTE_H 0"; falhou=1; }
 grep -q '^#define USAR_PONTE_H 1 ' "$PONTE" || { echo "  FALHOU: strike_kids_ponte_h sem USAR_PONTE_H 1"; falhou=1; }
 variante() {  # nome, .ino, sed
   sed "$3" "$2" > "$TMP/fw_$1.ino"

@@ -54,15 +54,17 @@ Igual a edicao Godot (o mesmo fluxo, os mesmos textos):
     meio sorteia e, sem bola por 10 s, o jogo SORTEIA.
   * O START continua valendo, mas nenhuma tela pede mais o botao.
   * ARDUINO EM 2 VERSOES (o mesmo jogo para as duas - so o Arduino muda):
-      - arduino\strike_kids\strike_kids.ino: VERSAO DO RELE, sem ponte H,
-        como a primeira (trava pelo rele no D8 e/ou servo no D9). Desenho:
-        docs\ligacao_arduino.pdf;
-      - arduino\strike_kids_ponte_h\strike_kids_ponte_h.ino: VERSAO COM
-        PONTE H (motor DC ou atuador linear). Desenho:
-        docs\ligacao_arduino_ponte_h.pdf.
+      - arduino\1_RELE_principal\: VERSAO 1, A PRINCIPAL - RELE, sem
+        ponte H, como a primeira (trava pelo rele no D8 e/ou servo no D9);
+      - arduino\2_PONTE_H\: VERSAO 2 - PONTE H (motor DC ou atuador
+        linear).
+      Cada pasta tem o codigo (.ino dentro da pasta de mesmo nome), o
+      desenho da montagem (PDF A3, PNG e SVG) e um passo a passo completo
+      (LEIA-ME_RELE.txt / LEIA-ME_PONTE_H.txt: pecas, ligacao pino a pino,
+      ajustes do .ino, como gravar, testar e resolver problemas).
     O codigo e o mesmo (firmware 3, so o USAR_PONTE_H muda) e o teste do PC
     (tools/testes/arduino/testar_firmware.sh) confere e testa os dois. Como
-    gravar cada versao: arduino\LEIA-ME.txt. Os 2 desenhos sao com textura
+    escolher: arduino\LEIA-ME.txt. Os 2 desenhos sao com textura
     (placas com trilhas, pinos dourados, fios com brilho, trava e fonte de
     metal), os mesmos da edicao Godot. Com
     o Arduino do rele o TESTE DA PORTA mostra "Arduino do RELE/SERVO (sem
@@ -277,10 +279,10 @@ BOTOES DA MAQUINA: ARDUINO E/OU PLACA ZERO DELAY
 Como na edicao Godot: START, os 5 SENSORES da pista, FICHA (moedeiro) e
 CONFIGURACAO podem vir do ARDUINO (pelo cabo USB) e/ou da placa ZERO DELAY.
 ARDUINO: o firmware tem 2 versoes (os mesmos arquivos das edicoes Godot,
-versao 3): arduino\strike_kids\strike_kids.ino (RELE/SERVO, sem ponte H,
-desenho docs\ligacao_arduino.pdf) e arduino\strike_kids_ponte_h\
-strike_kids_ponte_h.ino (PONTE H, desenho docs\ligacao_arduino_ponte_h.pdf)
-- os desenhos em A3, tambem .png e .svg, feitos por tools\desenhar_ligacao.py:
+versao 3): arduino\1_RELE_principal\ (RELE/SERVO, sem ponte H - a
+principal) e arduino\2_PONTE_H\ (PONTE H), cada uma com o codigo, o
+desenho da montagem (A3; feitos por tools\desenhar_ligacao.py) e o passo a
+passo; qual escolher: arduino\LEIA-ME.txt:
   Sensores (esquerda -> direita, olhando da crianca para os pinos):
      S1 = D2   S2 = D3   S3 = D4 (centro)   S4 = D5   S5 = D7
   CONFIGURACAO = A0   START = A1   FICHA (moedeiro) = A2   (cada um e GND)
@@ -346,7 +348,7 @@ desinstale o Strike Kids.
 ARDUINO 3: A PONTE H DA PORTA PELO MENU DO OPERADOR
 ---------------------------------------------------
 O mesmo firmware da edicao Godot, agora versao 3 (hoje na pasta
-arduino\strike_kids_ponte_h: veja "A MAQUINA SEM BOTOES"). A ponte H da porta das
+arduino\2_PONTE_H: veja "A MAQUINA SEM BOTOES"). A ponte H da porta das
 bolas (IN1 = D10, IN2 = D12, ENA = D11; Mega: ENA = D9; fins de curso A3 =
 aberta e A4 = fechada) e ajustada no MENU DO OPERADOR, sem regravar o
 Arduino:
@@ -366,7 +368,7 @@ Arduino:
     no modo novo.
   * O TESTE DA PORTA mostra como a ponte H esta andando e avisa se o
     Arduino ainda esta com o firmware 2 (que ignora esses comandos e usa os
-    PONTE_* do .ino: regrave o arduino\strike_kids_ponte_h).
+    PONTE_* do .ino: regrave o arduino\2_PONTE_H).
   * O que esta ligado fica bem definido no comeco do .ino: USAR_PONTE_H,
     USAR_SERVO e USAR_RELE (1 = ligado; os ligados recebem o mesmo
     comando). Sem servo, o Timer1 e o D9 ficam livres; sem rele, o D8. O
@@ -464,7 +466,7 @@ PASTAS
                                 abrir ao ligar a TV + manifestos
   arduino\                      firmware do Arduino da maquina
   tools\testes\arduino\         o firmware testado no PC, sem placa
-  tools\desenhar_ligacao.py      os desenhos da montagem (docs\ligacao_arduino*: rele e ponte H)
+  tools\desenhar_ligacao.py      os desenhos da montagem (arduino\1_RELE_principal e 2_PONTE_H)
   tools\modelador\              o modelador 3D (Python) e as
                                 previas: python3 tools/modelador/gerar.py
   tools\verificar\              confere o C# e o Java sem a Unity (Linux)

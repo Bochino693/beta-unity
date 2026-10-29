@@ -10,12 +10,15 @@ modelos, pinos e bola envernizados, reflexo na pista —, física PhysX, o
 Arduino da máquina (START, 5 sensores, ficha e configuração) e a câmera USB
 para a foto das crianças.
 
-* **Arduino da máquina — 2 versões, o mesmo jogo:** [`arduino/`](arduino/) —
-  `strike_kids` (porta pelo **relé**/servo, sem ponte H, como a primeira) e
-  `strike_kids_ponte_h` (porta com **motor pela ponte H**). Grave só a da sua
-  montagem; como gravar em [`arduino/LEIA-ME.txt`](arduino/LEIA-ME.txt) e os
-  desenhos da ligação em [`docs/`](docs/) (`ligacao_arduino.pdf` = relé,
-  `ligacao_arduino_ponte_h.pdf` = ponte H).
+* **Arduino da máquina — 2 versões, o mesmo jogo** (grave só a da sua montagem):
+  [`arduino/`](arduino/) ([qual escolher](arduino/LEIA-ME.txt))
+  - [`1_RELE_principal/`](arduino/1_RELE_principal/) — **a principal**: porta pela
+    trava com **relé** (D8) e/ou servo, sem ponte H, como a primeira versão. Código
+    `strike_kids_rele/strike_kids_rele.ino`, desenho `ligacao_arduino_rele.pdf` e o
+    passo a passo [`LEIA-ME_RELE.txt`](arduino/1_RELE_principal/LEIA-ME_RELE.txt).
+  - [`2_PONTE_H/`](arduino/2_PONTE_H/) — porta com **motor pela ponte H**. Código
+    `strike_kids_ponte_h/strike_kids_ponte_h.ino`, desenho `ligacao_arduino_ponte_h.pdf`
+    e o passo a passo [`LEIA-ME_PONTE_H.txt`](arduino/2_PONTE_H/LEIA-ME_PONTE_H.txt).
 * **Abrir no editor da Unity (PC com a Unity 2022.3):** Unity Hub › Adicionar
   projeto do disco › esta pasta (num caminho curto, ex. `C:\StrikeKids`). Na
   primeira vez o projeto se prepara sozinho (cena do jogo aberta, configuração

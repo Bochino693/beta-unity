@@ -264,7 +264,7 @@ int main(int argc, char **argv) {
     rodar(2);
     printf("  %s", pega().c_str());
   } else if (c == "rele") {
-    // a versao do RELE (arduino/strike_kids) como ela e gravada: rele no
+    // a versao do RELE (arduino/1_RELE_principal) como ela e gravada: rele no
     // D8 e servo no D9, sem ponte H (D10-D12, A3 e A4 livres)
     setup(); pega();
     CONFERE(USAR_PONTE_H == 0 && USAR_RELE && USAR_SERVO, "versao do rele: rele e servo, sem ponte H");

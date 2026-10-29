@@ -9,8 +9,8 @@ using Debug = UnityEngine.Debug;
 namespace StrikeKids
 {
     /// <summary>
-    /// O ARDUINO DA MÁQUINA (firmware em arduino/strike_kids - relé/servo - ou
-    /// arduino/strike_kids_ponte_h - ponte H; o jogo é o mesmo para os dois),
+    /// O ARDUINO DA MÁQUINA (firmware em arduino/1_RELE_principal - relé/servo, a principal -
+    /// ou arduino/2_PONTE_H - ponte H; o jogo é o mesmo para os dois),
     /// pelo cabo USB da TV Box (StrikeSerial.java, por UsbSerial.cs). O que está
     /// ligado nele (a placa Zero Delay também vale, como na edição Godot —
     /// Controles.cs):
@@ -618,7 +618,7 @@ namespace StrikeKids
             }
             else
             {
-                DefinirStatus("Arduino com o firmware ANTIGO (só LEDs): grave o arduino/strike_kids");
+                DefinirStatus("Arduino com o firmware ANTIGO (só LEDs): grave o arduino 1_RELE_principal (ou 2_PONTE_H)");
             }
             Enviar(_ledState);
             _lastLedSent = _ledState;
@@ -655,7 +655,7 @@ namespace StrikeKids
             return v;
         }
 
-        /// <summary>O Arduino é o da versão do RELÉ/SERVO (arduino/strike_kids, sem ponte H): confirma
+        /// <summary>O Arduino é o da versão do RELÉ/SERVO (arduino/1_RELE_principal, sem ponte H): confirma
         /// a porta na hora e ignora o tempo do motor e o fim de curso.</summary>
         public static bool SemPonte() => Completo() && Info.Contains(":PONTE_H=0:");
 

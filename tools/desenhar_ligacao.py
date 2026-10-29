@@ -3,10 +3,12 @@
 bornes com parafuso, fios com brilho, fonte de metal perfurado, motor,
 trava, botoes de fliperama), nas DUAS versoes do firmware (o jogo e o mesmo
 nas duas):
-  rele    -> docs/ligacao_arduino.svg: arduino/strike_kids, a porta pelo
+  rele    -> arduino/1_RELE_principal/ligacao_arduino_rele.svg (A PRINCIPAL):
+             o firmware strike_kids_rele, a porta pelo
              RELE (trava solenoide / eletroima) e/ou SERVO, sem ponte H,
              como a primeira versao;
-  ponte_h -> docs/ligacao_arduino_ponte_h.svg: arduino/strike_kids_ponte_h,
+  ponte_h -> arduino/2_PONTE_H/ligacao_arduino_ponte_h.svg: o firmware
+             strike_kids_ponte_h,
              a PONTE H com o motor da porta e os fins de curso (e,
              opcionais, o servo e o rele).
 Nas duas: os 5 sensores, a fita de LED, o moedeiro, os botoes START e
@@ -14,8 +16,8 @@ CONFIGURACAO e a TV Box - com os mesmos pinos do firmware. O mesmo desenho
 da edicao Godot (strike-kids-gles2/tools/desenhar_ligacao.py), so a fonte
 vem da pasta da Unity.
 
-    python3 -I tools/desenhar_ligacao.py                 (as duas, em docs/)
-    python3 -I tools/desenhar_ligacao.py rele docs/ligacao_arduino.svg
+    python3 -I tools/desenhar_ligacao.py      (as duas, cada uma na pasta dela)
+    python3 -I tools/desenhar_ligacao.py rele <destino.svg>
 
 O PNG e o PDF saem do SVG por qualquer navegador (Chrome: abrir o SVG e
 imprimir em PDF, A3 deitado) - a fonte dos titulos (a Fredoka das telas do
@@ -39,7 +41,7 @@ COR = {
     "12V": "#d32f2f", "GND": "#262626", "USB": "#8a9399",
     "D8": "#e64a19", "D9": "#3949ab",
 }
-# qual desenho: "rele" (arduino/strike_kids) ou "ponte_h" (arduino/strike_kids_ponte_h)
+# qual desenho: "rele" (arduino/1_RELE_principal) ou "ponte_h" (arduino/2_PONTE_H)
 VERSAO = "ponte_h"
 RELE_AZUL = "#1a5276"
 
@@ -312,10 +314,11 @@ def cabecalho():
     texto(60, 108, "STRIKE KIDS · MONTAGEM DO ARDUINO", 88,
           grad(((0, "#1f4e9c"), (1, "#0b1f45")), 0, 0, 0, 1), "bold", fonte=TITULO)
     if VERSAO == "rele":
-        selo, cor, mega, pasta = "VERSÃO DO RELÉ (sem ponte H)", RELE_AZUL, "servo no D11", "arduino/strike_kids"
+        selo, cor, mega, pasta = "VERSÃO DO RELÉ (sem ponte H)", RELE_AZUL, "servo no D11", \
+            "arduino/1_RELE_principal"
     else:
         selo, cor, mega, pasta = "VERSÃO COM PONTE H", "#c0392b", "servo no D11 e ENA no D9", \
-            "arduino/strike_kids_ponte_h"
+            "arduino/2_PONTE_H"
     rect(1790, 40, 870, 92, vertical(cor, 0.18), escurecer(cor, 0.35), 2, 22, filtro="f_sombra_leve")
     rect(1796, 46, 858, 30, "white", rx=16, op=0.14)
     texto(2225, 102, selo, 42, "white", "bold", "middle", TITULO)
@@ -779,7 +782,7 @@ def opcionais():
     x0, y0, w, h = 2800, 1080, 960, 420
     rect(x0, y0, w, h, "white", "#9e9e9e", 4, 18, dash="18 10", filtro="f_sombra")
     texto(x0 + 24, y0 + 44, "OPCIONAL — TRAVA POR SERVO (D9) OU RELÉ (D8)", 25, "#616161", "bold")
-    texto(x0 + 24, y0 + 76, "junto com a ponte H (o mesmo comando) · sem ponte H: arduino/strike_kids", 20, CINZA)
+    texto(x0 + 24, y0 + 76, "junto com a ponte H (o mesmo comando) · sem ponte H: arduino/1_RELE_principal", 20, CINZA)
     # servo
     sx, sy = x0 + 30, y0 + 110
     rect(sx, sy, 410, 280, "#f7f9fa", "#cfd6db", 2, 12)
@@ -954,13 +957,13 @@ def versoes():
     x0, y0, w, h = 40, 1560, 860, 410
     caixa(x0, y0, w, h, "QUAL ARDUINO GRAVAR?", RELE_AZUL, 26)
     bloco(x0 + 24, y0 + 100, [
-        "**ESTE DESENHO: RELÉ / SERVO** (sem ponte H)",
-        "grave **arduino/strike_kids/strike_kids.ino**",
-        "(como a primeira versão).",
+        "**ESTE DESENHO: RELÉ / SERVO — A PRINCIPAL**",
+        "pasta **arduino/1_RELE_principal**: grave o",
+        "**strike_kids_rele.ino** (como a primeira versão).",
         "",
         "**Porta com MOTOR ou ATUADOR (ponte H)?**",
-        "grave **arduino/strike_kids_ponte_h** e siga",
-        "o desenho **docs/ligacao_arduino_ponte_h.pdf**.",
+        "pasta **arduino/2_PONTE_H**: grave o",
+        "**strike_kids_ponte_h.ino** e siga o desenho de lá.",
         "",
         "**O JOGO É O MESMO** (o mesmo APK) para os dois:",
         "o TESTE DA PORTA mostra qual está gravado.",
@@ -977,7 +980,7 @@ def travas():
         "**Módulo relé 5 V** (1 canal): IN = D8 · VCC = 5V · GND = GND",
         "Módulo que liga com HIGH (jumper H/L no H): **RELE_LIGA_EM_LOW 0**",
         "**Motor DC ou atuador linear** (abre E fecha pelo motor): só com a **PONTE H**",
-        "→ arduino/strike_kids_ponte_h e o desenho ligacao_arduino_ponte_h.pdf",
+        "→ a pasta arduino/2_PONTE_H (o firmware e o desenho da ponte H)",
     ], 23, 1.5)
 
 
@@ -1077,7 +1080,7 @@ def paineis():
             "",
             "**No começo do .ino:** USAR_SERVO / USAR_RELE 0",
             "= sem servo / relé · FC_NF 1 = micro-switch no NF.",
-            "**Só relé/servo, sem motor?** arduino/strike_kids.",
+            "**Só relé/servo?** arduino/1_RELE_principal.",
             "**Abriu ao contrário?** Inverta os fios OUT1/OUT2",
             "ou PONTE_INVERTIDA 1.",
             "**PONTE_VELOCIDADE_ABRE / _FECHA** (0 a 255): só",
@@ -1085,10 +1088,10 @@ def paineis():
             "devagar (ex.: 180) protege as mãos das crianças.",
         ]),
         ("PRIMEIRA VEZ (passo a passo)", "#1f6fb2", [
-            "**1. Grave o strike_kids_ponte_h.ino** pela IDE",
-            "do Arduino (Nano clone: Processador “ATmega328P",
-            "(Old Bootloader)”; biblioteca Adafruit NeoPixel,",
-            "ou USAR_LEDS 0 sem a fita).",
+            "**1. Grave o strike_kids_ponte_h.ino** (pasta",
+            "2_PONTE_H) pela IDE do Arduino (Nano clone:",
+            "Processador “ATmega328P (Old Bootloader)”;",
+            "biblioteca Adafruit NeoPixel, ou USAR_LEDS 0).",
             "**2. Monitor Serial a 9600:** OLA:STRIKE_KIDS:3",
             "e a porta FECHA (PORTA:FECHADA quando chega).",
             "Mande PORTA:ABRE e PORTA:FECHA para testar.",
@@ -1146,8 +1149,8 @@ def paineis():
                 "“fim de curso” são só da ponte H.",
             ]),
             ("PRIMEIRA VEZ (passo a passo)", "#1f6fb2", [
-                "**1. Grave o strike_kids.ino** (pasta",
-                "arduino/strike_kids) pela IDE do Arduino",
+                "**1. Grave o strike_kids_rele.ino** (pasta",
+                "1_RELE_principal) pela IDE do Arduino",
                 "(Nano clone: Processador “ATmega328P (Old",
                 "Bootloader)”; biblioteca Adafruit NeoPixel,",
                 "ou USAR_LEDS 0 sem a fita).",
@@ -1253,8 +1256,9 @@ def main():
         assert sys.argv[1] in ("rele", "ponte_h"), "versão: rele ou ponte_h"
         desenhar(sys.argv[1], sys.argv[2])
         return
-    desenhar("rele", "docs/ligacao_arduino.svg")
-    desenhar("ponte_h", "docs/ligacao_arduino_ponte_h.svg")
+    raiz = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "arduino")
+    desenhar("rele", os.path.join(raiz, "1_RELE_principal", "ligacao_arduino_rele.svg"))
+    desenhar("ponte_h", os.path.join(raiz, "2_PONTE_H", "ligacao_arduino_ponte_h.svg"))
 
 
 if __name__ == "__main__":

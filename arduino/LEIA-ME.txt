@@ -1,43 +1,93 @@
-STRIKE KIDS - O ARDUINO DA MAQUINA (2 VERSOES)
-===============================================
-O JOGO E UM SO (o mesmo APK na TV Box). O jogo manda sempre os mesmos
-comandos ao Arduino ("abre a porta" / "fecha a porta"); cada versao do
-Arduino faz a porta andar do seu jeito. Grave no Arduino SO UMA das duas,
-a da montagem da sua maquina:
+STRIKE KIDS - O ARDUINO DA MAQUINA
+==================================
+Esta pasta tem o codigo do Arduino da maquina em DUAS VERSOES. Cada versao
+fica na sua pasta, com o codigo, o desenho da montagem e o passo a passo:
 
-  strike_kids\strike_kids.ino
-      VERSAO DO RELE, sem ponte H, como a primeira: trava pelo RELE (D8) -
-      trava solenoide 12 V ou eletroima - e/ou SERVO (D9).
-      Desenho da ligacao: docs\ligacao_arduino.pdf
+  arduino/
+    LEIA-ME.txt                         <- este arquivo (qual escolher)
+    1_RELE_principal/                   <- VERSAO 1: RELE  (A PRINCIPAL)
+        LEIA-ME_RELE.txt                   passo a passo completo
+        ligacao_arduino_rele.pdf           desenho da montagem (A3)
+        ligacao_arduino_rele.png / .svg    o mesmo desenho (imagem)
+        strike_kids_rele/
+            strike_kids_rele.ino           o codigo para gravar no Arduino
+    2_PONTE_H/                          <- VERSAO 2: PONTE H
+        LEIA-ME_PONTE_H.txt                passo a passo completo
+        ligacao_arduino_ponte_h.pdf        desenho da montagem (A3)
+        ligacao_arduino_ponte_h.png / .svg o mesmo desenho (imagem)
+        strike_kids_ponte_h/
+            strike_kids_ponte_h.ino        o codigo para gravar no Arduino
 
-  strike_kids_ponte_h\strike_kids_ponte_h.ino
-      VERSAO COM PONTE H: porta com MOTOR DC ou ATUADOR LINEAR (L298N,
-      L9110S, BTS7960...); fins de curso opcionais A3/A4.
-      Desenho da ligacao: docs\ligacao_arduino_ponte_h.pdf
 
-O codigo das duas e o mesmo (firmware 3); so muda uma linha no comeco
-(#define USAR_PONTE_H 0 no do rele, 1 no da ponte H). O teste do PC
-(bash tools/testes/arduino/testar_firmware.sh) confere que as duas nao divergem.
+O JOGO E UM SO
+--------------
+O mesmo APK na TV Box serve para as duas versoes. O jogo conversa com o
+Arduino pelo cabo USB e manda sempre os mesmos comandos ("abre a porta",
+"fecha a porta"); quem decide COMO a porta das bolas se mexe e o codigo
+gravado no Arduino. Grave no Arduino SO UMA das duas versoes - a que
+combina com a montagem da sua maquina. O jogo descobre sozinho qual esta
+gravada e mostra no menu do operador (TESTE DA PORTA).
 
-COMO GRAVAR (IDE do Arduino, no PC)
-  1. IDE do Arduino > Arquivo > Abrir > o .ino da versao escolhida.
+As duas versoes tem o MESMO codigo; so muda uma linha no comeco do .ino:
+    #define USAR_PONTE_H 0     <- versao 1 (rele)
+    #define USAR_PONTE_H 1     <- versao 2 (ponte H)
+(o teste do PC, bash tools/testes/arduino/testar_firmware.sh, confere que
+as duas nunca ficam diferentes e simula as duas.)
+
+
+QUAL VERSAO GRAVAR?
+-------------------
+  A porta das bolas da sua maquina e...                 Grave a versao
+  ----------------------------------------------------  ------------------
+  uma TRAVA SOLENOIDE 12 V (fechadura eletrica)         1_RELE_principal
+  um ELETROIMA 12 V que segura a porta fechada          1_RELE_principal
+  um SERVO motor (MG996R e parecidos)                   1_RELE_principal
+  trava + servo juntos                                  1_RELE_principal
+  um MOTOR DC com reducao (abre e fecha pelo motor)     2_PONTE_H
+  um ATUADOR LINEAR 12 V                                2_PONTE_H
+  maquina SEM trava (so modo livre)                     1_RELE_principal
+                                                        (sem ligar o rele)
+
+  Na duvida: a 1_RELE_principal e a da primeira versao da maquina.
+
+
+O QUE E IGUAL NAS DUAS (pinos)
+------------------------------
+  Sensores da pista (esquerda -> direita, olhando da crianca para os pinos):
+      S1 = D2   S2 = D3   S3 = D4 (centro)   S4 = D5   S5 = D7
+  Botao CONFIGURACAO = A0   Botao START = A1 (opcional)   Moedeiro = A2
+  Fita de LED WS2812 = D6 (opcional)   LED da placa = D13
+  Rele = D8   Servo = D9 (Mega: D11)
+  So na versao 2: ponte H IN1 = D10, IN2 = D12, ENA = D11 (Mega: D9) e os
+  fins de curso A3 (porta aberta) e A4 (porta fechada).
+  Placas: Arduino Nano (original ou clone CH340), Uno, Pro Mini 5 V, Mega
+  2560, Leonardo/Micro.
+
+
+GRAVAR EM 1 MINUTO (detalhes no LEIA-ME de cada versao)
+--------------------------------------------------------
+  1. IDE do Arduino (arduino.cc) > Arquivo > Abrir > o .ino da versao.
      (O .ino fica dentro da pasta de mesmo nome - a IDE exige isso.)
-  2. Ferramentas > Placa: Arduino Nano (ou Uno). Nano clone (CH340):
+  2. Com fita de LED: biblioteca "Adafruit NeoPixel" (Ferramentas >
+     Gerenciar bibliotecas). Sem a fita: no .ino, USAR_LEDS 0.
+  3. Ferramentas > Placa: Arduino Nano (ou Uno). Nano clone (CH340):
      Processador "ATmega328P (Old Bootloader)". Porta: a COM do Arduino.
-  3. Com a fita de LED: instale a biblioteca "Adafruit NeoPixel"
-     (Ferramentas > Gerenciar bibliotecas). Sem a fita: no comeco do .ino
-     troque USAR_LEDS 1 para USAR_LEDS 0.
-  4. Carregar (seta ->). No Monitor Serial a 9600 aparece OLA:STRIKE_KIDS:3.
-  5. Cabo USB do Arduino na TV Box, abra o jogo e marque "Usar por padrao".
-     Menu do operador > TESTE DA PORTA: aparece qual versao esta gravada
-     ("Arduino do RELE/SERVO" ou "Ponte H: anda ...").
+  4. Carregar (seta ->). No Monitor Serial (9600) aparece OLA:STRIKE_KIDS:3.
+  5. Cabo USB na TV Box, abra o jogo e marque "Usar por padrao".
+
 
 O QUE O JOGO FAZ COM A TRAVA (as duas versoes)
-  * MODO LIVRE: sem trava - a porta fica sempre aberta e a bola e o START.
-  * MODO FICHAS: sem ficha a trava fica fechada; a ficha ABRE a trava e a
-    bola e o START: 1 ficha = 1 jogador (o lado da bola escolhe: esquerda
-    BOB, direita MIA; no meio ou sem bola, sorteio), 2 fichas = BOB x MIA.
-
-Trava solenoide comum esquenta se ficar ligada: na versao do rele, troque
-RELE_TEMPO_MAX_S 0 para 5 (liga 5 s e solta). Eletroima que segura a porta
-fechada: no NC do rele. Diodo 1N4007 nos fios da trava (faixa no +).
+----------------------------------------------
+  MODO LIVRE (menu: "Modo livre (sem ficha e sem trava)" = SIM):
+      sem trava - a porta fica sempre aberta e a BOLA e o START.
+      1 bola = 1 jogador; outra bola logo depois = 2 jogadores.
+  MODO FICHAS (Modo livre = NAO):
+      sem ficha a trava fica FECHADA e a tela pede INSIRA FICHA;
+      a FICHA ABRE a trava e a BOLA e o START:
+        1 ficha  = 1 jogador - o lado da bola escolhe o amigo
+                   (esquerda = BOB, direita = MIA; no meio ou sem bola
+                   por 10 s, o jogo sorteia);
+        2 fichas = 2 jogadores, BOB x MIA.
+      Fim da partida: a trava FECHA (com ficha sobrando, continua aberta).
+  Jogo sumiu (cabo solto, TV desligada) com a trava aberta: o Arduino
+  FECHA sozinho em 15 s.

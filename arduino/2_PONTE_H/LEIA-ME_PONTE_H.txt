@@ -1,0 +1,177 @@
+STRIKE KIDS - ARDUINO VERSAO 2: PONTE H
+=======================================
+Pasta arduino/2_PONTE_H/:
+  strike_kids_ponte_h/strike_kids_ponte_h.ino  o codigo para gravar no Arduino
+  ligacao_arduino_ponte_h.pdf                  o desenho da montagem (A3)
+  ligacao_arduino_ponte_h.png / .svg           o mesmo desenho em imagem
+  LEIA-ME_PONTE_H.txt                          este passo a passo
+
+(A versao principal e a 1_RELE_principal. Esta e para quando a porta das
+bolas e aberta e fechada por um MOTOR.)
+
+
+1. PARA QUE SERVE
+-----------------
+A porta das bolas e aberta e fechada por um MOTOR DC com reducao (ou um
+ATUADOR LINEAR 12 V) ligado numa PONTE H: o Arduino manda o motor girar
+para um lado (abre) ou para o outro (fecha). O Arduino so confirma ao jogo
+quando a porta CHEGOU (pelo tempo do motor ou pelos fins de curso).
+Servo (D9) e rele (D8) continuam funcionando junto, se quiser.
+
+Use esta versao se a porta tem motor DC, motorredutor ou atuador linear.
+Trava solenoide, eletroima ou so servo: use a 1_RELE_principal.
+
+
+2. LISTA DE PECAS
+-----------------
+Obrigatorio:
+  - 1 Arduino Nano (original ou clone CH340) - ou Uno, Pro Mini 5 V, Mega
+  - 1 cabo USB do Arduino ate a TV Box
+  - 5 sensores da pista (optico/infravermelho NPN, chave ou micro-switch)
+  - 1 ponte H: L298N (a do desenho), L9110S, BTS7960 (motor forte),
+    TB6612FNG ou DRV8871
+  - 1 motor DC 12 V com reducao (ou atuador linear 12 V)
+  - 1 fonte 12 V, 2 A ou mais (motor + moedeiro)
+  - 1 botao CONFIGURACAO
+Opcional:
+  - 2 micro-switches de FIM DE CURSO (porta aberta e porta fechada)
+  - servo e/ou modulo rele (recebem o mesmo comando)
+  - botao START, moedeiro CH-926, fita de LED WS2812 (como na versao 1)
+
+
+3. LIGACAO PINO A PINO (Nano / Uno / Pro Mini)
+----------------------------------------------
+  PINO  LIGA EM                                   OBS
+  ----  ----------------------------------------  ------------------------
+  D2    sinal do sensor S1 (ESQUERDA)             olhando da crianca
+  D3    sinal do sensor S2 (meio-esquerda)          para os pinos
+  D4    sinal do sensor S3 (CENTRO)
+  D5    sinal do sensor S4 (meio-direita)
+  D7    sinal do sensor S5 (DIREITA)
+  D6    DIN da fita de LED (330 ohm no caminho)   opcional
+  D10   IN1 da ponte H                            O MOTOR
+  D12   IN2 da ponte H                            O MOTOR
+  D11   ENA da ponte H (Mega: D9)                 opcional (velocidade)
+  A3    fim de curso da porta ABERTA (NA)         opcional
+  A4    fim de curso da porta FECHADA (NA)        opcional
+  D8    IN do modulo rele                         opcional
+  D9    sinal do servo (Mega: D11)                opcional
+  D13   LED da placa (pisca a cada sensor/botao)  ja vem na placa
+  A0    botao CONFIGURACAO (o outro fio no GND)
+  A1    botao START (o outro fio no GND)          opcional
+  A2    COIN do moedeiro                          opcional (modo fichas)
+  5V    + dos sensores de 5 V; VCC do rele
+  GND   GND de TUDO: ponte H, sensores, botoes, moedeiro, fontes
+
+Sensores e moedeiro: igual a versao 1 (veja o LEIA-ME_RELE.txt, item 3):
+sinal no pino, - no GND, sempre NPN (nunca PNP).
+
+
+4. A PONTE H E O MOTOR (L298N)
+------------------------------
+  D10 -> IN1      D12 -> IN2      ENA: deixe o JUMPER (velocidade maxima)
+                                  ou tire o jumper e ligue o ENA no D11
+  OUT1 e OUT2 -> os 2 fios do motor (OUT3/OUT4 e ENB nao usa)
+  borne +12V -> + da fonte 12 V    borne GND -> - da fonte E GND do Arduino
+  borne +5V  -> SOLTO (o Arduino ja tem o 5 V do USB)
+  O motor NUNCA direto no Arduino: so pela ponte H, com a fonte de 12 V.
+
+Outras pontes (o mesmo firmware, os mesmos pinos):
+  L9110S / HG7881: A-IA = D10, A-IB = D12 (nao tem ENA)
+  BTS7960:  RPWM = D10, LPWM = D12, R_EN + L_EN juntos no D11 (ou no 5V)
+  TB6612FNG: AIN1 = D10, AIN2 = D12, PWMA = D11, STBY = 5V, VM = 12 V
+  DRV8871:  IN1 = D10, IN2 = D12 (nao tem ENA)
+  Mega 2560: o ENA vai no D9 (o servo vai no D11)
+  Em todas: o GND da ponte no GND do Arduino e o motor nas saidas.
+
+
+5. TEMPO DO MOTOR OU FIM DE CURSO (no MENU DO OPERADOR do jogo)
+---------------------------------------------------------------
+  SEM fim de curso (de fabrica): o motor anda o "Porta: tempo do motor"
+    (0,5 a 10 s; 1,5 s de fabrica) e para. Meca quanto tempo a porta leva
+    para abrir toda e ponha um pouco a mais. ATUADOR LINEAR: para sozinho
+    no fim do curso - use o tempo do motor.
+  COM fim de curso: micro-switch em cada ponta da porta,
+      C -> GND    NA -> A3 (porta ABERTA) / A4 (porta FECHADA)    NF solto
+    (ligado no NF: FC_NF 1 no .ino). No menu: "Porta: fim de curso" = SIM.
+    O motor anda ate o micro-switch; nao chegou em 6 s (ou 2x o tempo do
+    motor): para, o TESTE DA PORTA avisa "A PORTA NAO CHEGOU" e tenta de
+    novo (3 vezes, a cada 3 s).
+  O jogo manda os dois ao Arduino, que GUARDA na memoria (EEPROM): ao ligar
+  a maquina a porta ja fecha do jeito certo, antes de o jogo abrir.
+
+
+6. AJUSTES NO COMECO DO .INO (secao "AJUSTES")
+----------------------------------------------
+  USAR_PONTE_H 1          esta versao (NAO mude; sem ponte H use a 1_RELE)
+  USAR_SERVO 1 / USAR_RELE 1   0 = sem servo / sem rele
+  USAR_LEDS 1             0 = sem fita de LED
+  PONTE_INVERTIDA 0       1 = a porta abre quando devia fechar (ou inverta
+                          os fios OUT1/OUT2 do motor)
+  PONTE_VELOCIDADE_ABRE 255 / PONTE_VELOCIDADE_FECHA 255   de 0 a 255, so
+                          com o ENA no D11 (sem o jumper); fechar mais
+                          devagar (ex.: 180) protege as maos das criancas
+  FC_NF 0                 1 = micro-switches ligados no NF
+  PONTE_TEMPO_ABRE_MS / PONTE_TEMPO_FECHA_MS 1500   so o valor de fabrica
+                          (o menu do jogo troca)
+  PONTE_FIM_DE_CURSO 0    so o valor de fabrica (o menu do jogo troca)
+  PONTE_TEMPO_MAX_MS 6000 com fim de curso: tempo maximo para chegar
+  PONTE_FREIO_MS 150      ao parar, freia o motor este tempo
+  PONTE_PAUSA_MS 300      parada antes de inverter o sentido
+
+
+7. COMO GRAVAR NO ARDUINO
+-------------------------
+  1. IDE do Arduino (arduino.cc) > Arquivo > Abrir > arduino/2_PONTE_H/
+     strike_kids_ponte_h/strike_kids_ponte_h.ino (o .ino dentro da pasta
+     de mesmo nome).
+  2. Com a fita de LED: biblioteca "Adafruit NeoPixel"; sem: USAR_LEDS 0.
+  3. Ferramentas > Placa: Arduino Nano (ou Uno / Mega). Nano clone:
+     Processador "ATmega328P (Old Bootloader)". Porta: a COM do Arduino.
+  4. Carregar (seta ->).
+
+
+8. TESTAR SEM O JOGO (Monitor Serial, 9600, "Nova linha")
+---------------------------------------------------------
+  Ao ligar: OLA:STRIKE_KIDS:3 e o motor FECHA a porta.
+    PORTA:ABRE   o motor abre; quando chega: PORTA:ABERTA
+    PORTA:FECHA  o motor fecha; quando chega: PORTA:FECHADA
+    PONTE?       PONTE:TEMPO:1500:FC:0 (o tempo e o fim de curso em uso)
+    INFO?        INFO:STRIKE_KIDS:3:...:PONTE_H=TEMPO:TEMPO=1500:...
+                 (ou PONTE_H=FIM_DE_CURSO)
+    TESTE:1 / TESTE:0 / CALIBRA   os sensores (igual a versao 1)
+  AVISO:PORTA_TRAVOU = com fim de curso, a porta nao chegou (algo
+  segurando, micro-switch solto ou ligado no NF sem FC_NF 1).
+
+
+9. NO JOGO (TV Box)
+-------------------
+  - Cabo USB na TV Box, abra o jogo, "Usar por padrao" e OK.
+  - CONFIGURACAO -> MENU DO OPERADOR:
+      > TESTE DA PORTA: C ou START abre e fecha; mostra "Ponte H: anda
+        1,5 s" ou "anda ate o FIM DE CURSO" e "o Arduino confirmou" quando
+        a porta chega
+      Porta: tempo do motor (ponte H sem fim de curso) ... 0,5 a 10 s
+      Porta: fim de curso (micro-switch A3/A4) ........... SIM ou NAO
+      Porta invertida (sem fim de curso; com fim de curso, inverta os
+        fios do motor)
+      > TESTE DOS SENSORES, > CALIBRAR SENSORES, Sensores invertidos,
+      Modo livre, Fichas por jogador: igual a versao 1
+  - A trava e a bola (modo livre / modo fichas): igual a versao 1 (veja o
+    LEIA-ME.txt da pasta arduino).
+
+
+10. PROBLEMAS COMUNS
+--------------------
+  - O motor nao anda: fonte 12 V no borne +12V, GND da ponte no GND do
+    Arduino, IN1 no D10 e IN2 no D12; L298N com o jumper do ENA.
+  - Abre quando devia fechar: inverta os fios OUT1/OUT2 ou
+    PONTE_INVERTIDA 1 (com fim de curso, nao use "Porta invertida" do menu).
+  - Para antes de abrir toda: aumente "Porta: tempo do motor" no menu.
+  - "A PORTA NAO CHEGOU": confira os micro-switches (C no GND, NA no pino)
+    e se nada segura a porta; no NF, ponha FC_NF 1.
+  - A ponte H esquenta: motor forte demais para a L298N - use a BTS7960.
+  - O TESTE DA PORTA diz "Arduino do RELE/SERVO": o Arduino esta com a
+    versao 1 - grave o strike_kids_ponte_h.ino desta pasta.
+  - Os outros (OLA, NeoPixel, Nano clone, sensores): veja o item 10 do
+    1_RELE_principal/LEIA-ME_RELE.txt.
