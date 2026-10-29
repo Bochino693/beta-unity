@@ -61,7 +61,10 @@ Igual a edicao Godot (o mesmo fluxo, os mesmos textos):
         PONTE H (motor DC ou atuador linear). Desenho:
         docs\ligacao_arduino_ponte_h.pdf.
     O codigo e o mesmo (firmware 3, so o USAR_PONTE_H muda) e o teste do PC
-    (tools/testes/arduino/testar_firmware.sh) confere e testa os dois. Com
+    (tools/testes/arduino/testar_firmware.sh) confere e testa os dois. Como
+    gravar cada versao: arduino\LEIA-ME.txt. Os 2 desenhos sao com textura
+    (placas com trilhas, pinos dourados, fios com brilho, trava e fonte de
+    metal), os mesmos da edicao Godot. Com
     o Arduino do rele o TESTE DA PORTA mostra "Arduino do RELE/SERVO (sem
     ponte H): confirma a porta na hora".
   * ACERTOS DA REVISAO: as placas BOB/MIA da escolha do amigo ficam embaixo

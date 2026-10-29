@@ -1,0 +1,43 @@
+STRIKE KIDS - O ARDUINO DA MAQUINA (2 VERSOES)
+===============================================
+O JOGO E UM SO (o mesmo APK na TV Box). O jogo manda sempre os mesmos
+comandos ao Arduino ("abre a porta" / "fecha a porta"); cada versao do
+Arduino faz a porta andar do seu jeito. Grave no Arduino SO UMA das duas,
+a da montagem da sua maquina:
+
+  strike_kids\strike_kids.ino
+      VERSAO DO RELE, sem ponte H, como a primeira: trava pelo RELE (D8) -
+      trava solenoide 12 V ou eletroima - e/ou SERVO (D9).
+      Desenho da ligacao: docs\ligacao_arduino.pdf
+
+  strike_kids_ponte_h\strike_kids_ponte_h.ino
+      VERSAO COM PONTE H: porta com MOTOR DC ou ATUADOR LINEAR (L298N,
+      L9110S, BTS7960...); fins de curso opcionais A3/A4.
+      Desenho da ligacao: docs\ligacao_arduino_ponte_h.pdf
+
+O codigo das duas e o mesmo (firmware 3); so muda uma linha no comeco
+(#define USAR_PONTE_H 0 no do rele, 1 no da ponte H). O teste do PC
+(bash tools/testes/arduino/testar_firmware.sh) confere que as duas nao divergem.
+
+COMO GRAVAR (IDE do Arduino, no PC)
+  1. IDE do Arduino > Arquivo > Abrir > o .ino da versao escolhida.
+     (O .ino fica dentro da pasta de mesmo nome - a IDE exige isso.)
+  2. Ferramentas > Placa: Arduino Nano (ou Uno). Nano clone (CH340):
+     Processador "ATmega328P (Old Bootloader)". Porta: a COM do Arduino.
+  3. Com a fita de LED: instale a biblioteca "Adafruit NeoPixel"
+     (Ferramentas > Gerenciar bibliotecas). Sem a fita: no comeco do .ino
+     troque USAR_LEDS 1 para USAR_LEDS 0.
+  4. Carregar (seta ->). No Monitor Serial a 9600 aparece OLA:STRIKE_KIDS:3.
+  5. Cabo USB do Arduino na TV Box, abra o jogo e marque "Usar por padrao".
+     Menu do operador > TESTE DA PORTA: aparece qual versao esta gravada
+     ("Arduino do RELE/SERVO" ou "Ponte H: anda ...").
+
+O QUE O JOGO FAZ COM A TRAVA (as duas versoes)
+  * MODO LIVRE: sem trava - a porta fica sempre aberta e a bola e o START.
+  * MODO FICHAS: sem ficha a trava fica fechada; a ficha ABRE a trava e a
+    bola e o START: 1 ficha = 1 jogador (o lado da bola escolhe: esquerda
+    BOB, direita MIA; no meio ou sem bola, sorteio), 2 fichas = BOB x MIA.
+
+Trava solenoide comum esquenta se ficar ligada: na versao do rele, troque
+RELE_TEMPO_MAX_S 0 para 5 (liga 5 s e solta). Eletroima que segura a porta
+fechada: no NC do rele. Diodo 1N4007 nos fios da trava (faixa no +).

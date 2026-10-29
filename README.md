@@ -10,6 +10,12 @@ modelos, pinos e bola envernizados, reflexo na pista —, física PhysX, o
 Arduino da máquina (START, 5 sensores, ficha e configuração) e a câmera USB
 para a foto das crianças.
 
+* **Arduino da máquina — 2 versões, o mesmo jogo:** [`arduino/`](arduino/) —
+  `strike_kids` (porta pelo **relé**/servo, sem ponte H, como a primeira) e
+  `strike_kids_ponte_h` (porta com **motor pela ponte H**). Grave só a da sua
+  montagem; como gravar em [`arduino/LEIA-ME.txt`](arduino/LEIA-ME.txt) e os
+  desenhos da ligação em [`docs/`](docs/) (`ligacao_arduino.pdf` = relé,
+  `ligacao_arduino_ponte_h.pdf` = ponte H).
 * **Abrir no editor da Unity (PC com a Unity 2022.3):** Unity Hub › Adicionar
   projeto do disco › esta pasta (num caminho curto, ex. `C:\StrikeKids`). Na
   primeira vez o projeto se prepara sozinho (cena do jogo aberta, configuração
