@@ -10,10 +10,11 @@ extends SceneTree
 ##   godot3 --no-window --path <beta>/strike-kids-gles2 \
 ##     -s <beta-unity>/tools/godot/exportar_palco.gd -- --saida=<beta-unity>/Assets/StrikeKids/Resources
 ## O Godot 3.6.3 "headless" (sem tela) não guarda os parâmetros dos
-## materiais (a placa de mentira dele joga fora): rode numa CÓPIA do projeto
-## em que cada ShaderMaterial.new() dos scripts vira o material que guarda
-## (tools/godot/copia_que_guarda.sh monta a cópia: links para as pastas e os
-## scripts copiados com a troca).
+## materiais nem as cópias das MultiMesh (lugar, cor e dado de cada
+## lâmpada: a placa de mentira dele joga fora): rode numa CÓPIA do projeto
+## em que cada ShaderMaterial.new() e MultiMesh.new() dos scripts vira um
+## que guarda (tools/godot/copia_que_guarda.sh monta a cópia: links para as
+## pastas e os scripts copiados com a troca).
 ##
 ## Grava (formato SKP1 da Unity, Scripts/Malhas.cs; o X trocado de sinal
 ## e o V da textura virado, como no exportar_cenario.gd):
@@ -398,11 +399,13 @@ func _mat(m: Material) -> int:
 	var id := m.get_instance_id()
 	if _mat_de.has(id):
 		return _mat_de[id]
+	var i := _mats.size()
 	_mats.append(m)
-	_mat_de[id] = _mats.size() - 1
+	_mat_de[id] = i
+	# (o next_pass entra logo depois; a peça fica com o material dela, i)
 	if m.next_pass:
 		_mat(m.next_pass)
-	return _mats.size() - 1
+	return i
 
 
 ## Os parâmetros do material agora (ShaderMaterial: os uniforms; os de luz
