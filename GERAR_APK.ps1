@@ -3,6 +3,8 @@ param(
     [ValidateSet(1, -1, 0)][int]$Giro = 1,
     # Instala na TV Box pelo adb depois de gerar (TV Box ligada no adb)
     [switch]$Instalar,
+    # Instala e deixa o jogo como TELA INICIAL da TV (abre sozinho ao ligar)
+    [switch]$TelaInicial,
     # Gera tambem a versao Windows (para testar no PC)
     [switch]$Windows,
     # Refaz a calibracao das jogadas (a fisica; leva alguns minutos)
@@ -360,12 +362,25 @@ if ($Windows) {
 }
 
 Titulo "Instalar na TV Box"
+if ($TelaInicial) { $Instalar = [switch]$true }
 if ($Instalar) {
     $adb = Join-Path $Android "SDK\platform-tools\adb.exe"
     if (-not (Test-Path -LiteralPath $adb)) { $adb = "adb.exe" }
     try {
         & $adb install -r $Destino
-        if ($LASTEXITCODE -eq 0) { Ok "instalado na TV Box" } else { Aviso "o adb nao conseguiu instalar (a TV Box esta ligada no adb?)" }
+        if ($LASTEXITCODE -eq 0) {
+            Ok "instalado na TV Box"
+            if ($TelaInicial) {
+                # o jogo como tela inicial (Assets/Plugins/Android/StrikeInicioAtivo.java)
+                $saida = & $adb shell cmd package set-home-activity "com.lazersport.strikekids.unity/com.lazersport.strikekids.StrikeInicioAtivo" 2>&1 | Out-String
+                if ($LASTEXITCODE -eq 0 -and $saida -notmatch 'Error|Exception|Unknown') {
+                    Ok "o jogo agora e a TELA INICIAL da TV: abre sozinho ao ligar"
+                } else {
+                    Aviso "a TV nao aceitou o jogo como tela inicial pelo adb: no menu do operador use '> ABRIR O JOGO AO LIGAR A TV'."
+                }
+            }
+            & $adb shell monkey -p com.lazersport.strikekids.unity -c android.intent.category.LAUNCHER 1 | Out-Null
+        } else { Aviso "o adb nao conseguiu instalar (a TV Box esta ligada no adb?)" }
     } catch { Aviso "nao achei o adb" }
 } else {
     Info "Copie o APK para um pendrive e instale na TV Box (ou use: GERAR_APK.bat -Instalar)."

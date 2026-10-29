@@ -2,9 +2,9 @@
 fundo branco: os 5 sensores, a fita de LED, a PONTE H com o motor da porta
 das bolas, os fins de curso, o moedeiro, os botoes START e CONFIGURACAO, a
 TV Box e (opcionais) o servo e o rele - com os mesmos pinos do firmware
-arduino/strike_kids/strike_kids.ino. Edicao Unity: todos os botoes vem so
-do Arduino (sem a placa Zero Delay); o resto e o mesmo desenho da edicao
-Godot (strike-kids-gles2/tools/desenhar_ligacao.py).
+arduino/strike_kids/strike_kids.ino. O mesmo desenho da edicao Godot
+(strike-kids-gles2/tools/desenhar_ligacao.py), so a fonte vem da pasta da
+Unity.
 
     python3 -I tools/desenhar_ligacao.py docs/ligacao_arduino.svg
 
@@ -467,7 +467,7 @@ def botoes():
         etiqueta(mx + 445, yy, et, fundo, tam=17)
     texto(mx + mw / 2, y0 + 362, "1 pulso = 1 ficha · moedeiro NA ou NF", 18, TXT, ancora="middle")
     _botao(1440, y0, 440, "BOTÃO START", COR["A1"], "#a5d6a7", "#66bb6a", "A1", 1530,
-           "começa a partida (só pelo Arduino)")
+           "começa a partida (o da Zero Delay também)")
     _botao(1900, y0, 440, "CONFIGURAÇÃO", COR["A0"], "#ffe0b2", "#ffa726", "A0", 1470,
            "entra e sai do menu do operador")
 

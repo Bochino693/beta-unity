@@ -1,5 +1,6 @@
 package com.lazersport.strikekids;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.WindowManager;
@@ -10,10 +11,14 @@ import com.unity3d.player.UnityPlayerActivity;
  * A atividade principal do Strike Kids (no lugar da UnityPlayerActivity).
  *
  * Anota TODO aperto e soltura de tecla do Android (código cru do KeyEvent):
- * o controle remoto da TV Box (menu do operador) e um teclado de teste. Os
- * comandos da máquina (START, sensores, ficha, configuração) vêm SÓ do
- * Arduino, pela USB (StrikeSerial.java). O jogo lê a fila crua a cada
- * quadro (Controles.cs, AndroidPonte.cs).
+ * os botões da placa Zero Delay (como joystick ou, no modo teclado, como
+ * teclas), o controle remoto da TV Box (menu do operador) e um teclado de
+ * teste. Os sensores, START, ficha e configuração ligados no Arduino vêm pela
+ * USB (StrikeSerial.java). O jogo lê a fila crua a cada quadro
+ * (Controles.cs, AndroidPonte.cs).
+ *
+ * Também liga o "abrir ao ligar a TV": a volta da espera reinicia o jogo
+ * (InicioDaTv.ouvirTela) e a janela do papel de tela inicial volta aqui.
  *
  * VOLTAR e MENU do controle remoto nunca fecham o jogo: o jogo trata (abre
  * o menu do operador, volta nos menus).
@@ -29,6 +34,19 @@ public class StrikeAtividade extends UnityPlayerActivity {
         ativa = true;
         // máquina de fliperama: a tela nunca apaga
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        // a TV voltando da espera (ligada pelo controle) reinicia o jogo
+        InicioDaTv.ouvirTela(this);
+    }
+
+    @Override
+    protected void onActivityResult(int pedido, int resultado, Intent dados) {
+        super.onActivityResult(pedido, resultado, dados);
+        if (pedido == InicioDaTv.PEDIDO_PAPEL) {
+            try {
+                InicioDaTv.depoisDoPapel(this, resultado);
+            } catch (Throwable ignored) {
+            }
+        }
     }
 
     @Override

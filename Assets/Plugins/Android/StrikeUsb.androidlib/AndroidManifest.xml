@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- AS PEÇAS DO ARDUINO E DA CÂMERA USB (biblioteca Android da Unity 2022.3:
-     a Unity junta este manifesto ao principal no build do APK).
+<!-- AS PEÇAS DO ARDUINO, DA CÂMERA USB E DO "ABRIR AO LIGAR A TV"
+     (biblioteca Android da Unity 2022.3: a Unity junta este manifesto ao
+     principal no build do APK).
 
      * As duas atividades invisíveis de ENCAIXE USB: com o filtro de
        aparelhos (res/xml), a janela de permissão USB do Android mostra a
@@ -11,11 +12,26 @@
        com o aviso na tela — Fotos.cs) e os recursos opcionais: a TV Box não
        tem câmera própria nem precisa ter USB para o APK instalar.
      * unityplayer.SkipPermissionsDialog: a Unity nunca pede permissão
-       sozinha ao abrir o jogo (só o jogo pede, na hora certa). -->
+       sozinha ao abrir o jogo (só o jogo pede, na hora certa).
+     * O JOGO ABRE SOZINHO AO LIGAR A TV (como na edição Godot): ele é uma
+       TELA INICIAL do Android (StrikeInicioAtivo; o operador escolhe no
+       menu, > ABRIR O JOGO AO LIGAR A TV), abre ao ligar na tomada
+       (StrikeLigou) e reinicia do zero ao voltar da espera (StrikeRenasce,
+       num processo à parte). As classes estão em Assets/Plugins/Android. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.lazersport.strikeusb">
 
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- a TV ligou na tomada: abre o jogo (StrikeLigou) -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Android 11+: enxergar as telas iniciais da TV (InicioDaTv) -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
+    </queries>
 
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -54,6 +70,39 @@
                 android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
                 android:resource="@xml/strike_usb_webcam" />
         </activity>
+
+        <!-- o jogo como TELA INICIAL da TV: abre sozinho ao ligar (InicioDaTv) -->
+        <activity
+            android:name="com.lazersport.strikekids.StrikeInicioAtivo"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:stateNotNeeded="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- volta da espera: fecha o jogo e abre de novo, do zero -->
+        <activity
+            android:name="com.lazersport.strikekids.StrikeRenasce"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:process=":renasce"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <receiver
+            android:name="com.lazersport.strikekids.StrikeLigou"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
 
         <meta-data android:name="unityplayer.SkipPermissionsDialog" android:value="true" />
     </application>

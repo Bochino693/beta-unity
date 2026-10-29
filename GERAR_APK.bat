@@ -8,6 +8,7 @@ rem Build\GERACAO-COMPLETA.log. Opcoes (opcionais):
 rem   GERAR_APK.bat -Giro -1         (topo do jogo na direita do HDMI)
 rem   GERAR_APK.bat -Giro 0          (TV deitada, sem giro)
 rem   GERAR_APK.bat -Instalar        (instala na TV Box pelo adb)
+rem   GERAR_APK.bat -TelaInicial     (instala e o jogo abre sozinho ao ligar a TV)
 rem   GERAR_APK.bat -Windows         (gera tambem a versao de PC, para testar)
 rem   GERAR_APK.bat -Calibrar        (refaz a calibracao das jogadas)
 rem   GERAR_APK.bat -Versao 6.1

@@ -1,10 +1,9 @@
 // STRIKE KIDS - ARDUINO DA MAQUINA
 // ================================
-// Le os 5 SENSORES da pista, o botao START, o moedeiro (FICHA) e o botao de
-// CONFIGURACAO, comanda a PORTA das bolas (ponte H, servo e/ou rele) e a
-// fita de LED. Conversa com a TV Box pelo cabo USB (9600, linhas de texto).
-// Edicao Unity: TODOS os botoes da maquina vem SO deste Arduino (nao tem
-// mais a placa Zero Delay) - START, sensores, ficha e configuracao.
+// Le os 5 SENSORES da pista, o botao de CONFIGURACAO (e, se ligados, o
+// START e o moedeiro), comanda a PORTA das bolas (ponte H, servo e/ou rele)
+// e a fita de LED. Conversa com a TV Box pelo cabo USB (9600, linhas de
+// texto).
 //
 // Placas: Arduino Uno, Nano (original ou clone CH340), Pro Mini 5 V,
 // Mega 2560 e Leonardo/Micro.
@@ -17,9 +16,8 @@
 //     Sensor que precisa de 12 V: alimentacao pela fonte de 12 V, GND
 //     comum com o Arduino, e SO o fio de sinal no pino (saida NPN).
 //   Botao de CONFIGURACAO (entra e sai do menu do operador): A0 e GND
-//   Botao START: A1 e GND
-//   Moedeiro / FICHA (sem moedeiro, ligue "Modo livre" no menu): sinal
-//     (COIN) em A2, GND no GND. Cada
+//   Botao START (opcional; o START da Zero Delay tambem vale): A1 e GND
+//   Moedeiro / FICHA (opcional): sinal (COIN) em A2, GND no GND. Cada
 //     pulso = 1 ficha (quantas fichas por partida: no menu do operador).
 //     Moedeiro NA ou NF: os dois funcionam.
 //   PORTA DAS BOLAS - use uma (ou mais) destas; todas recebem o mesmo

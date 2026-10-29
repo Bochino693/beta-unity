@@ -9,6 +9,10 @@ namespace StrikeKids
     /// UnityPlayerActivity) anota TODO código de tecla do Android — inclusive
     /// os botões que a Unity não numera — e o jogo lê a fila a cada quadro.
     /// Se ela não estiver rodando (manifesto sem ela), vale o Input da Unity.
+    ///
+    /// E o ABRIR O JOGO AO LIGAR A TV (InicioDaTv.java, como na edição Godot):
+    /// se o jogo já é a tela inicial da TV, a escolha do Android e a saída para
+    /// a tela da própria TV (menu do operador).
     /// </summary>
     public static class AndroidPonte
     {
@@ -65,10 +69,50 @@ namespace StrikeKids
             using (var up = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
                 return up.GetStatic<AndroidJavaObject>("currentActivity");
         }
+
+        static string Inicio(string metodo, params object[] mais)
+        {
+            try
+            {
+                using (var inicio = new AndroidJavaClass("com.lazersport.strikekids.InicioDaTv"))
+                using (var a = AtividadeAtual())
+                {
+                    var args = new object[mais.Length + 1];
+                    args[0] = a;
+                    mais.CopyTo(args, 1);
+                    return inicio.CallStatic<string>(metodo, args) ?? "";
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("InicioDaTv." + metodo + ": " + e.Message);
+                return "";
+            }
+        }
+
+        /// <summary>A TV abre o jogo sozinha ao ligar? "jogo", "escolher" ou "outra|Nome" ("" = fora da TV Box).</summary>
+        public static string TelaInicial() => Inicio("estado");
+
+        /// <summary>Abre a escolha da tela inicial do Android (o que abriu: "papel", "ajustes", "escolha", "app", "config" ou "").</summary>
+        public static string EscolherTelaInicial() => Inicio("escolher", false);
+
+        /// <summary>O jogo pedindo sozinho na tela de espera: só as janelas de escolha do Android.</summary>
+        public static string PedirTelaInicial() => Inicio("escolher", true);
+
+        /// <summary>Abre a tela inicial da própria TV: o nome dela, "config" (os ajustes) ou "".</summary>
+        public static string SairParaTv() => Inicio("sairParaTv");
 #else
         public static bool Ativa => false;
 
         public static string LerTeclas() => "";
+
+        public static string TelaInicial() => "";
+
+        public static string EscolherTelaInicial() => "";
+
+        public static string PedirTelaInicial() => "";
+
+        public static string SairParaTv() => "";
 #endif
     }
 }

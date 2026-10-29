@@ -58,8 +58,12 @@ namespace StrikeKids
             new Item("Qualidade gráfica", "video", "qualidade", "lista", "auto", "alta", "media", "baixa"),
             new Item("Cenário (fundo)", "video", "cenario", "lista", "auto", "leve", "completo"),
             new Item("Detalhes extras (vento, enfeites, borboletas)", "video", "detalhes", "bool"),
-            new Item("Cenário 3D (auto = leve na Mali-450)", "video", "cenario3d", "lista", "auto", "alto", "leve"),
-            new Item("Nitidez do 3D (resolução)", "video", "nitidez", "lista", "auto", "100%", "90%", "80%", "70%"),
+            new Item("Cenário 3D (auto = alivia sozinho)", "video", "cenario3d", "lista", "auto", "alto", "leve"),
+            new Item("Resolução da imagem (TV Box)", "video", "resolucao", "lista", "auto", "720p", "900p", "1080p", "tela"),
+            new Item("Quadros por segundo", "video", "qps", "lista", "auto", "60", "30"),
+            new Item("Desenho da tela", "video", "desenho", "lista", "auto", "direto", "imagem"),
+            new Item("Antisserrilhado da tela (ao reabrir)", "video", "antisserrilhado", "bool"),
+            new Item("Nitidez do 3D (só no desenho imagem)", "video", "nitidez", "lista", "auto", "100%", "90%", "80%", "70%"),
             new Item("Mostrar desempenho na tela (QPS)", "video", "medidor", "bool"),
             new Item("> TESTE DE DESEMPENHO (18 s)", "", "desempenho", "acao"),
             new Item("Giro da tela", "tela", "giro", "lista", 1, -1, 0),
@@ -72,6 +76,9 @@ namespace StrikeKids
                 500, 800, 1000, 1200, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000),
             new Item("Porta: fim de curso (micro-switch A3/A4)", "arduino", "porta_fim_de_curso", "bool"),
             new Item("> TESTE DA CÂMERA", "", "camera", "acao"),
+            new Item("> CONFIGURAR BOTÕES DA PLACA", "", "botoes", "acao"),
+            new Item("> ABRIR O JOGO AO LIGAR A TV", "", "inicio", "acao"),
+            new Item("> SAIR PARA A TELA DA TV (ajustes, outros apps)", "", "sair_tv", "acao"),
             new Item("> ZERAR RECORDES", "", "recordes", "acao"),
             new Item("> RESTAURAR PADRÃO DE FÁBRICA", "", "padrao", "acao"),
             new Item("> VOLTAR AO JOGO", "", "voltar", "acao"),
@@ -81,6 +88,9 @@ namespace StrikeKids
         {
             ["facil"] = "FÁCIL", ["normal"] = "NORMAL", ["dificil"] = "DIFÍCIL", ["auto"] = "AUTOMÁTICA", ["alta"] = "ALTA",
             ["media"] = "MÉDIA", ["baixa"] = "BAIXA", ["leve"] = "LEVE (TV Box fraca)", ["completo"] = "COMPLETO",
+            ["direto"] = "DIRETO NA TELA (rápido)", ["imagem"] = "IMAGEM 3D (compatível)", ["720p"] = "720p (mais leve)",
+            ["900p"] = "900p", ["1080p"] = "1080p (Full HD)", ["tela"] = "A DA PRÓPRIA TELA", ["60"] = "60 (o mais liso)",
+            ["30"] = "30 TRAVADOS (uniforme)",
             ["giro:1"] = "1 (topo à esquerda)", ["giro:-1"] = "-1 (topo à direita)", ["giro:0"] = "0 (sem giro)",
             ["cam:0"] = "0°", ["cam:90"] = "90°", ["cam:180"] = "180°", ["cam:270"] = "270°",
             ["vel:100"] = "100% (tempo real)", ["vel:115"] = "115%", ["vel:130"] = "130% (padrão)", ["vel:145"] = "145%", ["vel:160"] = "160%",
@@ -90,9 +100,21 @@ namespace StrikeKids
         int _sel, _topo, _visiveis;
         float _esp, u = 1f;
         readonly List<Rotulo> _linhas = new List<Rotulo>();
-        Rotulo _info, _testeRotulo;
+        Rotulo _info, _testeRotulo, _titulo;
         Figura _cameraTela;
         bool _teste, _camera, _porta, _calibrando;
+        bool _inicio;                    // abrir o jogo ao ligar a TV
+        string _inicioEstado = "";       // "jogo", "escolher", "outra|Nome" ("" = fora da TV Box)
+        string _inicioPasso = "-";       // o que a última escolha abriu ("-" = nenhuma ainda)
+        // CONFIGURAR BOTÕES DA PLACA (a Zero Delay): um botão de cada vez, na sequência
+        const float ESPERA_MAXIMA = 20f, PULAR_OPCIONAL = 4f;
+        bool _botoes, _bTerminado;
+        int _bPasso;
+        readonly Dictionary<Acao, string> _bGravar = new Dictionary<Acao, string>();
+        string _bSegurando = "";
+        float _bUltimoToque, _bVoltarEm;
+        Rotulo _bPedido, _bDica, _bSinal, _bRodape;
+        readonly List<Rotulo> _bLinhas = new List<Rotulo>();
         readonly int[] _testeContagem = new int[5];
         float _cameraMs, _cameraT;
         Vector2 _T;
@@ -113,12 +135,24 @@ namespace StrikeKids
             // no menu a porta das bolas fica fechada; aqui pode aparecer a janela de permissão USB
             ArduinoBridge.Porta(false);
             ArduinoBridge.NaEspera(true);
+            o._inicioEstado = AndroidPonte.TelaInicial();
             o.Atualizar();
             return o;
         }
 
+        /// <summary>De volta ao jogo (depois da escolha da tela inicial ou da tela da TV):
+        /// confere de novo se a TV já abre o jogo sozinha.</summary>
+        void OnApplicationFocus(bool foco)
+        {
+            if (!foco || _linhas.Count == 0) return;
+            _inicioEstado = AndroidPonte.TelaInicial();
+            if (_inicio) MostrarInicio();
+            else Atualizar();
+        }
+
         void OnDestroy()
         {
+            Controles.Capturando = false;
             Fotos.Mudou -= Atualizar;
             ArduinoBridge.Mudou -= ArduinoMudou;
             Tela.Mudou -= Remontar;
@@ -132,8 +166,8 @@ namespace StrikeKids
             Ui.Ret((RectTransform)transform, 0, 0, T.x, T.y);
             var fundo = Ui.Retangulo(transform, new Color(0.03f, 0.09f, 0.22f));
             Ui.Ret(fundo, 0, 0, T.x, T.y);
-            var titulo = Ui.Rotulo(transform, "STRIKE KIDS · OPERADOR", 58 * u, Materiais.Hex("#FFD43B"), 58 * u * 0.18f * 0.5f);
-            Ui.Ret(titulo, 0, 40 * u, T.x, 58 * u * 1.5f);
+            _titulo = Ui.Rotulo(transform, "STRIKE KIDS · OPERADOR", 58 * u, Materiais.Hex("#FFD43B"), 58 * u * 0.18f * 0.5f);
+            Ui.Ret(_titulo, 0, 40 * u, T.x, 58 * u * 1.5f);
             // a lista inteira se couber; senão, uma janela que rola com a seleção
             float area = T.y - 420 * u;
             _esp = Mathf.Clamp(area / ITENS.Length, 44f * u, 68f * u);
@@ -171,6 +205,9 @@ namespace StrikeKids
             Atualizar();
         }
 
+        // (o ValorTexto é estático: o estado da tela inicial passa por aqui)
+        static string _inicioEstadoMenu = "";
+
         static object ValorAtual(Item it)
         {
             if (it.secao == "tela") return Tela.Giro;
@@ -179,7 +216,11 @@ namespace StrikeKids
 
         static string ValorTexto(Item it)
         {
-            if (it.tipo == "acao") return "";
+            if (it.tipo == "acao")
+            {
+                if (it.chave == "inicio" && _inicioEstadoMenu != "") return _inicioEstadoMenu == "jogo" ? "SIM" : "NÃO";
+                return "";
+            }
             var v = ValorAtual(it);
             if (it.chave == "porta_tempo") return Segundos(Json.Int(v));
             switch (it.tipo)
@@ -210,7 +251,8 @@ namespace StrikeKids
         {
             if (_sel < _topo) _topo = _sel;
             else if (_sel >= _topo + _visiveis) _topo = _sel - _visiveis + 1;
-            bool emTeste = _teste || _camera || _porta || _calibrando;
+            _inicioEstadoMenu = _inicioEstado;
+            bool emTeste = _teste || _camera || _porta || _calibrando || _inicio;
             for (int i = 0; i < ITENS.Length; i++)
             {
                 var it = ITENS[i];
@@ -250,6 +292,12 @@ namespace StrikeKids
             Controles.Atualizar();
             // o mesmo aperto que abriu o menu não pode fechá-lo
             if (Time.frameCount == _quadroAbriu) return;
+            // na configuração dos botões todo aperto é um botão da placa (VOLTAR sai)
+            if (_botoes)
+            {
+                PassoBotoes();
+                return;
+            }
             // comandos: botões da máquina (Arduino), teclado do PC e controle remoto da TV Box
             string cmd = "";
             if (Controles.Apertou(Acao.Config)) cmd = "sair";
@@ -322,7 +370,15 @@ namespace StrikeKids
                 MostrarPorta();
                 return;
             }
-            if (_teste || _camera || _porta || _calibrando)
+            if (_inicio && cmd == "ok" && _inicioEstado != "" && _inicioEstado != "jogo")
+            {
+                // OK: abre a escolha da tela inicial do Android
+                _inicioPasso = AndroidPonte.EscolherTelaInicial();
+                Sons.Tocar("selecao");
+                MostrarInicio();
+                return;
+            }
+            if (_teste || _camera || _porta || _calibrando || _inicio)
             {
                 if (cmd == "sair" || cmd == "ok") SairDoTeste();
                 return;
@@ -428,6 +484,25 @@ namespace StrikeKids
                     if (Fotos.Ligar()) CameraAoVivo();
                     else CameraRelatorio("");
                     break;
+                case "botoes":
+                    ConfigurarBotoes();
+                    break;
+                case "inicio":
+                    _inicio = true;
+                    _inicioPasso = "-";
+                    _inicioEstado = AndroidPonte.TelaInicial();
+                    EntrarNoTeste();
+                    MostrarInicio();
+                    break;
+                case "sair_tv":
+                    if (Application.platform == RuntimePlatform.Android) AndroidPonte.SairParaTv();
+                    else
+                    {
+                        _inicio = true;
+                        EntrarNoTeste();
+                        MostrarInicio();
+                    }
+                    break;
                 case "desempenho":
                     // volta ao jogo e roda o teste
                     Ajustes.Definir("video", "testar", true);
@@ -462,7 +537,7 @@ namespace StrikeKids
         {
             if (_teste) ArduinoBridge.ModoTeste(false);
             if (_porta) ArduinoBridge.Porta(false);
-            _teste = _camera = _porta = _calibrando = false;
+            _teste = _camera = _porta = _calibrando = _inicio = false;
             Ui.Ver(_testeRotulo, false);
             _testeRotulo.text = "";
             Ui.Ret(_testeRotulo, 0, _T.y * 0.35f, _T.x, 500 * u);
@@ -479,7 +554,6 @@ namespace StrikeKids
             return string.Join("\n", linhas, 0, Mathf.Min(12, linhas.Length));
         }
 
-        /// <summary>Teste da porta: o que o jogo pediu e o que o Arduino confirmou.</summary>
         /// <summary>A ponte H como o Arduino está usando (o tempo e o fim de curso do menu).</summary>
         static string TextoPonte()
         {
@@ -496,6 +570,7 @@ namespace StrikeKids
             return t;
         }
 
+        /// <summary>Teste da porta: o que o jogo pediu e o que o Arduino confirmou.</summary>
         void MostrarPorta()
         {
             string t = "TESTE DA PORTA (trava das bolas)\n\n";
@@ -516,6 +591,199 @@ namespace StrikeKids
                 t += "SEM O ARDUINO\n" + ArduinoBridge.Status + "\n\n" + RelatorioArduino() + "\n\nCONFIGURAÇÃO ou START sai";
             }
             _testeRotulo.text = t;
+        }
+
+        /// <summary>Abrir o jogo ao ligar a TV: se o jogo já é a tela inicial do Android e,
+        /// se não, como escolher (OK abre a escolha do Android).</summary>
+        void MostrarInicio()
+        {
+            _testeRotulo.Tamanho(30 * u, 30 * u * 0.09f);
+            string t = "ABRIR O JOGO AO LIGAR A TV\n\n";
+            if (_inicioEstado == "")
+                t += "Só na TV Box (Android).\n\nCONFIGURAÇÃO ou START sai";
+            else if (_inicioEstado == "jogo")
+                t += "PRONTO! A TV abre o STRIKE KIDS sozinha: ligando na tomada,\n" +
+                    "pelo controle remoto (volta da espera) e a cada HOME.\n\n" +
+                    "Para usar a TV (ajustes, outros apps): > SAIR PARA A TELA DA TV,\n" +
+                    "ou HOME 5 vezes seguidas no controle remoto. Um HOME volta ao jogo.\n\n" +
+                    "CONFIGURAÇÃO ou START sai";
+            else
+            {
+                string nome = _inicioEstado.StartsWith("outra|") ? _inicioEstado.Substring(6) : "";
+                t += nome != "" ? "AINDA NÃO: hoje a TV abre \"" + nome + "\".\n\n" : "AINDA NÃO: o Android ainda pergunta qual é a tela inicial.\n\n";
+                t += "Aperte OK: na janela do Android escolha STRIKE KIDS e marque SEMPRE\n" +
+                    "(ou: HOME no controle remoto > STRIKE KIDS > SEMPRE).\n";
+                if (nome != "")
+                    t += "Abriu a página do \"" + nome + "\"? Aperte LIMPAR PADRÕES (Abrir por padrão),\n" +
+                        "volte e aperte HOME > STRIKE KIDS > SEMPRE.\n";
+                if (_inicioPasso == "") t += "\nEsta TV não abriu nenhuma escolha: faça pelo PC, com o adb (veja o LEIA-ME).\n";
+                t += "\nCONFIGURAÇÃO sai";
+            }
+            _testeRotulo.text = t;
+        }
+
+        // ================================================================ botões da placa
+        /// <summary>CONFIGURAÇÃO DOS BOTÕES DA ZERO DELAY — um botão de cada vez, na sequência da
+        /// máquina (configuracao_botoes.gd da edição Godot). O que for apertado aqui é gravado na TV
+        /// Box e passa a valer no jogo inteiro (Controles). A placa vale do jeito que o Android
+        /// entregar: botão de joystick ou, no modo teclado, tecla — a linha "SINAL RECEBIDO" mostra
+        /// na hora o que chegou (o diagnóstico da placa). Sem toque por 20 s, volta ao jogo sem
+        /// mudar nada; VOLTAR do controle remoto (ou Esc) sai sem gravar.</summary>
+        public void ConfigurarBotoes()
+        {
+            _botoes = true;
+            _bTerminado = false;
+            _bPasso = 0;
+            _bGravar.Clear();
+            _bSegurando = "";
+            _bVoltarEm = -1f;
+            _bUltimoToque = Time.realtimeSinceStartup;
+            Controles.Capturando = true;
+            Controles.EsquecerSegurados();
+            foreach (var l in _linhas) Ui.Ver(l, false);
+            Ui.Ver(_info, false);
+            Ui.Ver(_titulo, false);
+            Ui.Ver(_testeRotulo, false);
+            var T = _T;
+            float y = T.y * 0.06f;
+            BotaoRotulo("CONFIGURAR BOTÕES DA PLACA", y, 54 * u, Materiais.Hex("#7FE7FF"));
+            _bPedido = BotaoRotulo("", y + 120 * u, 76 * u, Materiais.Hex("#FFD43B"));
+            _bDica = BotaoRotulo("APERTE O BOTÃO DA MÁQUINA", y + 230 * u, 36 * u, new Color(1, 1, 1, 0.8f));
+            _bSinal = BotaoRotulo("SINAL RECEBIDO: nenhum ainda", y + 300 * u, 30 * u, Materiais.Hex("#7FE7FF"));
+            y += 420 * u;
+            _bLinhas.Clear();
+            for (int i = 0; i < Controles.SEQUENCIA.Length; i++)
+            {
+                _bLinhas.Add(BotaoRotulo("", y, 36 * u, new Color(1, 1, 1, 0.55f)));
+                y += 82 * u;
+            }
+            _bRodape = BotaoRotulo("", T.y - 120 * u, 28 * u, new Color(1, 1, 1, 0.6f));
+            AtualizarBotoes();
+        }
+
+        readonly List<Rotulo> _bTodos = new List<Rotulo>();
+
+        Rotulo BotaoRotulo(string texto, float y, float tam, Color cor)
+        {
+            var l = Ui.Rotulo(transform, texto, tam, cor, tam * 0.09f);
+            Ui.Ret(l, 0, y, _T.x, tam * 1.6f);
+            _bTodos.Add(l);
+            return l;
+        }
+
+        void PassoBotoes()
+        {
+            float agora = Time.realtimeSinceStartup;
+            if (_bTerminado)
+            {
+                if (_bVoltarEm > 0f && agora >= _bVoltarEm) SairDosBotoes(true);
+                return;
+            }
+            foreach (var ev in Controles.Brutos)
+            {
+                string codigo = ev.Key;
+                if (!ev.Value)
+                {
+                    if (codigo == _bSegurando) _bSegurando = "";
+                    continue;
+                }
+                if (Controles.EhVoltar(codigo))
+                {
+                    SairDosBotoes(true);   // VOLTAR do controle remoto (ou Esc): sai sem mudar nada
+                    return;
+                }
+                _bUltimoToque = agora;
+                _bSinal.text = "SINAL RECEBIDO: " + Controles.TextoDoCodigo(codigo) + "  ·  " +
+                    (Controles.EhBotao(codigo) ? "botão de joystick" : "placa no modo teclado");
+                if (_bSegurando != "") continue;
+                if (_bGravar.ContainsValue(codigo))
+                {
+                    _bDica.text = "ESTE BOTÃO JÁ FOI USADO — APERTE OUTRO";
+                    continue;
+                }
+                _bSegurando = codigo;
+                _bGravar[Controles.SEQUENCIA[_bPasso].acao] = codigo;
+                _bPasso++;
+                _bDica.text = "APERTE O BOTÃO DA MÁQUINA";
+                if (_bPasso >= Controles.SEQUENCIA.Length)
+                {
+                    ConcluirBotoes();
+                    return;
+                }
+            }
+            if (_bPasso >= Controles.OBRIGATORIOS && _bSegurando == "" && agora - _bUltimoToque > PULAR_OPCIONAL)
+            {
+                ConcluirBotoes();
+                return;
+            }
+            if (agora - _bUltimoToque > ESPERA_MAXIMA)
+            {
+                SairDosBotoes(true);   // ninguém apertou nada: volta ao jogo sem mudar nada
+                return;
+            }
+            AtualizarBotoes();
+        }
+
+        void AtualizarBotoes()
+        {
+            float agora = Time.realtimeSinceStartup;
+            int total = Controles.SEQUENCIA.Length;
+            if (_bPasso < total)
+            {
+                string nome = Controles.SEQUENCIA[_bPasso].nome;
+                int corte = nome.IndexOf("  ·  ");
+                _bPedido.text = corte > 0 ? nome.Substring(0, corte) : nome;
+                if (_bPasso >= Controles.OBRIGATORIOS)
+                    _bDica.text = "APERTE, OU AGUARDE " + Mathf.Max(0, Mathf.CeilToInt(PULAR_OPCIONAL - (agora - _bUltimoToque))) + " s PARA PULAR";
+            }
+            for (int i = 0; i < total; i++)
+            {
+                var passo = Controles.SEQUENCIA[i];
+                var linha = _bLinhas[i];
+                if (_bGravar.TryGetValue(passo.acao, out var codigo))
+                {
+                    linha.text = "OK  " + passo.nome + "   »   " + Controles.TextoDoCodigo(codigo);
+                    linha.color = Materiais.Hex("#8DFF6A");
+                }
+                else if (i == _bPasso)
+                {
+                    linha.text = "»  " + passo.nome;
+                    linha.color = Materiais.Hex("#FFD43B");
+                }
+                else
+                {
+                    linha.text = passo.nome + "   (atual: " + Controles.TextoAtual(passo.acao) + ")";
+                    linha.color = new Color(1, 1, 1, 0.45f);
+                }
+            }
+            _bRodape.text = "SEM TOQUE, VOLTA AO JOGO SEM ALTERAR EM " + Mathf.Max(0, Mathf.CeilToInt(ESPERA_MAXIMA - (agora - _bUltimoToque))) + " s";
+        }
+
+        void ConcluirBotoes()
+        {
+            _bTerminado = true;
+            Controles.Gravar(_bGravar);
+            AtualizarBotoes();
+            _bPedido.text = "PRONTO!";
+            _bDica.text = "GRAVADO. PARA REFAZER: BOTÃO DE CONFIGURAÇÃO, OU SEGURE UM BOTÃO 10 s NA TELA INICIAL";
+            _bVoltarEm = Time.realtimeSinceStartup + 1.6f;
+        }
+
+        /// <summary>Fecha a configuração dos botões (e volta ao jogo, como na edição Godot).</summary>
+        void SairDosBotoes(bool voltarAoJogo)
+        {
+            _botoes = false;
+            _bTerminado = true;
+            Controles.Capturando = false;
+            Controles.EsquecerSegurados();
+            foreach (var l in _bTodos)
+                if (l != null) Destroy(l.gameObject);
+            _bTodos.Clear();
+            _bLinhas.Clear();
+            Ui.Ver(_titulo, true);
+            Ui.Ver(_info, true);
+            if (voltarAoJogo) _p.FecharMenu();
+            else Atualizar();
         }
 
         /// <summary>Calibração: com a pista vazia, o nível de cada sensor vira o "sem bola".</summary>

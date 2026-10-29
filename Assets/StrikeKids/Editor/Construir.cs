@@ -81,6 +81,12 @@ namespace StrikeKids.Editor
             // desenha direto na tela (sem cópia a mais por quadro) e com a linha de desenho separada
             PlayerSettings.Android.blitType = AndroidBlitType.Never;
             PlayerSettings.SetMobileMTRendering(BuildTargetGroup.Android, true);
+            // 30 quadros travados ("Quadros por segundo" no menu): um quadro a cada 2 batidas da TV,
+            // sem tremer (QuadrosDaTv.java na edição Godot)
+            // (por reflexão: a propriedade não aparece em todas as versões da referência da Unity)
+            var ritmo = typeof(PlayerSettings.Android).GetProperty("optimizedFramePacing",
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            if (ritmo != null && ritmo.CanWrite) ritmo.SetValue(null, true);
             PlayerSettings.gpuSkinning = false;
             PlayerSettings.runInBackground = true;
             // a chave do projeto (a mesma das edições Godot: o APK novo instala por cima)

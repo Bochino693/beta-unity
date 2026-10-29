@@ -10,8 +10,9 @@ namespace StrikeKids
 {
     /// <summary>
     /// O ARDUINO DA MÁQUINA (firmware em strike-kids-gles2/arduino/strike_kids),
-    /// pelo cabo USB da TV Box (StrikeSerial.java, por UsbSerial.cs). A máquina
-    /// NÃO tem placa Zero Delay: TODO comando físico vem daqui —
+    /// pelo cabo USB da TV Box (StrikeSerial.java, por UsbSerial.cs). O que está
+    /// ligado nele (a placa Zero Delay também vale, como na edição Godot —
+    /// Controles.cs):
     ///   * os 5 SENSORES da pista (S1 = esquerda ... S5 = direita) viram as
     ///     jogadas Z X C V B (Controles.Injetar) e o evento Sensor;
     ///   * START, FICHA (crédito) e o botão de CONFIGURAÇÃO (menu do operador);

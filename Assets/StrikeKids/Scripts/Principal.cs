@@ -15,8 +15,8 @@ namespace StrikeKids
     /// a partida (PRONTO -&gt; ARREMESSO -&gt; ROLANDO -&gt; RESULTADO, com REPLAY no
     /// strike) -&gt; FIM -&gt; ATRACAO.
     ///
-    /// Os botões e os 5 sensores vêm SÓ do Arduino (USB): START, sensores,
-    /// FICHA e CONFIGURAÇÃO (ArduinoBridge -&gt; Controles). Para testar no PC:
+    /// Os botões e os 5 sensores vêm do Arduino (USB) e/ou da placa Zero Delay:
+    /// START, sensores, FICHA e CONFIGURAÇÃO (ArduinoBridge e Controles). Para testar no PC:
     /// A S D F G = sensores, 1/Espaço = START, 5 = ficha, 9 = configuração; o
     /// controle remoto da TV Box (MENU) também abre o menu do operador.
     ///
@@ -81,6 +81,8 @@ namespace StrikeKids
         /// <summary>a jogada só vale com o "ROLE A BOLA!" na tela (6.4: nem fica guardada para depois)</summary>
         bool _liberada;
         string _quemBola = "";
+        /// <summary>pediu (uma vez por abertura do jogo) para ser a tela inicial da TV</summary>
+        bool _telaInicialPedida;
         float _bolaT = -1000f;
         int _seqDesempate = -1;
         float _inativo, _modalInativo;
@@ -107,6 +109,20 @@ namespace StrikeKids
         float _fator = 1f;
         bool _adaptar = true;
         RenderTexture _rt3d;
+        /// <summary>DESENHO DIRETO NA TELA (o normal, como na edição Godot): o 3D e as telas vão
+        /// direto para a tela da TV, numa passada só, na resolução da TV e com o antisserrilhado da
+        /// própria tela. Na Mali-400/450 cada passada de tela inteira custa caro: com o 3D numa
+        /// imagem separada (o modo "imagem", o compatível) o quadro passa pela imagem 3D e pela
+        /// cópia dela para a tela. ("Desenho da tela" no menu do operador; vale ao montar o jogo.)</summary>
+        bool _direto;
+        RenderTexture _foto3d;          // direto, com o 3D parado atrás de um modal: uma foto dele
+        Vector2Int _telaNativa;          // a tela da TV de verdade (antes de a resolução do jogo mudar)
+        // quadros por segundo (menu do operador: auto, 60 ou 30)
+        const int QPS_JANELA = 600;
+        int _qps = 60;
+        bool _qpsAuto;
+        int _qjQuadros, _qjAtrasos, _qjRuins;
+        double _qjUltimo;
         bool _parado3d;
         float _fpsT0 = -1f;
         int _fpsQ, _qLentos, _fpsRuins, _fpsBons;
@@ -120,7 +136,10 @@ namespace StrikeKids
         string _antesMenu = "";
         int _quadroFechou = -1;
 
-        public Vector2Int Tamanho3D => _rt3d != null ? new Vector2Int(_rt3d.width, _rt3d.height) : Vector2Int.zero;
+        public Vector2Int Tamanho3D => _direto ? new Vector2Int((int)Tela.Fisico.x, (int)Tela.Fisico.y)
+            : _rt3d != null ? new Vector2Int(_rt3d.width, _rt3d.height) : Vector2Int.zero;
+        /// <summary>O 3D vai direto para a tela (ou numa imagem separada)?</summary>
+        public bool Direto => _direto;
         public float Fator => _fator;
         public string Qualidade => _qualidade;
         public bool EmTeste => estado == E.TESTE;
@@ -141,6 +160,7 @@ namespace StrikeKids
             QualitySettings.realtimeReflectionProbes = false;
             QualitySettings.anisotropicFiltering = AnisotropicFiltering.Disable;
             if (GetComponent<AudioListener>() == null) gameObject.AddComponent<AudioListener>();
+            _telaNativa = new Vector2Int(Display.main.systemWidth, Display.main.systemHeight);
             Tela.Iniciar();
             Medidas.ConfigurarFisica();
             Sons.Criar();
@@ -153,6 +173,11 @@ namespace StrikeKids
             _velocidade = Ajustes.Velocidade();
             Ritmo(1f);
             _qualidade = QualidadeEscolhida();
+            _direto = DesenhoDireto();
+            // antisserrilhado da própria tela no desenho direto: 4x (2x na qualidade baixa)
+            QualitySettings.antiAliasing = _direto && Ajustes.Bool("video", "antisserrilhado") ? (_qualidade == "baixa" ? 2 : 4) : 0;
+            ResolucaoDaTv();
+            QpsDoOperador();
             // contornos (a casca escura em volta dos bichinhos e dos pinos): na qualidade
             // BAIXA ficam desligados (cada peça com contorno é desenhada duas vezes)
             Personagem.contornos = _qualidade != "baixa";
@@ -178,6 +203,7 @@ namespace StrikeKids
             ArduinoBridge.JanelaAndroid -= hud.AvisoAndroid;
             Fotos.JanelaAndroid -= hud.AvisoAndroid;
             if (_rt3d != null) _rt3d.Release();
+            if (_foto3d != null) _foto3d.Release();
         }
 
         /// <summary>Qualidade gráfica valendo: a do operador (ou STRIKE_QUALIDADE nos testes);
@@ -252,7 +278,8 @@ namespace StrikeKids
             _camUi.cullingMask = 1 << CAMADA_UI;
             _camUi.depth = 10;
             _camUi.allowHDR = false;
-            _camUi.allowMSAA = false;
+            // no direto as telas vão na mesma tela antisserrilhada do 3D (sem imagem no meio)
+            _camUi.allowMSAA = _direto;
             _camUi.useOcclusionCulling = false;
             _camUi.nearClipPlane = 0.1f;
             _camUi.farClipPlane = 200f;
@@ -295,6 +322,25 @@ namespace StrikeKids
             int w = Mathf.Max(64, Mathf.RoundToInt(f.x * k)), h = Mathf.Max(64, Mathf.RoundToInt(f.y * k));
             int aa = _qualidade == "baixa" ? 2 : 4;
             if (reflexos != null) reflexos.ligado = _qualidade != "baixa";
+            if (_direto)
+            {
+                // direto na tela: sem imagem 3D (a câmera desenha na tela, com a projeção já girada)
+                if (_rt3d != null)
+                {
+                    cam.cam.targetTexture = null;
+                    _rt3d.Release();
+                    Destroy(_rt3d);
+                    _rt3d = null;
+                }
+                if (_foto3d == null)
+                {
+                    hud.tela3d.texture = null;
+                    hud.tela3d.SetVerticesDirty();
+                }
+                AjustarCamTelas();
+                hud.Layout();
+                return;
+            }
             if (_rt3d == null || _rt3d.width != w || _rt3d.height != h || _rt3d.antiAliasing != aa)
             {
                 var antiga = _rt3d;
@@ -332,14 +378,67 @@ namespace StrikeKids
         {
             if (_menu != null) return;
             _parado3d = sim;
-            cam.cam.enabled = !sim;
+            // no direto não há imagem 3D para deixar parada: uma FOTO dele fica no lugar
+            bool parar = sim && (!_direto || FotoDo3D(true));
+            if (!sim && _direto) FotoDo3D(false);
+            cam.cam.enabled = !parar;
+            AjustarCamTelas();
             if (sim) cam.Congelar();
+        }
+
+        /// <summary>Desenho direto com o 3D parado atrás de um modal: a câmera do jogo tira UMA foto
+        /// do 3D numa imagem pequena (1/3 da tela: atrás do véu escuro do modal a diferença não
+        /// aparece); a foto fica no lugar do 3D, por baixo das telas, e o 3D para de ser desenhado.
+        /// Ao fechar o modal a foto sai e o 3D volta. Com a TV de pé ligada deitada (giro) o 3D
+        /// continua vivo, como na edição Godot. Devolve se tirou a foto.</summary>
+        bool FotoDo3D(bool sim)
+        {
+            if (_foto3d != null)
+            {
+                hud.tela3d.texture = null;
+                hud.tela3d.SetVerticesDirty();
+                _foto3d.Release();
+                Destroy(_foto3d);
+                _foto3d = null;
+            }
+            if (!sim || Tela.Giro != 0) return false;
+            var f = Tela.Fisico;
+            _foto3d = new RenderTexture(Mathf.Max(64, Mathf.RoundToInt(f.x / 3f)), Mathf.Max(64, Mathf.RoundToInt(f.y / 3f)), 24,
+                RenderTextureFormat.Default)
+            {
+                name = "foto3d", filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp,
+            };
+            _foto3d.Create();
+            // (sem giro, a projeção da tela serve para a foto: a mesma proporção)
+            cam.cam.targetTexture = _foto3d;
+            cam.cam.Render();
+            cam.cam.targetTexture = null;
+            hud.tela3d.texture = _foto3d;
+            hud.tela3d.SetVerticesDirty();
+            return true;
+        }
+
+        /// <summary>No direto o 3D já está na tela: as telas desenham por cima, sem limpar. Sem o 3D
+        /// desenhando (menu, foto parada) ou com a imagem separada, a câmera das telas limpa.</summary>
+        void AjustarCamTelas()
+        {
+            if (_camUi == null || cam == null) return;
+            _camUi.clearFlags = _direto && cam.cam.enabled ? CameraClearFlags.Depth : CameraClearFlags.SolidColor;
         }
 
         // ================================================================ entrada
         void LerEntrada()
         {
             if (Input.GetKeyDown(KeyCode.F3)) medidor.Alternar();
+            // segurar qualquer botão da placa por 10 s na tela de espera abre a CONFIGURAÇÃO DOS
+            // BOTÕES (a saída de emergência se o mapeamento da Zero Delay estiver errado)
+            if ((estado == E.ATRACAO || estado == E.ABERTURA) && Controles.SeguradoHa() >= Controles.SEGURAR_PARA_CONFIGURAR)
+            {
+                Controles.EsquecerSegurados();
+                AbrirMenu();
+                if (_menu != null) _menu.ConfigurarBotoes();
+                return;
+            }
             if (Controles.Apertou(Acao.Config) || Controles.Apertou(Remoto.Menu))
             {
                 AbrirMenu();
@@ -662,6 +761,17 @@ namespace StrikeKids
                 Ajustes.Definir("video", "testar", false);
                 TesteDesempenho();
             }
+        }
+
+        /// <summary>O JOGO ABRE SOZINHO AO LIGAR A TV: na espera, uma vez por abertura, se o jogo
+        /// ainda não é a tela inicial da TV, abre a escolha do Android (só as janelas de escolha;
+        /// o resto fica no menu do operador, > ABRIR O JOGO AO LIGAR A TV).</summary>
+        void PedirTelaInicial()
+        {
+            if (_telaInicialPedida || Application.platform != RuntimePlatform.Android) return;
+            if (Fotos.JanelaAberta() || ArduinoBridge.JanelaAberta()) return;   // uma janela do Android por vez
+            _telaInicialPedida = true;
+            if (AndroidPonte.TelaInicial() != "jogo") AndroidPonte.PedirTelaInicial();
         }
 
         /// <summary>TESTE DE DESEMPENHO (pedido no menu do operador): pelas vistas mais pesadas;
@@ -1216,6 +1326,7 @@ namespace StrikeKids
             if (_menu != null) return;
             if (Time.frameCount != _quadroFechou) LerEntrada();
             if (_menu != null) return;
+            MedirJogada();
             MedirFps();
             OrcamentoBichos();
             AndarLenta();
@@ -1260,6 +1371,7 @@ namespace StrikeKids
                     {
                         _cameraT = 0f;
                         Fotos.NaEspera();
+                        PedirTelaInicial();
                     }
                     if (Ajustes.Bool("jogo", "demo") && _demoT > 9f)
                     {
@@ -2016,6 +2128,7 @@ namespace StrikeKids
             _antesMenu = AjustesQueRemontam();
             Time.timeScale = 0f;
             cam.cam.enabled = false;
+            AjustarCamTelas();
             Ui.Ver(hud.Raiz, false);
             _menu = Operador.Abrir(_canvas.transform, this);
         }
@@ -2036,9 +2149,14 @@ namespace StrikeKids
             if (mundo != null && mundo.temas != null && Ajustes.Cenario3dLeve() != mundo.temas.cenarioLeve)
                 mundo.temas.NivelCenario(Ajustes.Cenario3dLeve());
             Ui.Ver(hud.Raiz, true);
+            if (_foto3d != null) FotoDo3D(false);
             cam.cam.enabled = true;
             _parado3d = false;
+            AjustarCamTelas();
             _fpsT0 = -1f;
+            // a resolução da TV Box e os quadros por segundo valem na hora
+            ResolucaoDaTv();
+            QpsDoOperador();
             // ajustes que valem na hora
             _velocidade = Ajustes.Velocidade();
             Ritmo(1f);
@@ -2073,7 +2191,7 @@ namespace StrikeKids
         public bool MenuAberto => _menu != null;
 
         /// <summary>O que muda a MONTAGEM do jogo (e não dá para trocar com ele montado).</summary>
-        string AjustesQueRemontam() => "cenario=" + Ajustes.CenarioLeve() + "|detalhes=" + Ajustes.Detalhes();
+        string AjustesQueRemontam() => "cenario=" + Ajustes.CenarioLeve() + "|detalhes=" + Ajustes.Detalhes() + "|direto=" + DesenhoDireto();
 
         IEnumerator Remontar()
         {
@@ -2128,6 +2246,96 @@ namespace StrikeKids
             }
         }
 
+        // ================================================================ a tela da TV Box
+        /// <summary>Desenho direto ou com a imagem 3D separada: o do operador ("Desenho da tela" no
+        /// menu; STRIKE_DESENHO nos testes). Automático = direto, a não ser que o jogo já tenha visto
+        /// esta máquina sem fôlego nele, mesmo na qualidade baixa (então liga na imagem separada).</summary>
+        static bool DesenhoDireto()
+        {
+            string d = Ajustes.Texto("video", "desenho");
+            string amb = Environment.GetEnvironmentVariable("STRIKE_DESENHO");
+            if (!string.IsNullOrEmpty(amb)) d = amb;
+            if (d == "auto") d = Ajustes.Texto("video", "desenho_medido") == "imagem" ? "imagem" : "direto";
+            return d != "imagem";
+        }
+
+        /// <summary>RESOLUÇÃO DA IMAGEM NA TV BOX ("Resolução da imagem" no menu): o jogo desenha numa
+        /// imagem menor que a tela e a própria TV Box estica até a tela inteira, no hardware de vídeo
+        /// — de graça para a placa (TelaDaTv.java na edição Godot). Automática: 720 linhas na
+        /// Mali-400/450 e até 1080 nas outras (TV 4K não desenha em 4K).</summary>
+        void ResolucaoDaTv()
+        {
+            if (Application.platform != RuntimePlatform.Android || _telaNativa.x <= 0 || _telaNativa.y <= 0) return;
+            int linhas = LinhasDaTv();
+            int menor = Mathf.Min(_telaNativa.x, _telaNativa.y);
+            int w = _telaNativa.x, h = _telaNativa.y;
+            if (linhas > 0 && linhas < menor)
+            {
+                float k = (float)linhas / menor;
+                w = Mathf.RoundToInt(_telaNativa.x * k / 2f) * 2;
+                h = Mathf.RoundToInt(_telaNativa.y * k / 2f) * 2;
+            }
+            if (Screen.width != w || Screen.height != h) Screen.SetResolution(w, h, FullScreenMode.FullScreenWindow);
+        }
+
+        /// <summary>Quantas linhas a imagem do jogo tem na TV Box (0 = as da própria tela).</summary>
+        static int LinhasDaTv()
+        {
+            switch (Ajustes.Texto("video", "resolucao"))
+            {
+                case "720p": return 720;
+                case "900p": return 900;
+                case "1080p": return 1080;
+                case "tela": return 0;
+            }
+            return Ajustes.PlacaUtgard() ? 720 : 1080;
+        }
+
+        /// <summary>Os quadros por segundo do menu do operador (no automático, o que ele já mediu
+        /// nesta TV Box). Escolher 60 de propósito esquece a medida.</summary>
+        void QpsDoOperador()
+        {
+            string q = Ajustes.Texto("video", "qps");
+            if (q == "60" && Ajustes.Int("video", "qps_medido") != 0) Ajustes.Definir("video", "qps_medido", 0);
+            _qpsAuto = q == "auto";
+            _qjQuadros = _qjAtrasos = _qjRuins = 0;
+            DefinirQps(q == "30" || (_qpsAuto && Ajustes.Int("video", "qps_medido") == 30) ? 30 : 60);
+        }
+
+        /// <summary>60 ou 30 quadros. No Android o ritmo de 30 é o da própria tela (o "Optimized
+        /// Frame Pacing" do APK: um quadro a cada 2 batidas da TV, sem tremer).</summary>
+        void DefinirQps(int q)
+        {
+            _qps = q;
+            Application.targetFrameRate = q;
+            // (no PC o ritmo é o do monitor: 30 = um quadro a cada 2 batidas)
+            if (Application.platform != RuntimePlatform.Android) QualitySettings.vSyncCount = q >= 60 ? 1 : 2;
+        }
+
+        /// <summary>(automático) mede as jogadas: quadros que passaram de 1,5 vez o tempo de um quadro
+        /// de 60. Atrasou em mais de 10% dos quadros duas janelas seguidas: 30 travados (guardado).</summary>
+        void MedirJogada()
+        {
+            double agora = Time.realtimeSinceStartupAsDouble;
+            double antes = _qjUltimo;
+            _qjUltimo = agora;
+            if (!_qpsAuto || _qps < 60 || antes <= 0 || _menu != null) return;
+            if (!(estado == E.ARREMESSO || estado == E.ROLANDO || estado == E.RESULTADO || estado == E.DEMO)) return;
+            _qjQuadros++;
+            if (agora - antes > 0.025) _qjAtrasos++;
+            if (_qjQuadros < QPS_JANELA) return;
+            float parte = (float)_qjAtrasos / _qjQuadros;
+            _qjRuins = parte > 0.1f ? _qjRuins + 1 : 0;
+            _qjQuadros = 0;
+            _qjAtrasos = 0;
+            if (_qjRuins >= 2)
+            {
+                DefinirQps(30);
+                Ajustes.Definir("video", "qps_medido", 30);
+                Debug.Log($"Quadros automáticos: 30 travados ({parte * 100f:0}% dos quadros atrasados a 60)");
+            }
+        }
+
         // ================================================================ nitidez x lisura (sozinho)
         /// <summary>A cada 2 s mede os quadros por segundo de verdade E as travadinhas. Ruim duas
         /// vezes seguidas, alivia: na automática ALTA passa para a MÉDIA; depois a imagem 3D
@@ -2157,7 +2365,11 @@ namespace StrikeKids
 
         void MedirFps()
         {
-            const float alvo = 60f;
+            // o alvo: 60 (ou 30 travados) e nunca mais que a própria TV (a 50 Hz, 50)
+#pragma warning disable 0618
+            int hz = Screen.currentResolution.refreshRate;
+#pragma warning restore 0618
+            float alvo = Mathf.Min(Mathf.Clamp(hz > 0 ? hz : 60, 30, 60), _qps);
             float agora = Time.realtimeSinceStartup;
             if (_qUltimo > 0f && agora - _qUltimo > 1.5f / alvo) _qLentos++;
             _qUltimo = agora;
@@ -2200,7 +2412,7 @@ namespace StrikeKids
                     Debug.Log($"Cenário 3D automático: leve ({fps:0} quadros/s, {atrasados * 100f:0}% atrasados)");
                 }
                 else if (auto && _qualidade == "alta") _qualidadePendente = "media";
-                else if (_fator > FATOR_MIN + 0.01f)
+                else if (!_direto && _fator > FATOR_MIN + 0.01f)
                 {
                     _teto = _fator;
                     _tetoAte = agora + 90f;
@@ -2211,12 +2423,20 @@ namespace StrikeKids
                     _qualidadePendente = "baixa";
                     _fatorPendente = 1f;
                 }
+                else if (_direto && _qualidade == "baixa" && fps < alvo * 0.6f && Ajustes.Texto("video", "desenho") == "auto"
+                    && Ajustes.Texto("video", "desenho_medido") != "imagem")
+                {
+                    // nem na baixa o desenho direto tem fôlego (placa fraca demais para a resolução
+                    // da TV): da próxima vez que o jogo abrir, a imagem 3D separada
+                    Ajustes.Definir("video", "desenho_medido", "imagem");
+                    Debug.Log($"Desenho automático: imagem 3D separada na próxima abertura ({fps:0} quadros/s na baixa)");
+                }
             }
             else if (fps >= alvo * 0.97f && atrasados < 0.01f)
             {
                 _fpsRuins = 0;
                 _fpsBons++;
-                if (_fpsBons >= 4 && _fator < 1f)
+                if (_fpsBons >= 4 && !_direto && _fator < 1f)
                 {
                     _fpsBons = 0;
                     float limite = agora < _tetoAte ? _teto - 0.01f : 1f;
