@@ -569,6 +569,10 @@ namespace StrikeKids
             palco.AplicarFase(nome);
             if (_matAstro != null)
             {
+                // a baleia deixa o astro andado e virado: o sol e a lua voltam ao lugar
+                // (_mostrar_astro da edição Godot; a fase não traz esses dois)
+                _matAstro.SetFloat("_giro_y", 0f);
+                _matAstro.SetVector("_deslocamento", Vector4.zero);
                 // o brilho do sol do céu (no mar: a luz da superfície) fica atrás do astro
                 Vector3 d = _matAstro.GetVector("_direcao");
                 _matCeu.SetVector("_SolDir", Medidas.G(d.x, d.y, d.z));

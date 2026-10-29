@@ -98,12 +98,14 @@ namespace StrikeKids
             if (s == "spatial") Spatial(m, j);
             else if (j.TryGetValue("p", out var p)) Aplicar(m, Json.Dic(p));
             int prio = Json.Int(Json.Pegar(j, "prio", 0));
-            if (prio != 0) m.renderQueue = m.shader.renderQueue + prio;
+            // (sobre a fila que o material já tem: o spatial transparente fica em 3000)
+            if (prio != 0) m.renderQueue += prio;
             _mats[i] = m;
             string papel = Json.Str(Json.Pegar(j, "papel", ""));
             if (papel != "" && !_matPorPapel.ContainsKey(papel)) _matPorPapel[papel] = m;
-            // o next_pass do Godot (o contorno): desenhado como 2º material da peça
-            if (j.TryGetValue("np", out var np))
+            // o next_pass do Godot (o contorno): desenhado como 2º material da peça — só
+            // com os contornos ligados (na qualidade BAIXA a edição Godot nem cria)
+            if (Personagem.contornos && j.TryGetValue("np", out var np))
             {
                 int k = Json.Int(np, -1);
                 if (Material(lista, k) != null) _np[i] = k;

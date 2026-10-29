@@ -198,7 +198,7 @@ BOTOES DA MAQUINA: SO O ARDUINO
 Esta edicao NAO usa a placa Zero Delay: START, os 5 SENSORES da pista,
 FICHA (moedeiro) e CONFIGURACAO vem todos do ARDUINO, pelo cabo USB.
 O firmware esta em arduino\strike_kids\strike_kids.ino (o mesmo das
-edicoes Godot, versao 2) e o desenho da montagem em docs\ligacao_arduino.pdf
+edicoes Godot, versao 3) e o desenho da montagem em docs\ligacao_arduino.pdf
 (A3; tambem .png e .svg, feitos por tools\desenhar_ligacao.py):
   Sensores (esquerda -> direita, olhando da crianca para os pinos):
      S1 = D2   S2 = D3   S3 = D4 (centro)   S4 = D5   S5 = D7
@@ -206,11 +206,45 @@ edicoes Godot, versao 2) e o desenho da montagem em docs\ligacao_arduino.pdf
   Porta das bolas: PONTE H (motor DC ou atuador linear) IN1 = D10,
      IN2 = D12, ENA = D11 (opcional; Mega: D9), fins de curso opcionais
      A3 (aberta) e A4 (fechada); e/ou servo no D9 (Mega: D11); e/ou rele
-     no D8 (veja "ARDUINO 2" abaixo).
+     no D8 (veja "ARDUINO 3" e "ARDUINO 2" abaixo).
   Fita de LED WS2812 (opcional): D6.
 Sem moedeiro: deixe "Modo livre (sem ficha)" ligado no menu (padrao).
 O controle remoto da TV Box serve para o MENU DO OPERADOR (tecla MENU abre;
 setas andam e mudam; OK escolhe; VOLTAR sai).
+
+ARDUINO 3: A PONTE H DA PORTA PELO MENU DO OPERADOR
+---------------------------------------------------
+O mesmo firmware da edicao Godot, agora versao 3. A ponte H da porta das
+bolas (IN1 = D10, IN2 = D12, ENA = D11; Mega: ENA = D9; fins de curso A3 =
+aberta e A4 = fechada) e ajustada no MENU DO OPERADOR, sem regravar o
+Arduino:
+  * "Porta: tempo do motor (ponte H sem fim de curso)": 0,5 a 10 s (1,5 s
+    de fabrica). Sem fim de curso o motor anda esse tempo para abrir ou
+    fechar tudo - meca o curso da porta e ponha um pouco a mais.
+  * "Porta: fim de curso (micro-switch A3/A4)": SIM = o motor anda ate o
+    micro-switch; nao chegou em 6 s (ou no dobro do tempo do motor, se for
+    maior) para, avisa "A PORTA NAO CHEGOU" no TESTE DA PORTA e tenta de
+    novo (3 vezes, a cada 3 s).
+  * O jogo manda os dois ao Arduino ao conectar (antes do comando da
+    porta) e a cada mudanca no menu (PONTE:TEMPO:<ms> e PONTE:FC:<0|1>);
+    o Arduino responde PONTE:TEMPO:1500:FC:0 e GUARDA NA EEPROM: ao ligar
+    a maquina ele ja fecha a porta do jeito certo, antes de o jogo abrir.
+    "Restaurar padrao de fabrica" volta a 1,5 s e sem fim de curso tambem
+    no Arduino. Mudou com o motor andando: ele para, espera 0,3 s e termina
+    no modo novo.
+  * O TESTE DA PORTA mostra como a ponte H esta andando e avisa se o
+    Arduino ainda esta com o firmware 2 (que ignora esses comandos e usa os
+    PONTE_* do .ino: regrave o arduino\strike_kids).
+  * O que esta ligado fica bem definido no comeco do .ino: USAR_PONTE_H,
+    USAR_SERVO e USAR_RELE (1 = ligado; os ligados recebem o mesmo
+    comando). Sem servo, o Timer1 e o D9 ficam livres; sem rele, o D8. O
+    INFO? mostra SERVO=0 / RELE=0 quando desligados e o modo da ponte H.
+  * Continuam no .ino (so a montagem muda): PONTE_INVERTIDA, FC_NF e
+    PONTE_VELOCIDADE_ABRE/_FECHA. Os PONTE_TEMPO_*_MS e PONTE_FIM_DE_CURSO
+    do .ino viraram so o valor de fabrica (antes de o menu escolher).
+  * Desenho da montagem e teste sem placa (tools\testes\arduino\
+    testar_firmware.sh, agora com o menu e a ponte H sozinha) atualizados:
+    FIRMWARE OK.
 
 ARDUINO 2: PONTE H NA PORTA DAS BOLAS (E SEM FICHA DE GRACA)
 ------------------------------------------------------------

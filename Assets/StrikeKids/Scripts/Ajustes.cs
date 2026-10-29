@@ -50,6 +50,9 @@ namespace StrikeKids
             {
                 ["porta_invertida"] = false,     // a trava abre quando devia fechar? troca aqui
                 ["sensores_invertidos"] = false, // sensores ligados da direita para a esquerda
+                // PONTE H da porta (o jogo manda ao Arduino, que guarda na EEPROM):
+                ["porta_tempo"] = 1500,          // ms que o motor anda para abrir/fechar tudo (sem fim de curso)
+                ["porta_fim_de_curso"] = false,  // tem os micro-switches (A3 = aberta, A4 = fechada): anda até eles
             },
             ["video"] = new Dictionary<string, object>
             {

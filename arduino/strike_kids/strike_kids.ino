@@ -36,18 +36,24 @@
 //            Arduino.
 //            FIM DE CURSO (opcional; micro-switch com o C no GND e o NA no
 //            pino): porta ABERTA = A3, porta FECHADA = A4. Com eles, ligue
-//            PONTE_FIM_DE_CURSO: o motor anda ate o micro-switch. Sem eles
-//            o motor anda o tempo de PONTE_TEMPO_ABRE_MS / _FECHA_MS (o
-//            atuador linear para sozinho no fim do curso).
+//            "Porta: fim de curso" no MENU DO OPERADOR: o motor anda ate o
+//            micro-switch. Sem eles o motor anda o TEMPO DO MOTOR do menu
+//            ("Porta: tempo do motor", 1,5 s de fabrica; o atuador linear
+//            para sozinho no fim do curso).
+//            O tempo e o fim de curso vem do MENU DO OPERADOR do jogo: o
+//            jogo manda ao conectar (PONTE:TEMPO / PONTE:FC) e o Arduino
+//            guarda na EEPROM - vale ja ao ligar, antes de o jogo abrir.
+//            (Os PONTE_* abaixo sao so os valores de fabrica.)
 //            Abriu quando devia fechar? Inverta os fios do motor (OUT1 e
 //            OUT2) ou troque PONTE_INVERTIDA. Com fim de curso NAO use a
 //            "Porta invertida" do menu do jogo (ela trocaria os
 //            micro-switches tambem).
 //     SERVO: sinal no D9 (Mega: D11). Alimente o servo por uma fonte
 //            de 5-6 V propria (servo grande puxa muita corrente) e ligue o
-//            GND dessa fonte no GND do Arduino.
+//            GND dessa fonte no GND do Arduino. Sem servo: USAR_SERVO 0.
 //     RELE:  D8 -> entrada (IN) de um modulo rele (para trava solenoide
-//            ou eletroima). Veja RELE_LIGA_EM_LOW e RELE_TEMPO_MAX_S.
+//            ou eletroima). Veja RELE_LIGA_EM_LOW e RELE_TEMPO_MAX_S. Sem
+//            rele: USAR_RELE 0.
 //   Fita de LED WS2812 (NeoPixel), opcional: D6
 //   LED da placa (D13): pisca a cada sensor/botao acionado.
 //
@@ -77,20 +83,26 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 #define RELE_PINO 8
 #define LED_PLACA 13
 
+// ---- PORTA DAS BOLAS: o que esta ligado (todos recebem o mesmo comando)
+#define USAR_PONTE_H 1            // PONTE H (motor DC / atuador linear): IN1 = D10, IN2 = D12, ENA = D11
+#define USAR_SERVO 1              // servo no D9 (Mega: D11); 0 = nao tem servo
+#define USAR_RELE 1               // rele no D8 (trava solenoide / eletroima); 0 = nao tem rele
+
 // Ponte H da porta (motor DC ou atuador linear).
-#define USAR_PONTE_H 1            // 0 = sem ponte H (so servo/rele)
 #define PONTE_IN1 10
 #define PONTE_IN2 12
-#define PONTE_INVERTIDA 0         // a porta abre quando devia fechar? troque para 1
+#define PONTE_INVERTIDA 0         // a porta abre quando devia fechar? troque para 1 (ou inverta OUT1/OUT2)
 #define PONTE_VELOCIDADE_ABRE 255 // 0 a 255 - so vale com o ENA ligado no pino (sem o jumper)
 #define PONTE_VELOCIDADE_FECHA 255 // fechar mais devagar (ex.: 180) e mais seguro para as maos
-#define PONTE_FIM_DE_CURSO 0      // 1 = tem os micro-switches de fim de curso (A3 e A4)
+#define PONTE_FIM_DE_CURSO 0      // de fabrica: 1 = tem os micro-switches (A3 e A4). O MENU troca
 #define FC_ABERTA_PINO A3         // fim de curso da porta ABERTA
 #define FC_FECHADA_PINO A4        // fim de curso da porta FECHADA
 #define FC_NF 0                   // 1 = micro-switch ligado no NF (normalmente fechado)
-#define PONTE_TEMPO_ABRE_MS 1500UL  // SEM fim de curso: tempo para abrir tudo (ponha um pouco a mais)
-#define PONTE_TEMPO_FECHA_MS 1500UL // SEM fim de curso: tempo para fechar tudo
-#define PONTE_TEMPO_MAX_MS 6000UL   // COM fim de curso: nao chegou neste tempo -> para o motor
+#define PONTE_TEMPO_ABRE_MS 1500UL  // de fabrica, SEM fim de curso: tempo para abrir tudo. O MENU troca
+#define PONTE_TEMPO_FECHA_MS 1500UL // de fabrica, SEM fim de curso: tempo para fechar tudo. O MENU troca
+#define PONTE_TEMPO_MIN_MS 300UL    // o que o menu pode escolher: de 0,3 s ...
+#define PONTE_TEMPO_LIM_MS 15000UL  // ... a 15 s
+#define PONTE_TEMPO_MAX_MS 6000UL   // COM fim de curso: nao chegou neste tempo (ou 2x o tempo do motor) -> para
 #define PONTE_TENTATIVAS 3          // ... e tenta de novo, ate 3 vezes, a cada 3 s
 #define PONTE_ESPERA_TRAVOU_MS 3000UL
 #define PONTE_FREIO_MS 150UL      // ao parar: freia o motor este tempo e depois solta (0 = so solta)
@@ -113,7 +125,7 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 #define FILTRO_BOTAO_MS 25
 #define FILTRO_FICHA_MS 5         // moedeiro manda pulsos curtos (20 ms ou mais)
 #define SEM_JOGO_FECHA_MS 15000UL // sem noticia do jogo: fecha a porta
-#define VERSAO "2"
+#define VERSAO "3"
 
 #if USAR_LEDS
 #include <Adafruit_NeoPixel.h>
@@ -176,6 +188,10 @@ unsigned long ponteDesde = 0;   // comecou a andar / parou
 unsigned long ponteFreioAte = 0;
 int16_t pontePos = 1000;        // sem fim de curso: 0 = fechada ... 1000 = aberta, contado
 int16_t ponteInicioPos = 1000;  // pelo tempo (ao ligar nao se sabe: conta aberta e fecha tudo)
+// o que o MENU DO OPERADOR escolheu (guardado na EEPROM; de fabrica: os PONTE_*)
+unsigned long ponteTempoAbre = PONTE_TEMPO_ABRE_MS;
+unsigned long ponteTempoFecha = PONTE_TEMPO_FECHA_MS;
+bool ponteFC = PONTE_FIM_DE_CURSO;
 
 // ------------------------------------------------------------ serial
 char buf[24];
@@ -185,8 +201,12 @@ void enviarSensores();
 
 // ============================================================ EEPROM
 // endereco 0: 0x5B (marca)  1: niveis de repouso dos sensores (bit 1 = HIGH)
+// endereco 2: 0x5C (marca da porta)  3-4: tempo do motor (ms)  5: fim de curso
 #define EE_MARCA 0
 #define EE_REPOUSO 1
+#define EE_PONTE_MARCA 2
+#define EE_PONTE_TEMPO 3
+#define EE_PONTE_FC 5
 
 void carregarRepouso() {
   uint8_t mascara = 0x1F;  // padrao: todos em HIGH (pull-up, aciona em LOW)
@@ -224,6 +244,7 @@ uint16_t pulsoUs(int16_t graus10) {
   return 544 + (int32_t)graus10 * (2400 - 544) / 1800;
 }
 
+#if USAR_SERVO
 void servoIniciar() {
   digitalWrite(SERVO_PINO, LOW);
   pinMode(SERVO_PINO, OUTPUT);
@@ -266,6 +287,7 @@ void tickServo(unsigned long agora) {
     servoSegurar(false);
   }
 }
+#endif
 
 void releEscrever(bool ligado) {
   releLigado = ligado;
@@ -299,7 +321,6 @@ void ponteEscrever(int8_t sentido) {
   analogWrite(PONTE_EN, vel);  // 0 = LOW, 255 = HIGH
 }
 
-#if PONTE_FIM_DE_CURSO
 bool fcAcionado(uint8_t pino) {
   bool baixo = digitalRead(pino) == LOW;
   return FC_NF ? !baixo : baixo;
@@ -314,14 +335,16 @@ bool fimDeCurso(bool aberta) {
   }
   return true;
 }
-#endif
 
 bool ponteChegou(bool aberta) {
-#if PONTE_FIM_DE_CURSO
-  return fimDeCurso(aberta);
-#else
+  if (ponteFC) return fimDeCurso(aberta);
   return pontePos == (aberta ? 1000 : 0);
-#endif
+}
+
+// com fim de curso: o tempo maximo para chegar (o do menu, folgado, ou 6 s)
+unsigned long ponteLimite(bool abrindo) {
+  unsigned long t = 2UL * (abrindo ? ponteTempoAbre : ponteTempoFecha);
+  return t > PONTE_TEMPO_MAX_MS ? t : PONTE_TEMPO_MAX_MS;
 }
 
 void ponteParar(unsigned long agora) {
@@ -335,6 +358,57 @@ void ponteConfirmar() {
   ponteNoAlvo = true;
   ponteFalhas = 0;
   confirmarPorta();
+}
+
+// o tempo e o fim de curso que o MENU DO OPERADOR escolheu (guardados na EEPROM)
+void carregarPonte() {
+  if (EEPROM.read(EE_PONTE_MARCA) != 0x5C) return;   // nunca escolhido: os de fabrica
+  unsigned long t = EEPROM.read(EE_PONTE_TEMPO) | ((unsigned long)EEPROM.read(EE_PONTE_TEMPO + 1) << 8);
+  if (t >= PONTE_TEMPO_MIN_MS && t <= PONTE_TEMPO_LIM_MS) ponteTempoAbre = ponteTempoFecha = t;
+  ponteFC = EEPROM.read(EE_PONTE_FC) == 1;
+}
+
+void guardarPonte() {
+  EEPROM.update(EE_PONTE_MARCA, 0x5C);
+  EEPROM.update(EE_PONTE_TEMPO, ponteTempoAbre & 0xFF);
+  EEPROM.update(EE_PONTE_TEMPO + 1, (ponteTempoAbre >> 8) & 0xFF);
+  EEPROM.update(EE_PONTE_FC, ponteFC ? 1 : 0);
+}
+
+void enviarPonte() {
+  Serial.print(F("PONTE:TEMPO:"));
+  Serial.print((int)ponteTempoAbre);
+  Serial.print(F(":FC:"));
+  Serial.println(ponteFC ? 1 : 0);
+}
+
+// mudou o ajuste: guarda; com o motor andando, para e recomeca no modo novo
+void ponteMudou() {
+  guardarPonte();
+  ponteFalhas = 0;
+  if (ponteMov != 0) ponteParar(millis());
+}
+
+// PONTE:TEMPO:1500 (ms) e PONTE:FC:0/1, do menu do operador
+void ponteComando(const char *c) {
+  if (!strncmp(c, "PONTE:TEMPO:", 12)) {
+    long t = atol(c + 12);
+    if (t >= (long)PONTE_TEMPO_MIN_MS && t <= (long)PONTE_TEMPO_LIM_MS && (unsigned long)t != ponteTempoAbre) {
+      ponteTempoAbre = ponteTempoFecha = (unsigned long)t;
+      ponteMudou();
+    }
+  } else if (!strncmp(c, "PONTE:FC:", 9) && (c[9] == '0' || c[9] == '1') && !c[10]) {
+    bool fc = c[9] == '1';
+    if (fc != ponteFC) {
+      ponteFC = fc;
+      // sem fim de curso: a porta parada no lugar conta como no fim dele; se
+      // nao tinha chegado, conta do outro lado (anda o tempo todo)
+      if (!fc) pontePos = (ponteNoAlvo == ponteAlvoAberta) ? 1000 : 0;
+      ponteNoAlvo = false;   // confere de novo no modo novo (e confirma ao jogo)
+      ponteMudou();
+    }
+  }
+  enviarPonte();
 }
 
 // o jogo pediu: a porta vai para la (o tickPonte anda com o motor)
@@ -359,16 +433,16 @@ void tickPonte(unsigned long agora) {
   if (ponteMov != 0) {
     bool abrindo = ponteMov > 0;
     unsigned long passou = agora - ponteDesde;
-#if !PONTE_FIM_DE_CURSO
-    long andou = (long)(passou * 1000UL / (abrindo ? PONTE_TEMPO_ABRE_MS : PONTE_TEMPO_FECHA_MS));
-    pontePos = (int16_t)constrain(ponteInicioPos + (abrindo ? andou : -andou), 0L, 1000L);
-#endif
+    if (!ponteFC) {
+      long andou = (long)(passou * 1000UL / (abrindo ? ponteTempoAbre : ponteTempoFecha));
+      pontePos = (int16_t)constrain(ponteInicioPos + (abrindo ? andou : -andou), 0L, 1000L);
+    }
     if (abrindo != ponteAlvoAberta) {
       ponteParar(agora);   // o jogo mudou de ideia: para, espera e volta
     } else if (ponteChegou(abrindo)) {
       ponteParar(agora);
       ponteConfirmar();
-    } else if (PONTE_FIM_DE_CURSO && passou >= PONTE_TEMPO_MAX_MS) {
+    } else if (ponteFC && passou >= ponteLimite(abrindo)) {
       ponteParar(agora);   // o micro-switch nao chegou: algo segurando a porta?
       ponteFalhas++;
       Serial.println(F("AVISO:PORTA_TRAVOU"));
@@ -391,11 +465,15 @@ void tickPonte(unsigned long agora) {
 
 void porta(bool abrir) {
   portaAberta = abrir;
+#if USAR_SERVO
   servoAlvo10 = (abrir ? SERVO_ABERTA : SERVO_FECHADA) * 10;
   servoPasso = millis();
+#endif
+#if USAR_RELE
   bool ligar = RELE_LIGADO_ABERTA ? abrir : !abrir;
   if (ligar && !releLigado) releLigouEm = millis();
   releEscrever(ligar);
+#endif
 #if USAR_PONTE_H
   ponteIr(abrir);    // confirma (PORTA:ABERTA/FECHADA) quando a porta chegar
 #else
@@ -564,16 +642,27 @@ void executar(const char *c) {
     streamSensores = false;
   } else if (!strcmp(c, "CALIBRA")) {
     calibrar();
+#if USAR_PONTE_H
+  } else if (!strncmp(c, "PONTE:", 6)) {
+    ponteComando(c);
+  } else if (!strcmp(c, "PONTE?")) {
+    enviarPonte();
+#endif
   } else if (!strcmp(c, "INFO?")) {
     Serial.print(F("INFO:STRIKE_KIDS:" VERSAO ":LEDS="));
     Serial.print(USAR_LEDS);
     Serial.print(F(":SERVO="));
-    Serial.print(SERVO_PINO);
+    Serial.print(USAR_SERVO ? SERVO_PINO : 0);
     Serial.print(F(":RELE="));
-    Serial.print(RELE_PINO);
+    Serial.print(USAR_RELE ? RELE_PINO : 0);
     Serial.print(F(":PONTE_H="));
-    if (!USAR_PONTE_H) Serial.print('0');
-    else Serial.print(PONTE_FIM_DE_CURSO ? F("FIM_DE_CURSO") : F("TEMPO"));
+#if USAR_PONTE_H
+    Serial.print(ponteFC ? F("FIM_DE_CURSO") : F("TEMPO"));
+    Serial.print(F(":TEMPO="));
+    Serial.print((int)ponteTempoAbre);
+#else
+    Serial.print('0');
+#endif
     Serial.print(F(":REPOUSO="));
     for (uint8_t i = 0; i < 5; i++) Serial.print(sensores[i].repouso == HIGH ? 'H' : 'L');
     Serial.println();
@@ -607,21 +696,25 @@ void lerSerial() {
 // ============================================================ setup / loop
 void setup() {
   // a porta nasce fechada: rele desligado e motor parado ja antes de virar saida
+#if USAR_RELE
   releLigado = true;
   releEscrever(false);
   pinMode(RELE_PINO, OUTPUT);
+#endif
 #if USAR_PONTE_H
   ponteEscrever(0);
   pinMode(PONTE_IN1, OUTPUT);
   pinMode(PONTE_IN2, OUTPUT);
   pinMode(PONTE_EN, OUTPUT);
-#if PONTE_FIM_DE_CURSO
+  // (os fins de curso com pull-up sempre: o menu pode ligar a qualquer hora)
   pinMode(FC_ABERTA_PINO, INPUT_PULLUP);
   pinMode(FC_FECHADA_PINO, INPUT_PULLUP);
-#endif
+  carregarPonte();   // o tempo e o fim de curso do menu, antes de mexer o motor
   ponteDesde = millis() - PONTE_PAUSA_MS;  // ja no 1o loop o motor fecha a porta
 #endif
+#if USAR_SERVO
   servoIniciar();
+#endif
   pinMode(LED_PLACA, OUTPUT);
   for (uint8_t i = 0; i < 5; i++) iniciarEntrada(sensores[i], SENSOR_PINOS[i], FILTRO_SENSOR_MS, REARME_SENSOR_MS, NOMES_SENSOR[i]);
   iniciarEntrada(botoes[0], CONFIG_PINO, FILTRO_BOTAO_MS, 250, "CFG");
@@ -661,8 +754,12 @@ void loop() {
       piscar(agora);
     }
   }
+#if USAR_SERVO
   tickServo(agora);
+#endif
+#if USAR_RELE
   tickRele(agora);
+#endif
 #if USAR_PONTE_H
   tickPonte(agora);
 #endif

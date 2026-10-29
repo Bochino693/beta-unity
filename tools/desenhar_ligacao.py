@@ -137,7 +137,7 @@ def secao(x, y, s, tam=32):
 def cabecalho():
     texto(60, 108, "STRIKE KIDS · MONTAGEM DO ARDUINO", 88, "#0b1f45", "bold", fonte=TITULO)
     texto(60, 162, "Arduino **Nano** visto de cima · no **Uno** e no **Pro Mini** os pinos têm os mesmos nomes · "
-          "no **Mega**: servo no D11 e ENA no D9 · firmware arduino/strike_kids (versão 2)", 30, "#33415c")
+          "no **Mega**: servo no D11 e ENA no D9 · firmware arduino/strike_kids (versão 3)", 30, "#33415c")
     cores = [COR["S1"], COR["S2"], COR["S3"], COR["S4"], COR["S5"]]
     for i, c in enumerate(cores):
         rect(i * W / 5, 190, W / 5 + 1, 12, c)
@@ -360,10 +360,10 @@ def porta():
         linha(fx, ty - 10, fx + (16 if nome == "FECHADA" else -16), ty - 44, "#cfd8dc", 5)
         texto(fx, ty + 126, "fim de curso", 19, CINZA, "bold", "middle")
         texto(fx, ty + 152, "%s → %s" % (nome, pino), 22, cor, "bold", "middle")
-    texto(x0 + 24, y0 + 470, "FIM DE CURSO (opcional): ligue no .ino **PONTE_FIM_DE_CURSO 1**;", 21)
+    texto(x0 + 24, y0 + 470, "FIM DE CURSO (opcional): no menu, **Porta: fim de curso = SIM**;", 21)
     texto(x0 + 24, y0 + 500, "a ligação dos micro-switches está no quadro de baixo, à esquerda.", 21)
     texto(x0 + 24, y0 + 540, "**ou ATUADOR LINEAR 12 V** nos mesmos 2 fios: ele para sozinho no", 21)
-    texto(x0 + 24, y0 + 570, "fim do curso (sem micro-switch; ajuste PONTE_TEMPO_ABRE/FECHA_MS).", 21)
+    texto(x0 + 24, y0 + 570, "fim do curso (sem micro-switch; menu: **Porta: tempo do motor**).", 21)
 
 
 def tv_box():
@@ -588,23 +588,22 @@ def paineis():
             "Jogo sumiu (cabo solto, TV desligada) com",
             "a porta aberta: ela FECHA sozinha em 15 s.",
         ]),
-        ("AJUSTES DA PONTE H (no começo do .ino)", "#c0392b", [
-            "**USAR_PONTE_H 1** — 0 = sem ponte H (só servo/relé)",
+        ("PONTE H NO MENU DO OPERADOR", "#c0392b", [
+            "**Porta: tempo do motor** (0,5 a 10 s; 1,5 s de",
+            "fábrica): SEM fim de curso o motor anda esse",
+            "tempo. Meça o curso e ponha um pouco a mais.",
             "",
-            "**Sem fim de curso** (PONTE_FIM_DE_CURSO 0):",
-            "o motor anda **PONTE_TEMPO_ABRE_MS** e",
-            "**PONTE_TEMPO_FECHA_MS** (1500 = 1,5 s). Meça o",
-            "tempo do curso e ponha um pouco a mais.",
+            "**Porta: fim de curso = SIM:** anda até o",
+            "micro-switch (A3 aberta, A4 fechada). Não chegou",
+            "em 6 s (ou 2x o tempo): para, o teste da porta",
+            "avisa “A PORTA NÃO CHEGOU” e tenta de novo (3x).",
+            "O jogo manda ao Arduino, que guarda na EEPROM.",
             "",
-            "**Com fim de curso** (PONTE_FIM_DE_CURSO 1):",
-            "anda até o micro-switch (A3 aberta, A4 fechada).",
-            "Não chegou em **PONTE_TEMPO_MAX_MS** (6 s): para,",
-            "o teste da porta avisa “A PORTA NÃO CHEGOU” e",
-            "tenta de novo (3 vezes). Micro-switch no NF: FC_NF 1.",
-            "",
+            "**No começo do .ino:** USAR_PONTE_H 0 = sem ponte H",
+            "· USAR_SERVO / USAR_RELE 0 = sem servo / relé",
+            "· FC_NF 1 = micro-switch no NF.",
             "**Abriu ao contrário?** Inverta os fios OUT1/OUT2",
             "ou PONTE_INVERTIDA 1.",
-            "",
             "**PONTE_VELOCIDADE_ABRE / _FECHA** (0 a 255): só",
             "com o ENA no D11 (sem o jumper). Fechar mais",
             "devagar (ex.: 180) protege as mãos das crianças.",
@@ -614,14 +613,15 @@ def paineis():
             "(Nano clone: Processador “ATmega328P (Old",
             "Bootloader)”; biblioteca Adafruit NeoPixel, ou",
             "USAR_LEDS 0 sem a fita).",
-            "**2. Monitor Serial a 9600:** OLA:STRIKE_KIDS:2",
+            "**2. Monitor Serial a 9600:** OLA:STRIKE_KIDS:3",
             "e a porta FECHA (PORTA:FECHADA quando chega).",
             "Mande PORTA:ABRE e PORTA:FECHA para testar.",
             "**3. USB na TV Box** e abra o jogo: na janela do",
             "USB marque “Usar por padrão” e OK.",
             "**4. CONFIGURAÇÃO → menu do operador:**",
             "TESTE DOS SENSORES (ao vivo) → CALIBRAR",
-            "SENSORES (pista vazia) → TESTE DA PORTA",
+            "SENSORES (pista vazia) → **Porta: tempo do**",
+            "**motor** ou **fim de curso** → TESTE DA PORTA",
             "(C ou START abre/fecha; “o Arduino confirmou”",
             "= a porta chegou).",
             "**5. Modo livre** SIM ou NÃO e **Fichas por",

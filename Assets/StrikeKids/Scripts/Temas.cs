@@ -496,11 +496,11 @@ namespace StrikeKids
             mr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
         }
 
-        /// <summary>O NÍVEL DO CENÁRIO: alto (as versões caprichadas) ou leve (um passo mais leve
-        /// em cada peça). Trocar é só mostrar um nó e esconder o outro.</summary>
         /// <summary>O nível do cenário mudou (o símbolo da selva troca a malha junto).</summary>
         public event System.Action<bool> NivelMudou;
 
+        /// <summary>O NÍVEL DO CENÁRIO: alto (as versões caprichadas) ou leve (um passo mais leve
+        /// em cada peça). Trocar é só mostrar um nó e esconder o outro.</summary>
         public void NivelCenario(bool leve)
         {
             cenarioLeve = leve;

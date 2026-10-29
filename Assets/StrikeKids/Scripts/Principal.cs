@@ -156,6 +156,8 @@ namespace StrikeKids
             // contornos (a casca escura em volta dos bichinhos e dos pinos): na qualidade
             // BAIXA ficam desligados (cada peça com contorno é desenhada duas vezes)
             Personagem.contornos = _qualidade != "baixa";
+            // o pino de perto mais redondo: com os detalhes extras (pinos.montar da edição Godot)
+            Pino.redondos = Ajustes.Detalhes();
             LerNitidez();
             Montar3D();
             MontarTelas();
@@ -2155,7 +2157,6 @@ namespace StrikeKids
 
         void MedirFps()
         {
-            if (!_adaptar) return;
             const float alvo = 60f;
             float agora = Time.realtimeSinceStartup;
             if (_qUltimo > 0f && agora - _qUltimo > 1.5f / alvo) _qLentos++;
@@ -2176,11 +2177,13 @@ namespace StrikeKids
             _fpsT0 = agora;
             _fpsQ = Time.frameCount;
             _qLentos = 0;
-            if (_qualidadePendente != "" || _fatorPendente > 0f) return;
-            bool auto = Ajustes.Texto("video", "qualidade") == "auto";
-            // (o orçamento do bichinho de perto: só com o quadro folgado)
+            // (o orçamento do bichinho de perto: só com o quadro folgado — medido sempre,
+            // também com a nitidez fixa no menu)
             _quadroFolgado = fps >= alvo * 0.97f && atrasados < 0.01f;
             _quadroRuim = fps < alvo * 0.9f || atrasados > 0.04f;
+            if (!_adaptar) return;
+            if (_qualidadePendente != "" || _fatorPendente > 0f) return;
+            bool auto = Ajustes.Texto("video", "qualidade") == "auto";
             if (fps < alvo * 0.9f || atrasados > 0.04f)
             {
                 _fpsBons = 0;

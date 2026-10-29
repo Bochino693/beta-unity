@@ -446,6 +446,10 @@ namespace StrikeKids
             if (_forcar > 0) _forcar--;
             else if (!_bolaMao.gameObject.activeSelf && !NaTela())
             {
+                // o lugar e o giro do corpo seguem (o próximo clipe parte daqui), e fora
+                // do quadro ele não disputa o modelo de perto
+                Raiz(_ultimaPose);
+                _dentro = false;
                 FimDoQuadro(terminou, c);
                 return;
             }
@@ -601,6 +605,15 @@ namespace StrikeKids
             return v;
         }
 
+        /// <summary>O deslocamento da corrida (para a frente do personagem), o giro e o voo.</summary>
+        void Raiz(Dictionary<string, Vector3> pose)
+        {
+            float voo = Mathf.Max(Pegar(pose, "voo").x, 0f);
+            var frenteMundo = Quaternion.Euler(0, _baseYaw, 0) * Vector3.forward * Pegar(pose, "frente").x;
+            transform.localPosition = _basePos + frenteMundo + new Vector3(0, voo, 0);
+            transform.localRotation = Quaternion.Euler(0, _baseYaw + Pegar(pose, "giro").x, 0);
+        }
+
         void Aplicar(Dictionary<string, Vector3> pose, float dt)
         {
             var corpoRot = Pegar(pose, "corpo");
@@ -610,8 +623,6 @@ namespace StrikeKids
             float altura = Pegar(pose, "altura").x + resp;
             var quadril = Pegar(pose, "quadril");
             float voo = Mathf.Max(Pegar(pose, "voo").x, 0f);
-            float frente = Pegar(pose, "frente").x;
-            float giro = Pegar(pose, "giro").x;
             foreach (var kv in juntas)
             {
                 var r = Pegar(pose, kv.Key);
@@ -621,10 +632,7 @@ namespace StrikeKids
                 kv.Value.localRotation = Quaternion.Euler(r);
             }
             juntas["corpo"].localPosition = _posRepouso["corpo"] + new Vector3(quadril.x, altura, quadril.z);
-            // deslocamento da corrida (para a frente do personagem) e voo
-            var frenteMundo = Quaternion.Euler(0, _baseYaw, 0) * Vector3.forward * frente;
-            transform.localPosition = _basePos + frenteMundo + new Vector3(0, voo, 0);
-            transform.localRotation = Quaternion.Euler(0, _baseYaw + giro, 0);
+            Raiz(pose);
             IkPernas(dt, voo);
             Sombras(voo);
             OlharPasso(dt);
