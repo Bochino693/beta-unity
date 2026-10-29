@@ -31,9 +31,8 @@ namespace StrikeKids
                 ["velocidade"] = 130,         // ritmo do jogo (%): 130 = tudo 30% mais rápido (a física das jogadas não muda)
                 ["protecao_canaleta"] = true, // para-choques nas canaletas (bumpers)
                 ["replay_strike"] = true,
-                ["modo_livre"] = true,        // sem crédito: START sempre começa
-                ["inicio_bola"] = true,       // modo livre: rolar a bola começa (1 bola = 1 jogador, 2 = 2; o lado escolhe Bob/Mia)
-                ["creditos_por_partida"] = 1,
+                ["modo_livre"] = true,        // sem ficha e sem trava: a bola sempre começa
+                ["creditos_por_partida"] = 1, // fichas por JOGADOR (1 ficha = 1 jogador, 2 = Bob x Mia)
                 ["tempo_inatividade"] = 45,   // segundos sem jogar até o aviso
                 ["demo"] = true,
                 ["foto"] = true,              // foto das crianças com a câmera da máquina
@@ -270,11 +269,17 @@ namespace StrikeKids
             Contar("moedas");
         }
 
-        public static bool PodeComecar() => ModoLivre() || _creditos >= Int("jogo", "creditos_por_partida");
+        public static bool PodeComecar() => ModoLivre() || _creditos >= FichasPorJogador();
 
-        public static void GastarCreditos()
+        static int FichasPorJogador() => Mathf.Max(1, Int("jogo", "creditos_por_partida"));
+
+        /// <summary>Modo fichas: quantos jogadores as fichas pagam (0, 1 ou 2 - com 2 já é BOB x
+        /// MIA). Modo livre: 0 (quem diz é a bola).</summary>
+        public static int JogadoresPagos() => ModoLivre() ? 0 : Mathf.Min(2, _creditos / FichasPorJogador());
+
+        public static void GastarCreditos(int jogadores)
         {
-            if (!ModoLivre()) _creditos = Mathf.Max(0, _creditos - Int("jogo", "creditos_por_partida"));
+            if (!ModoLivre()) _creditos = Mathf.Max(0, _creditos - FichasPorJogador() * jogadores);
         }
 
         // ------------------------------------------------------------ recorde

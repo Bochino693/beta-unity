@@ -45,12 +45,11 @@ namespace StrikeKids
             new Item("Para-choques nas canaletas", "jogo", "protecao_canaleta", "bool"),
             new Item("Replay do strike", "jogo", "replay_strike", "bool"),
             new Item("Demonstração na tela inicial", "jogo", "demo", "bool"),
-            new Item("Modo livre (sem ficha)", "jogo", "modo_livre", "bool"),
-            new Item("Modo livre: começar rolando a bola", "jogo", "inicio_bola", "bool"),
+            new Item("Modo livre (sem ficha e sem trava)", "jogo", "modo_livre", "bool"),
             new Item("Foto das crianças (câmera)", "jogo", "foto", "bool"),
             new Item("Giro da câmera", "jogo", "camera_giro", "lista", 0, 90, 180, 270),
             new Item("Espelhar a câmera", "jogo", "camera_espelho", "bool"),
-            new Item("Fichas por partida", "jogo", "creditos_por_partida", "int", 1, 5),
+            new Item("Fichas por jogador", "jogo", "creditos_por_partida", "int", 1, 5),
             new Item("Tempo sem jogar até o aviso (s)", "jogo", "tempo_inatividade", "int", 20, 180),
             new Item("Volume da música", "som", "musica", "vol"),
             new Item("Volume dos efeitos", "som", "efeitos", "vol"),
@@ -130,7 +129,7 @@ namespace StrikeKids
             o._p = p;
             o._quadroAbriu = Time.frameCount;
             o.Montar();
-            Fotos.Mudou += o.Atualizar;
+            Fotos.Mudou += o.FotosMudou;
             ArduinoBridge.Mudou += o.ArduinoMudou;
             // no menu a porta das bolas fica fechada; aqui pode aparecer a janela de permissão USB
             ArduinoBridge.Porta(false);
@@ -144,7 +143,7 @@ namespace StrikeKids
         /// confere de novo se a TV já abre o jogo sozinha.</summary>
         void OnApplicationFocus(bool foco)
         {
-            if (!foco || _linhas.Count == 0) return;
+            if (!foco || _linhas.Count == 0 || _botoes) return;
             _inicioEstado = AndroidPonte.TelaInicial();
             if (_inicio) MostrarInicio();
             else Atualizar();
@@ -153,7 +152,7 @@ namespace StrikeKids
         void OnDestroy()
         {
             Controles.Capturando = false;
-            Fotos.Mudou -= Atualizar;
+            Fotos.Mudou -= FotosMudou;
             ArduinoBridge.Mudou -= ArduinoMudou;
             Tela.Mudou -= Remontar;
         }
@@ -222,7 +221,10 @@ namespace StrikeKids
                 return "";
             }
             var v = ValorAtual(it);
-            if (it.chave == "porta_tempo") return Segundos(Json.Int(v));
+            // só a ponte H usa; o Arduino do relé (arduino/strike_kids) ignora
+            if (it.chave == "porta_tempo" || it.chave == "porta_fim_de_curso")
+                return (it.chave == "porta_tempo" ? Segundos(Json.Int(v)) : Json.Bool(v) ? "SIM" : "NÃO") +
+                    (ArduinoBridge.SemPonte() ? " · relé: não usa" : "");
             switch (it.tipo)
             {
                 case "bool": return Json.Bool(v) ? "SIM" : "NÃO";
@@ -252,7 +254,7 @@ namespace StrikeKids
             if (_sel < _topo) _topo = _sel;
             else if (_sel >= _topo + _visiveis) _topo = _sel - _visiveis + 1;
             _inicioEstadoMenu = _inicioEstado;
-            bool emTeste = _teste || _camera || _porta || _calibrando || _inicio;
+            bool emTeste = _teste || _camera || _porta || _calibrando || _inicio || _botoes;
             for (int i = 0; i < ITENS.Length; i++)
             {
                 var it = ITENS[i];
@@ -279,8 +281,16 @@ namespace StrikeKids
                 (SystemInfo.systemMemorySize / 1024f).ToString("0.0") + " GB";
         }
 
+        /// <summary>A câmera mudou: o menu mostra o estado novo (na configuração dos botões, nada:
+        /// as linhas do menu ficam escondidas).</summary>
+        void FotosMudou()
+        {
+            if (!_botoes) Atualizar();
+        }
+
         void ArduinoMudou()
         {
+            if (_botoes) return;
             if (_teste) MostrarTeste("");
             else if (_porta) MostrarPorta();
             else if (_calibrando) MostrarCalibracao();
@@ -554,14 +564,17 @@ namespace StrikeKids
             return string.Join("\n", linhas, 0, Mathf.Min(12, linhas.Length));
         }
 
-        /// <summary>A ponte H como o Arduino está usando (o tempo e o fim de curso do menu).</summary>
+        /// <summary>A porta como o Arduino está usando: a versão do RELÉ (arduino/strike_kids, confirma
+        /// na hora) ou a da PONTE H (o tempo e o fim de curso do menu).</summary>
         static string TextoPonte()
         {
             int versao = ArduinoBridge.Versao();
             if (versao < 3)
-                return "Firmware antigo (versão " + versao + "): grave o arduino/strike_kids novo\n" +
-                    "para o tempo e o fim de curso do menu valerem";
-            if (ArduinoBridge.Info.Contains("PONTE_H=0")) return "Ponte H desligada no Arduino (USAR_PONTE_H 0): só servo/relé";
+                return "Firmware antigo (versão " + versao + "): grave o arduino/strike_kids (relé/servo)\n" +
+                    "ou o arduino/strike_kids_ponte_h (ponte H)";
+            if (ArduinoBridge.SemPonte())
+                return "Arduino do RELÉ/SERVO (sem ponte H): confirma a porta na hora\n" +
+                    "(\"tempo do motor\" e \"fim de curso\" são só da ponte H)";
             string t = Ajustes.Bool("arduino", "porta_fim_de_curso")
                 ? "Ponte H: anda até o FIM DE CURSO (A3 aberta, A4 fechada)"
                 : "Ponte H: anda " + Segundos(Ajustes.Int("arduino", "porta_tempo")) + " (\"Porta: tempo do motor\")";

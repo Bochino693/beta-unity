@@ -32,17 +32,21 @@ namespace StrikeKids
         const float Z_INICIO = 3.15f;
         const float X_MAO = 0.28f;          // a mão direita fica 0,28 m à direita do corpo
         const float MESMA_BOLA = 1.2f;      // s: o mesmo sensor de novo logo depois = a mesma bola
-        /// <summary>o tempo da tela "QUANTOS VÃO JOGAR?" (START de novo dentro dele = 2 jogadores)</summary>
-        const float TEMPO_JOGADORES = 4f;
-        /// <summary>MODO LIVRE PELA BOLA (7.5, máquina sem botões): a bola rolada na espera começa a
-        /// partida e já escolhe o amigo pelo lado (esquerda = Bob, direita = Mia, meio = Bob); outra
-        /// bola na tela "QUANTOS VÃO JOGAR?" = 2 jogadores. A 2ª criança precisa pegar outra bola:
-        /// o tempo é maior.</summary>
+        /// <summary>A MÁQUINA SEM BOTÕES: a BOLA é o START.
+        /// MODO LIVRE: sem trava (a porta das bolas fica sempre aberta); a bola rolada na espera
+        /// começa e outra bola na tela "QUANTOS VÃO JOGAR?" = 2 jogadores (a 2ª criança precisa
+        /// pegar outra bola: o tempo é este).
+        /// MODO FICHAS: sem ficha a trava fica fechada; a ficha ABRE a trava e a bola começa:
+        /// 1 ficha = 1 jogador, 2 fichas = BOB x MIA ("Fichas por jogador" no menu do operador).
+        /// 1 jogador: o LADO da bola escolhe o amigo (esquerda = BOB, direita = MIA, onde cada um
+        /// fica na tela); bola no meio: rola de novo de um lado ou, demorando, o jogo sorteia.</summary>
         const float TEMPO_JOGADORES_BOLA = 7f;
         /// <summary>a mesma bola pode passar por 2 sensores (ou o sensor piscar): a 2ª só vale depois disto</summary>
         const float OUTRA_BOLA = 1.5f;
-        /// <summary>1 jogador pela bola: o amigo já vem escolhido e confirma sozinho neste tempo</summary>
-        const float TEMPO_AMIGO_BOLA = 6f;
+        /// <summary>o amigo escolhido pelo lado da bola aparece este tempo e a partida começa</summary>
+        const float TEMPO_AMIGO_BOLA = 1.6f;
+        /// <summary>sem lado escolhido (bola no meio, START): sorteia o amigo depois disto</summary>
+        const float TEMPO_SORTEIO = 10f;
         /// <summary>o tempo máximo esperando a câmera assentar na pista (segundos de tela)</summary>
         const float ASSENTAR_MAX = 2.2f;
         static readonly Vector3[] PODIOS = { Medidas.G(-0.62f, 0f, 2.5f), Medidas.G(0.62f, 0f, 2.5f) };
@@ -94,6 +98,7 @@ namespace StrikeKids
         float _velocidade = 1f;
         int _escolhaN = 1;
         float _escolhaT;
+        /// <summary>amigo escolhido na tela da escolha: 0 = Bob, 1 = Mia, -1 = nenhum ainda</summary>
         int _destaque;
         float _fimT, _demoT, _cameraT;
         int _demoVez;
@@ -174,8 +179,7 @@ namespace StrikeKids
             Ritmo(1f);
             _qualidade = QualidadeEscolhida();
             _direto = DesenhoDireto();
-            // antisserrilhado da própria tela no desenho direto: 4x (2x na qualidade baixa)
-            QualitySettings.antiAliasing = _direto && Ajustes.Bool("video", "antisserrilhado") ? (_qualidade == "baixa" ? 2 : 4) : 0;
+            Antisserrilhado();
             ResolucaoDaTv();
             QpsDoOperador();
             // contornos (a casca escura em volta dos bichinhos e dos pinos): na qualidade
@@ -430,9 +434,12 @@ namespace StrikeKids
         void LerEntrada()
         {
             if (Input.GetKeyDown(KeyCode.F3)) medidor.Alternar();
-            // segurar qualquer botão da placa por 10 s na tela de espera abre a CONFIGURAÇÃO DOS
-            // BOTÕES (a saída de emergência se o mapeamento da Zero Delay estiver errado)
-            if ((estado == E.ATRACAO || estado == E.ABERTURA) && Controles.SeguradoHa() >= Controles.SEGURAR_PARA_CONFIGURAR)
+            // segurar qualquer botão da placa por 10 s na tela de espera (e na demonstração, que
+            // começa nela depois de 9 s) abre a CONFIGURAÇÃO DOS BOTÕES (a saída de emergência se o
+            // mapeamento da Zero Delay estiver errado). Fora da espera não conta: um botão segurado
+            // no fim de jogo não pode abrir a configuração assim que a espera voltar.
+            if (!PodeConfigurar()) Controles.EsquecerSegurados();
+            else if (Controles.SeguradoHa() >= Controles.SEGURAR_PARA_CONFIGURAR)
             {
                 Controles.EsquecerSegurados();
                 AbrirMenu();
@@ -449,6 +456,9 @@ namespace StrikeKids
                 Ajustes.AdicionarCredito();
                 Sons.Tocar("moeda", 0.65f);
                 AtualizarAtracao();
+                // na espera e no fim a ficha já ABRE a trava: a bola começa
+                if (demo || estado == E.ABERTURA || estado == E.ATRACAO || estado == E.DEMO || estado == E.FIM)
+                    PortaDaEspera();
                 return;
             }
             if (Controles.Apertou(Acao.Start))
@@ -459,6 +469,9 @@ namespace StrikeKids
             string z = Controles.TeclaJogada();
             if (z != "") JogadaRecebida(z);
         }
+
+        /// <summary>Segurar um botão 10 s abre a configuração dos botões — só na espera.</summary>
+        bool PodeConfigurar() => estado == E.ATRACAO || estado == E.ABERTURA || estado == E.DEMO || demo;
 
         void ApertouStart()
         {
@@ -491,8 +504,9 @@ namespace StrikeKids
                     StartNaEspera();
                     break;
                 case E.JOGADORES:
-                    // como no Dragon Bowling: o 2º START = 2 jogadores (mostra e já começa)
-                    DoisJogadores();
+                    // modo livre: o 2º START = 2 jogadores, como a 2ª bola (no modo fichas quem diz
+                    // quantos jogam são as fichas)
+                    if (Ajustes.ModoLivre()) DoisJogadores();
                     break;
                 case E.PERSONAGEM:
                     StartCoroutine(ConfirmarPersonagem());
@@ -518,18 +532,37 @@ namespace StrikeKids
             ArduinoBridge.SendLed("RED");
         }
 
-        /// <summary>Modo livre começando pela bola (menu do operador: "Começar rolando a bola"): a
-        /// porta das bolas fica aberta também na espera.</summary>
-        bool InicioPelaBola() => Ajustes.ModoLivre() && Ajustes.Bool("jogo", "inicio_bola");
+        /// <summary>A bola começa a partida: no modo livre sempre; no modo fichas depois da ficha (a
+        /// trava já abriu).</summary>
+        bool BolaComeca() => Ajustes.PodeComecar();
 
-        float TempoJogadores() => InicioPelaBola() ? TEMPO_JOGADORES_BOLA : TEMPO_JOGADORES;
+        /// <summary>A TRAVA das bolas e o convite da espera (abertura, atração, demonstração, fim de
+        /// jogo): modo livre = sem trava (porta sempre aberta) e "ROLE A BOLA!"; modo fichas =
+        /// fechada e "INSIRA FICHA" até a ficha entrar, aí ABRE e pede a bola.</summary>
+        void PortaDaEspera()
+        {
+            bool pode = Ajustes.PodeComecar();
+            ArduinoBridge.Porta(pode);
+            if (Ajustes.ModoLivre()) hud.ModoEspera("livre");
+            else if (!pode) hud.ModoEspera("ficha");
+            else hud.ModoEspera(Ajustes.JogadoresPagos() == 2 ? "pago2" : "pago1");
+        }
+
+        /// <summary>O amigo pelo lado da bola: esquerda = BOB, direita = MIA (onde cada um fica na
+        /// tela); meio = "" (escolhe depois ou sorteia).</summary>
+        static string AmigoDaZona(string zona)
+        {
+            if (zona == "Z" || zona == "X") return "bob";
+            if (zona == "V" || zona == "B") return "mia";
+            return "";
+        }
 
         /// <summary>Bola rolada na espera (abertura, atração, demonstração, fim): começa a partida,
         /// como o START, e o lado dela já escolhe o amigo.</summary>
         void ComecarPelaBola(string zona)
         {
             hud.SensorAcendeu(zona);
-            _quemBola = zona == "V" || zona == "B" ? "mia" : "bob";
+            _quemBola = AmigoDaZona(zona);
             _bolaT = Time.realtimeSinceStartup;
             EscolherJogadores();
         }
@@ -550,8 +583,8 @@ namespace StrikeKids
         {
             _inativo = 0f;
             if (_modalInativo > 0f) FecharInatividade();
-            // modo livre pela bola: na demonstração inteira a bola de verdade começa, como o START
-            if (demo && EmDemo() && InicioPelaBola())
+            // na demonstração inteira a bola de verdade começa, como o START
+            if (demo && EmDemo() && BolaComeca())
             {
                 ComecarPelaBola(zona);
                 return;
@@ -562,32 +595,36 @@ namespace StrikeKids
                     if (_liberada) Arremessar(zona);
                     break;
                 case E.JOGADORES:
-                    // outra bola (não a mesma passando por 2 sensores) = 2 jogadores
-                    if (InicioPelaBola() && Time.realtimeSinceStartup - _bolaT > OUTRA_BOLA)
+                    // modo livre: outra bola (não a mesma passando por 2 sensores) = 2 jogadores (no
+                    // modo fichas, as fichas já disseram quantos)
+                    if (Ajustes.ModoLivre() && Time.realtimeSinceStartup - _bolaT > OUTRA_BOLA)
                     {
                         _bolaT = Time.realtimeSinceStartup;
                         DoisJogadores();
                     }
                     break;
                 case E.PERSONAGEM:
-                    if (Time.realtimeSinceStartup - _bolaT < OUTRA_BOLA) return;
-                    if (zona == "Z" || zona == "X") MarcarDestaque(0);
-                    else if (zona == "V" || zona == "B") MarcarDestaque(1);
-                    else StartCoroutine(ConfirmarPersonagem());
+                    // o lado da bola escolhe (esquerda = Bob, direita = Mia); bola no meio: sorteia
+                    if (Time.realtimeSinceStartup - _bolaT < OUTRA_BOLA || EscolheuAmigo()) return;
+                    _bolaT = Time.realtimeSinceStartup;
+                    string amigo = AmigoDaZona(zona);
+                    if (amigo == "") SortearAmigo();
+                    else AmigoEscolhido(amigo == "bob" ? 0 : 1);
                     break;
                 case E.ATRACAO:
                 case E.DEMO:
                 case E.ABERTURA:
-                    if (InicioPelaBola()) ComecarPelaBola(zona);
+                    if (BolaComeca()) ComecarPelaBola(zona);
                     else
                     {
-                        // rolar a bola no menu também convida a jogar
+                        // modo fichas sem ficha: a bola no sensor lembra da ficha
                         hud.SensorAcendeu(zona);
+                        hud.TextoGrande("INSIRA FICHA", Hud.CREME, 1f, 0.55f);
                         Sons.Tocar("selecao");
                     }
                     break;
                 case E.FIM:
-                    if (InicioPelaBola() && _fimT > 2.5f) ComecarPelaBola(zona);
+                    if (BolaComeca() && _fimT > 2.5f) ComecarPelaBola(zona);
                     break;
                 // (arremesso, bola rolando, resultado, replay, começo da vez: a jogada não vale —
                 // nem fica guardada para quando a pista abrir)
@@ -673,8 +710,8 @@ namespace StrikeKids
         IEnumerator Abertura()
         {
             estado = E.ABERTURA;
-            ArduinoBridge.Porta(InicioPelaBola());
-            hud.ModoBola(InicioPelaBola());
+            // (modo livre, ou com ficha: a porta fica aberta e a bola é o START)
+            PortaDaEspera();
             int s = NovoSeq();
             hud.Atracao(false);
             hud.MostrarSensores(false);
@@ -804,10 +841,10 @@ namespace StrikeKids
                 _fatorSalvar = false;
                 Ajustes.Definir("video", "fator", Mathf.Round(_fator * 100f) / 100f);
             }
-            // a porta das bolas fica FECHADA na espera (no modo livre pela bola, aberta: a bola
-            // começa); o Arduino pode pedir a permissão USB aqui
-            ArduinoBridge.Porta(InicioPelaBola());
-            hud.ModoBola(InicioPelaBola());
+            // a trava das bolas na espera: FECHADA no modo fichas até a ficha entrar; aberta no modo
+            // livre (sem trava) e com ficha - rolar a bola é o START. O Arduino pode pedir a
+            // permissão USB aqui
+            PortaDaEspera();
             ArduinoBridge.NaEspera(true);
             demo = false;
             Sons.MudoDemo = false;
@@ -882,12 +919,10 @@ namespace StrikeKids
             hud.Marca(false, true);
             hud.Atracao(false);
             hud.TelaFim(false);
-            hud.Etapa(1);
-            Congelar3D(true);
             // a câmera pode ter sido ligada depois: procura de novo e já liga (imagem pronta no "SORRIA!")
             Fotos.Preparar();
             _escolhaN = 1;
-            _escolhaT = TempoJogadores();
+            _escolhaT = TEMPO_JOGADORES_BOLA;
             ArduinoBridge.SendLed("MENU");
             bola.Guardar();
             PararLenta();
@@ -897,6 +932,17 @@ namespace StrikeKids
             SortearTemas(Ajustes.Rodadas() + 1);
             _temasProntos = true;
             PedirRoupas(_temasPartida[0]);
+            // modo fichas: as fichas dizem quantos jogam - 1 ficha vai direto para a escolha do
+            // amigo; 2 fichas mostram "BOB x MIA!" e já começam
+            int pagos = Ajustes.JogadoresPagos();
+            if (pagos == 1)
+            {
+                EscolherPersonagem();
+                return;
+            }
+            hud.Etapa(1);
+            Congelar3D(true);
+            if (pagos == 2) DoisJogadores();
         }
 
         void ConfirmarJogadores()
@@ -907,26 +953,39 @@ namespace StrikeKids
             else EscolherPersonagem();
         }
 
+        /// <summary>1 jogador: BOB (esquerda) e MIA (direita) nos pódios. A bola que começou já
+        /// escolheu pelo lado; se foi no meio (ou START), os dois acenam, o lado da próxima bola
+        /// escolhe e, demorando, o jogo sorteia.</summary>
         void EscolherPersonagem()
         {
             estado = E.PERSONAGEM;
             NovoSeq();
             hud.Etapa(2);
-            // pela bola: o amigo do lado da bola já vem escolhido e confirma sozinho (quem não liga
-            // fica com o Bob; rolar de novo troca)
-            _escolhaT = _quemBola != "" ? TEMPO_AMIGO_BOLA : 8f;
             SubirNosPodios();
-            personagens["bob"].Tocar("acenar", 0.3f, true);
-            personagens["mia"].Tocar("parado", 0.3f, true);
             cam.Ir(G(0f, 1.05f, 6.1f), G(0f, 0.78f, 2.5f), 32, 52, 3f);
-            _destaque = _quemBola == "mia" ? 1 : 0;
-            MarcarDestaque(_destaque);
+            _destaque = -1;
+            if (_quemBola != "")
+            {
+                AmigoEscolhido(_quemBola == "bob" ? 0 : 1);
+                return;
+            }
+            _escolhaT = TEMPO_SORTEIO;
+            personagens["bob"].Tocar("acenar", 0.3f, true);
+            personagens["mia"].Tocar("acenar", 0.3f, true);
+            personagens["bob"].Destaque(0f);
+            personagens["mia"].Destaque(0f);
+            mundo.Podios(true, PODIOS, -1);
         }
 
-        void MarcarDestaque(int i)
+        /// <summary>Já tem amigo escolhido (a partida começa em seguida)?</summary>
+        bool EscolheuAmigo() => _destaque >= 0;
+
+        /// <summary>O amigo escolhido (0 = Bob, 1 = Mia) pelo lado da bola ou no sorteio: ele acena
+        /// no pódio aceso e a partida começa logo depois.</summary>
+        void AmigoEscolhido(int i)
         {
-            if (i != _destaque) Sons.Tocar("selecao");
             _destaque = i;
+            Sons.Tocar("selecao");
             var t = personagens["bob"];
             var r = personagens["mia"];
             t.Tocar(i == 0 ? "acenar" : "parado", 0.25f);
@@ -934,7 +993,15 @@ namespace StrikeKids
             t.Destaque(i == 0 ? 0.12f : 0f);
             r.Destaque(i == 1 ? 0.12f : 0f);
             mundo.Podios(true, PODIOS, i);
-            _escolhaT = Mathf.Max(_escolhaT, 3f);
+            _escolhaT = TEMPO_AMIGO_BOLA;
+        }
+
+        /// <summary>Ninguém escolheu um lado: o jogo sorteia o amigo.</summary>
+        void SortearAmigo()
+        {
+            int i = UnityEngine.Random.Range(0, 2);
+            hud.TextoGrande("SORTEIO: " + (i == 0 ? "BOB" : "MIA") + "!", Hud.CREME, 1.4f, 0.3f);
+            AmigoEscolhido(i);
         }
 
         /// <summary>Bob e Mia em cima dos pódios (escolha e foto).</summary>
@@ -951,7 +1018,7 @@ namespace StrikeKids
             var r = new Vector2[2];
             for (int i = 0; i < 2; i++)
             {
-                var vp = cam.cam.WorldToViewportPoint(PODIOS[i] + G(0f, 0f, 0.45f));
+                var vp = Tela.ViewportLogico(cam.cam, PODIOS[i] + G(0f, 0f, 0.45f));
                 r[i] = Tela.DeViewport(new Vector2(vp.x, vp.y));
             }
             return r;
@@ -960,6 +1027,11 @@ namespace StrikeKids
         IEnumerator ConfirmarPersonagem()
         {
             if (estado != E.PERSONAGEM) yield break;
+            if (!EscolheuAmigo())
+            {
+                SortearAmigo();   // START (ou o tempo) sem lado escolhido: sorteio
+                yield break;
+            }
             estado = E.RESULTADO;
             int s = NovoSeq();
             string escolhido = _destaque == 0 ? "bob" : "mia";
@@ -980,7 +1052,7 @@ namespace StrikeKids
         // ================================================================ partida
         IEnumerator Comecar(List<string> lista)
         {
-            Ajustes.GastarCreditos();
+            Ajustes.GastarCreditos(lista.Count);
             Ajustes.Contar("partidas");
             placar.Comecar(lista, Ajustes.Rodadas(), Ajustes.Tentativas());
             mundo.DefinirProtecao(Ajustes.ProtecaoCanaleta());
@@ -1352,14 +1424,14 @@ namespace StrikeKids
                     break;
                 case E.JOGADORES:
                     _escolhaT -= real;
-                    hud.Jogadores(true, _escolhaN, _escolhaT / TempoJogadores(), Mathf.CeilToInt(_escolhaT));
+                    hud.Jogadores(true, _escolhaN, _escolhaT / TEMPO_JOGADORES_BOLA, Mathf.CeilToInt(_escolhaT));
                     if (_escolhaT <= 0f) ConfirmarJogadores();
                     break;
                 case E.PERSONAGEM:
                     _escolhaT -= real;
-                    string dica = InicioPelaBola()
-                        ? "QUER O OUTRO AMIGO? ROLE A BOLA DO LADO DELE\nbola no MEIO = JOGAR JÁ · sem bola, começa em " + Mathf.CeilToInt(_escolhaT)
-                        : "ROLE A BOLA PARA ESCOLHER SEU AMIGO\nbola no MEIO ou START confirma   (" + Mathf.CeilToInt(_escolhaT) + ")";
+                    string dica = EscolheuAmigo()
+                        ? (_destaque == 0 ? "VOCÊ JOGA COM O BOB!" : "VOCÊ JOGA COM A MIA!")
+                        : "ROLE A BOLA DO LADO DO SEU AMIGO\nESQUERDA = BOB · DIREITA = MIA · sem bola, sorteio em " + Mathf.CeilToInt(_escolhaT);
                     hud.Selecao(true, _destaque, dica, PesNaTela());
                     if (_escolhaT <= 0f) StartCoroutine(ConfirmarPersonagem());
                     break;
@@ -1898,9 +1970,10 @@ namespace StrikeKids
         void FimDeJogo()
         {
             estado = E.FIM;
-            // fim da partida: a porta FECHA (as bolas da última jogada voltam e ficam); no modo
-            // livre pela bola fica aberta (a bola começa outra)
-            ArduinoBridge.Porta(InicioPelaBola());
+            // fim da partida: no modo fichas a trava FECHA (as bolas da última jogada voltam e
+            // ficam), a não ser que sobre ficha; no modo livre (sem trava) fica aberta - a bola
+            // começa outra
+            PortaDaEspera();
             NovoSeq();
             _fimT = 0f;
             hud.MostrarPlacar(false);
@@ -2136,7 +2209,9 @@ namespace StrikeKids
         public void FecharMenu()
         {
             if (_menu == null) return;
-            if (AjustesQueRemontam() != _antesMenu)
+            // (o desenho da tela também quando o escolhido não é o que está valendo: a medida
+            // automática pode ter trocado o "auto" no meio, sem remontar)
+            if (AjustesQueRemontam() != _antesMenu || DesenhoDireto() != _direto)
             {
                 // o mundo é montado de outro jeito: monta de novo, com aviso na tela
                 StartCoroutine(Remontar());
@@ -2162,6 +2237,7 @@ namespace StrikeKids
             Ritmo(1f);
             string q = QualidadeEscolhida();
             if (q != _qualidade) _qualidade = q;
+            Antisserrilhado();
             LerNitidez();
             TelaMudou();
             if (Ajustes.Bool("video", "medidor") != medidor.Visivel) medidor.Mostrar(Ajustes.Bool("video", "medidor"));
@@ -2451,6 +2527,15 @@ namespace StrikeKids
             }
         }
 
+        /// <summary>Antisserrilhado da própria tela no desenho direto: 4x (2x na qualidade baixa). Só
+        /// muda quando precisa (trocar refaz a imagem da tela: no começo, na saída do menu e debaixo
+        /// do clarão branco).</summary>
+        void Antisserrilhado()
+        {
+            int aa = _direto && Ajustes.Bool("video", "antisserrilhado") ? (_qualidade == "baixa" ? 2 : 4) : 0;
+            if (QualitySettings.antiAliasing != aa) QualitySettings.antiAliasing = aa;
+        }
+
         /// <summary>Um clarão branco cobre a tela agora: a troca de resolução pendente acontece aqui.</summary>
         void NoClarao()
         {
@@ -2460,6 +2545,7 @@ namespace StrikeKids
                 _qualidade = _qualidadePendente;
                 _qualidadePendente = "";
                 _qualidadeSalvar = Ajustes.Texto("video", "qualidade") == "auto";
+                Antisserrilhado();
                 mudou = true;
             }
             if (_fatorPendente > 0f)

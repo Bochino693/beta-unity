@@ -90,7 +90,7 @@ namespace StrikeKids
             var cam = Camera.main;
             if (cam != null)
             {
-                var v = cam.WorldToViewportPoint(ponto);
+                var v = Tela.ViewportLogico(cam, ponto);
                 lado = Mathf.Clamp((v.x - 0.5f) * 1.6f, -0.8f, 0.8f);
             }
             I.TocarEfeito(nome, volume, tom, lado);

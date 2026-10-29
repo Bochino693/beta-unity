@@ -34,8 +34,13 @@ public class StrikeAtividade extends UnityPlayerActivity {
         ativa = true;
         // máquina de fliperama: a tela nunca apaga
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        // a TV voltando da espera (ligada pelo controle) reinicia o jogo
-        InicioDaTv.ouvirTela(this);
+        // a TV voltando da espera (ligada pelo controle) reinicia o jogo (um erro aqui, numa TV
+        // estranha, não pode impedir o jogo de abrir)
+        try {
+            InicioDaTv.ouvirTela(this);
+        } catch (Throwable t) {
+            android.util.Log.i("StrikeKids", "inicio: ouvir a tela: " + t);
+        }
     }
 
     @Override

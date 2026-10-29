@@ -1,9 +1,20 @@
-// STRIKE KIDS - ARDUINO DA MAQUINA
-// ================================
+// STRIKE KIDS - ARDUINO DA MAQUINA - VERSAO DO RELE (SEM PONTE H)
+// ================================================================
 // Le os 5 SENSORES da pista, o botao de CONFIGURACAO (e, se ligados, o
-// START e o moedeiro), comanda a PORTA das bolas (ponte H, servo e/ou rele)
-// e a fita de LED. Conversa com a TV Box pelo cabo USB (9600, linhas de
-// texto).
+// START e o moedeiro), comanda a TRAVA da porta das bolas (rele e/ou
+// servo) e a fita de LED. Conversa com a TV Box pelo cabo USB (9600, linhas
+// de texto).
+//
+// DUAS VERSOES, O MESMO JOGO (o mesmo APK serve para as duas):
+//   arduino/strike_kids (ESTA) - porta pelo RELE (trava solenoide /
+//     eletroima) e/ou SERVO, sem ponte H, como a primeira versao.
+//     Desenho: docs/ligacao_arduino.pdf
+//   arduino/strike_kids_ponte_h - porta com MOTOR DC ou ATUADOR LINEAR por
+//     uma PONTE H. Desenho: docs/ligacao_arduino_ponte_h.pdf
+//   O codigo e o mesmo nas duas; so muda o USAR_PONTE_H abaixo. Aqui o
+//   Arduino confirma a porta ao jogo na hora; "Porta: tempo do motor" e
+//   "Porta: fim de curso" do menu do operador sao so da ponte H (esta
+//   versao ignora).
 //
 // Placas: Arduino Uno, Nano (original ou clone CH340), Pro Mini 5 V,
 // Mega 2560 e Leonardo/Micro.
@@ -20,48 +31,34 @@
 //   Moedeiro / FICHA (opcional): sinal (COIN) em A2, GND no GND. Cada
 //     pulso = 1 ficha (quantas fichas por partida: no menu do operador).
 //     Moedeiro NA ou NF: os dois funcionam.
-//   PORTA DAS BOLAS - use uma (ou mais) destas; todas recebem o mesmo
-//   comando:
-//     PONTE H (motor DC ou atuador linear; L298N, L9110S, BTS7960, TB6612,
-//            DRV8871...):
-//            IN1 = D10   IN2 = D12   ENA = D11 (Mega: D9)
-//            ENA so para mudar a velocidade (PONTE_VELOCIDADE_*). No L298N
-//            pode deixar o jumper do ENA (velocidade maxima) e nao ligar
-//            o D11. BTS7960: RPWM = D10, LPWM = D12, R_EN e L_EN juntos no
-//            D11 (ou no 5 V). TB6612: STBY no 5 V, PWMA = D11.
-//            O motor nas saidas da ponte (OUT1/OUT2), a ponte na fonte de
-//            12 V (nunca no 5 V do Arduino) e o GND da ponte no GND do
-//            Arduino.
-//            FIM DE CURSO (opcional; micro-switch com o C no GND e o NA no
-//            pino): porta ABERTA = A3, porta FECHADA = A4. Com eles, ligue
-//            "Porta: fim de curso" no MENU DO OPERADOR: o motor anda ate o
-//            micro-switch. Sem eles o motor anda o TEMPO DO MOTOR do menu
-//            ("Porta: tempo do motor", 1,5 s de fabrica; o atuador linear
-//            para sozinho no fim do curso).
-//            O tempo e o fim de curso vem do MENU DO OPERADOR do jogo: o
-//            jogo manda ao conectar (PONTE:TEMPO / PONTE:FC) e o Arduino
-//            guarda na EEPROM - vale ja ao ligar, antes de o jogo abrir.
-//            (Os PONTE_* abaixo sao so os valores de fabrica.)
-//            Abriu quando devia fechar? Inverta os fios do motor (OUT1 e
-//            OUT2) ou troque PONTE_INVERTIDA. Com fim de curso NAO use a
-//            "Porta invertida" do menu do jogo (ela trocaria os
-//            micro-switches tambem).
+//   TRAVA (porta das bolas) - use um dos dois, ou os dois juntos (recebem
+//   o mesmo comando):
+//     RELE:  D8 -> entrada (IN) de um modulo rele 5 V (VCC no 5V, GND no
+//            GND). No contato do rele: COM no + da fonte de 12 V e NO no
+//            + da trava solenoide; o - da trava no - da fonte (diodo
+//            1N4007 nos fios da trava, a faixa no +). O rele LIGA com a
+//            porta ABERTA (RELE_LIGADO_ABERTA). Eletroima que segura a
+//            porta fechada: use o NC no lugar do NO (e RELE_TEMPO_MAX_S 0).
+//            Trava SOLENOIDE comum nao pode ficar ligada muito tempo:
+//            RELE_TEMPO_MAX_S 5 (liga 5 s e solta). Modulo que liga com
+//            HIGH: RELE_LIGA_EM_LOW 0. Sem rele: USAR_RELE 0.
 //     SERVO: sinal no D9 (Mega: D11). Alimente o servo por uma fonte
 //            de 5-6 V propria (servo grande puxa muita corrente) e ligue o
-//            GND dessa fonte no GND do Arduino. Sem servo: USAR_SERVO 0.
-//     RELE:  D8 -> entrada (IN) de um modulo rele (para trava solenoide
-//            ou eletroima). Veja RELE_LIGA_EM_LOW e RELE_TEMPO_MAX_S. Sem
-//            rele: USAR_RELE 0.
+//            GND dessa fonte no GND do Arduino. Angulos: SERVO_FECHADA e
+//            SERVO_ABERTA. Sem servo: USAR_SERVO 0.
+//   D10, D11, D12, A3 e A4 ficam livres (sao da ponte H na outra versao).
 //   Fita de LED WS2812 (NeoPixel), opcional: D6
 //   LED da placa (D13): pisca a cada sensor/botao acionado.
 //
-// A PORTA comeca FECHADA (ao ligar, a ponte H fecha a porta). O jogo manda
-// ABRIR quando a partida comeca (START com ficha; no modo livre, so o
-// START) e FECHAR no fim da partida; com outra ficha + START (ou outro
-// START no modo livre) ela abre de novo. Se o jogo sumir (cabo solto, TV
-// Box desligada) com a porta aberta, ela fecha sozinha em 15 s.
+// A PORTA comeca FECHADA. O jogo manda ABRIR quando a partida comeca
+// (START com ficha; no modo livre, so o START) e FECHAR no fim da partida;
+// com outra ficha + START (ou outro START no modo livre) ela abre de novo.
+// Se o jogo sumir (cabo solto, TV Box desligada) com a porta aberta, ela
+// fecha sozinha em 15 s.
 // (No modo livre com "comecar rolando a bola" ligado no menu do operador a
 // porta fica aberta tambem na espera: rolar a bola e o START.)
+// Abriu quando devia fechar? Ligue "Porta invertida" no menu do operador
+// (ou troque RELE_LIGADO_ABERTA / os angulos do servo).
 //
 // Sem fita de LED (ou sem a biblioteca "Adafruit NeoPixel" instalada):
 // troque USAR_LEDS para 0.
@@ -82,7 +79,7 @@ const uint8_t SENSOR_PINOS[5] = {2, 3, 4, 5, 7};
 #define LED_PLACA 13
 
 // ---- PORTA DAS BOLAS: o que esta ligado (todos recebem o mesmo comando)
-#define USAR_PONTE_H 1            // PONTE H (motor DC / atuador linear): IN1 = D10, IN2 = D12, ENA = D11
+#define USAR_PONTE_H 0            // 0 = SEM ponte H (esta versao). Com ponte H: arduino/strike_kids_ponte_h
 #define USAR_SERVO 1              // servo no D9 (Mega: D11); 0 = nao tem servo
 #define USAR_RELE 1               // rele no D8 (trava solenoide / eletroima); 0 = nao tem rele
 

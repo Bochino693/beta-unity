@@ -31,6 +31,48 @@ rapido), refeito do zero na Unity para provar que o motor nao e o problema:
     o jogo roda) - como na edicao Godot.
 
 
+NOVIDADE: A MAQUINA SEM BOTOES - A FICHA ABRE A TRAVA E A BOLA E O START
+-------------------------------------------------------------------------
+Igual a edicao Godot (o mesmo fluxo, os mesmos textos):
+  * MODO LIVRE (menu: "Modo livre (sem ficha e sem trava)" = SIM): SEM
+    TRAVA - a porta das bolas fica SEMPRE aberta e a bola rolada na espera
+    e o START. Outra bola logo depois (na tela "QUANTOS VAO JOGAR?", 7 s)
+    = 2 jogadores. O ajuste "Modo livre: comecar rolando a bola" saiu: no
+    modo livre a bola sempre comeca.
+  * MODO FICHAS (Modo livre = NAO): sem ficha a trava fica FECHADA e a
+    tela pede INSIRA FICHA. A FICHA ABRE A TRAVA na hora e a tela pede
+    ROLE A BOLA!; a 1a bola e o START:
+      - 1 FICHA = 1 JOGADOR: direto para a escolha do amigo;
+      - 2 FICHAS = 2 JOGADORES, BOB x MIA ("2 FICHAS: BOB x MIA!").
+    "Fichas por jogador" (antes "Fichas por partida") no menu. Ficha que
+    sobra fica para a proxima: no fim de jogo a trava continua aberta e a
+    bola comeca outra; sem ficha, a trava FECHA e o fim de jogo pede
+    INSIRA FICHA (uma ficha ali abre de novo).
+  * O AMIGO PELO LADO DA BOLA (1 jogador): bola na DIREITA (onde a MIA fica
+    na tela) = MIA; na ESQUERDA = BOB. Bola no MEIO: a tela pede "ROLE A
+    BOLA DO LADO DO SEU AMIGO"; a proxima bola de um lado escolhe, outra no
+    meio sorteia e, sem bola por 10 s, o jogo SORTEIA.
+  * O START continua valendo, mas nenhuma tela pede mais o botao.
+  * ARDUINO EM 2 VERSOES (o mesmo jogo para as duas - so o Arduino muda):
+      - arduino\strike_kids\strike_kids.ino: VERSAO DO RELE, sem ponte H,
+        como a primeira (trava pelo rele no D8 e/ou servo no D9). Desenho:
+        docs\ligacao_arduino.pdf;
+      - arduino\strike_kids_ponte_h\strike_kids_ponte_h.ino: VERSAO COM
+        PONTE H (motor DC ou atuador linear). Desenho:
+        docs\ligacao_arduino_ponte_h.pdf.
+    O codigo e o mesmo (firmware 3, so o USAR_PONTE_H muda) e o teste do PC
+    (tools/testes/arduino/testar_firmware.sh) confere e testa os dois. Com
+    o Arduino do rele o TESTE DA PORTA mostra "Arduino do RELE/SERVO (sem
+    ponte H): confirma a porta na hora".
+  * ACERTOS DA REVISAO: as placas BOB/MIA da escolha do amigo ficam embaixo
+    de cada podio tambem com a tela girada no desenho direto (e o som de
+    cada lado tambem); a CONFIGURACAO DOS BOTOES nao mistura mais as linhas
+    do menu; o botao segurado no fim de jogo nao abre mais a configuracao
+    quando a espera volta (e segurar 10 s vale tambem na demonstracao); o
+    desenho da tela trocado no menu vale na hora; o antisserrilhado segue a
+    qualidade quando ela cai sozinha; um erro ao ouvir a tela da TV nao
+    impede mais o jogo de abrir.
+
 NOVIDADE: IGUAL A EDICAO GODOT - TV, IMAGEM E PLACA ZERO DELAY
 ---------------------------------------------------------------
 O que a edicao Godot tinha e a Unity ainda nao, agora tem - as duas sao
@@ -231,17 +273,19 @@ BOTOES DA MAQUINA: ARDUINO E/OU PLACA ZERO DELAY
 ------------------------------------------------
 Como na edicao Godot: START, os 5 SENSORES da pista, FICHA (moedeiro) e
 CONFIGURACAO podem vir do ARDUINO (pelo cabo USB) e/ou da placa ZERO DELAY.
-ARDUINO: o firmware esta em arduino\strike_kids\strike_kids.ino (o mesmo
-arquivo das edicoes Godot, versao 3) e o desenho da montagem em
-docs\ligacao_arduino.pdf (A3; tambem .png e .svg, feitos por
-tools\desenhar_ligacao.py):
+ARDUINO: o firmware tem 2 versoes (os mesmos arquivos das edicoes Godot,
+versao 3): arduino\strike_kids\strike_kids.ino (RELE/SERVO, sem ponte H,
+desenho docs\ligacao_arduino.pdf) e arduino\strike_kids_ponte_h\
+strike_kids_ponte_h.ino (PONTE H, desenho docs\ligacao_arduino_ponte_h.pdf)
+- os desenhos em A3, tambem .png e .svg, feitos por tools\desenhar_ligacao.py:
   Sensores (esquerda -> direita, olhando da crianca para os pinos):
      S1 = D2   S2 = D3   S3 = D4 (centro)   S4 = D5   S5 = D7
   CONFIGURACAO = A0   START = A1   FICHA (moedeiro) = A2   (cada um e GND)
-  Porta das bolas: PONTE H (motor DC ou atuador linear) IN1 = D10,
-     IN2 = D12, ENA = D11 (opcional; Mega: D9), fins de curso opcionais
-     A3 (aberta) e A4 (fechada); e/ou servo no D9 (Mega: D11); e/ou rele
-     no D8 (veja "ARDUINO 3" e "ARDUINO 2" abaixo).
+  Porta das bolas: RELE no D8 (trava solenoide 12 V ou eletroima) e/ou
+     servo no D9 (Mega: D11); na versao da ponte H tambem o motor DC ou
+     atuador linear: IN1 = D10, IN2 = D12, ENA = D11 (opcional; Mega: D9),
+     fins de curso opcionais A3 (aberta) e A4 (fechada) (veja "ARDUINO 3"
+     e "ARDUINO 2" abaixo).
   Fita de LED WS2812 (opcional): D6.
 ZERO DELAY: vale do jeito que o Android a enxergar - como joystick ou, no
 modo teclado, como teclas. De fabrica (sem configurar):
@@ -256,7 +300,9 @@ modo teclado, como teclas. De fabrica (sem configurar):
   "SINAL RECEBIDO" mostra o que chegou (o diagnostico da placa). VOLTAR do
   controle remoto sai sem mudar nada. Sem o menu: segure QUALQUER botao da
   placa por 10 s na tela de espera.
-Sem moedeiro: deixe "Modo livre (sem ficha)" ligado no menu (padrao).
+Sem moedeiro: deixe "Modo livre (sem ficha e sem trava)" ligado no menu
+(padrao): a bola e o START. Com moedeiro: a ficha abre a trava e a bola e
+o START (veja "A MAQUINA SEM BOTOES").
 O controle remoto da TV Box serve para o MENU DO OPERADOR (tecla MENU abre;
 setas andam e mudam; OK escolhe; VOLTAR sai).
 
@@ -296,7 +342,8 @@ desinstale o Strike Kids.
 
 ARDUINO 3: A PONTE H DA PORTA PELO MENU DO OPERADOR
 ---------------------------------------------------
-O mesmo firmware da edicao Godot, agora versao 3. A ponte H da porta das
+O mesmo firmware da edicao Godot, agora versao 3 (hoje na pasta
+arduino\strike_kids_ponte_h: veja "A MAQUINA SEM BOTOES"). A ponte H da porta das
 bolas (IN1 = D10, IN2 = D12, ENA = D11; Mega: ENA = D9; fins de curso A3 =
 aberta e A4 = fechada) e ajustada no MENU DO OPERADOR, sem regravar o
 Arduino:
@@ -316,7 +363,7 @@ Arduino:
     no modo novo.
   * O TESTE DA PORTA mostra como a ponte H esta andando e avisa se o
     Arduino ainda esta com o firmware 2 (que ignora esses comandos e usa os
-    PONTE_* do .ino: regrave o arduino\strike_kids).
+    PONTE_* do .ino: regrave o arduino\strike_kids_ponte_h).
   * O que esta ligado fica bem definido no comeco do .ino: USAR_PONTE_H,
     USAR_SERVO e USAR_RELE (1 = ligado; os ligados recebem o mesmo
     comando). Sem servo, o Timer1 e o D9 ficam livres; sem rele, o D8. O
@@ -368,9 +415,10 @@ O JOGO
 ------
   ATRACAO: Bob e Mia na frente da pista, a demonstracao jogando sozinha, o
   recorde e os MELHORES DE HOJE (com a foto de cada crianca).
-  START: 1 vez = 1 jogador; START de novo em 4 s = 2 jogadores (BOB x MIA).
-  1 jogador escolhe o amigo rolando a bola: esquerda = BOB, direita = MIA,
-  meio (ou START) confirma. Depois: "SORRIA!" (foto pela camera USB da
+  A BOLA E O START (no modo fichas, depois da ficha: 1 ficha = 1 jogador,
+  2 fichas = BOB x MIA; no modo livre, outra bola logo depois = 2).
+  1 jogador escolhe o amigo pelo lado da bola: esquerda = BOB, direita =
+  MIA; no meio (ou sem bola por 10 s), sorteio. Depois: "SORRIA!" (foto pela camera USB da
   maquina, se tiver), a partida (3 rodadas de 3 bolas, por padrao), cada
   rodada numa fase sorteada (Selva dos Dinos, Parque, Espaco, Fundo do Mar)
   com a roupinha da fase, o REPLAY do strike em camera lenta, a maquina
@@ -413,7 +461,7 @@ PASTAS
                                 abrir ao ligar a TV + manifestos
   arduino\                      firmware do Arduino da maquina
   tools\testes\arduino\         o firmware testado no PC, sem placa
-  tools\desenhar_ligacao.py      o desenho da montagem (docs\ligacao_arduino.*)
+  tools\desenhar_ligacao.py      os desenhos da montagem (docs\ligacao_arduino*: rele e ponte H)
   tools\modelador\              o modelador 3D (Python) e as
                                 previas: python3 tools/modelador/gerar.py
   tools\verificar\              confere o C# e o Java sem a Unity (Linux)

@@ -133,6 +133,18 @@ namespace StrikeKids
             return Girar(Matrix4x4.Ortho(-Tamanho.x / 2f, Tamanho.x / 2f, -Tamanho.y / 2f, Tamanho.y / 2f, 0.1f, 200f));
         }
 
+        /// <summary>Onde um ponto do mundo aparece na imagem LÓGICA (viewport 0..1, y para cima; z =
+        /// distância), como o na_tela() da edição Godot. Desenhando direto na tela (sem textura) a
+        /// projeção da câmera já vem girada para o monitor em pé (Perspectiva): aqui ela é
+        /// desgirada.</summary>
+        public static Vector3 ViewportLogico(Camera c, Vector3 ponto)
+        {
+            var v = c.WorldToViewportPoint(ponto);
+            if (c.targetTexture != null || Giro == 0) return v;
+            // Girar: Giro > 0 leva (u, v) a (1 - v, u); Giro < 0, a (v, 1 - u)
+            return Giro > 0 ? new Vector3(v.y, 1f - v.x, v.z) : new Vector3(1f - v.y, v.x, v.z);
+        }
+
         /// <summary>Ponto da tela lógica (x para a direita, y para BAIXO, como no Godot) a partir
         /// de uma posição de viewport (0..1, y para cima) da imagem lógica.</summary>
         public static Vector2 DeViewport(Vector2 vp)

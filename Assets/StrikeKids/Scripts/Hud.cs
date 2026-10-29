@@ -561,7 +561,10 @@ namespace StrikeKids
         Figura _logo;
         Rotulo _aperte, _aperteSub;
         Placa _aperteBotao;
+        /// <summary>a máquina sem botões: a espera diz "ROLE A BOLA!" (modo livre, ou com ficha) ou
+        /// "INSIRA FICHA" (modo fichas sem ficha) - ModoEspera()</summary>
         bool _modoBola;
+        string _modoEspera = "";
         Rotulo _recorde;
         Placa _recordePlaca;
         Rotulo _creditos;
@@ -576,11 +579,10 @@ namespace StrikeKids
             _logo = Ui.Figura(_atracao, Materiais.UI("logo"));
             // botão amarelo com volume
             _aperteBotao = Ui.Placa(_atracao, DESTAQUE, 70, 18, 8);
-            _aperte = R(_aperteBotao.transform, "APERTE START", 88, MARINHO, 0, MARINHO, true);
+            _aperte = R(_aperteBotao.transform, "ROLE A BOLA!", 88, MARINHO, 0, MARINHO, true);
             _aperte.corSombra = new Color(1, 1, 1, 0.55f);
-            // (modo livre pela bola: o lado da bola escolhe o amigo)
+            // embaixo: o lado da bola já escolhe o amigo (ou: depois da ficha, a bola)
             _aperteSub = R(_aperteBotao.transform, "ESQUERDA = BOB  ·  DIREITA = MIA", 36, MARINHO, 0, MARINHO, true);
-            Ui.Ver(_aperteSub, false);
             // placa do recorde
             _recordePlaca = Ui.Placa(_atracao, AZUL, 40, 10, 5);
             _recorde = R(_recordePlaca.transform, "", 40, CREME, 8);
@@ -856,12 +858,12 @@ namespace StrikeKids
             if (retrato) Ui.Ret(_logo, (T.x - lw) / 2, T.y * 0.05f, lw, lh);
             else Ui.Ret(_logo, T.x * 0.03f, T.y * 0.05f, lw, lh);
             float bw = retrato ? Mathf.Min(T.x * 0.78f, 780 * u) : T.x * 0.34f;
-            float bh = (_modoBola ? 196 : 150) * u;
+            float bh = 196 * u;
             if (retrato) Ui.Ret(_aperteBotao, (T.x - bw) / 2, T.y * 0.69f, bw, bh);
             else Ui.Ret(_aperteBotao, T.x * 0.03f + (lw - bw) / 2, T.y * 0.6f, bw, bh);
             _aperte.Tamanho(84 * u);
             _aperte.sombraDy = 3 * u;
-            Ui.Ret(_aperte, 0, 0, bw, (_modoBola ? 128 : 132) * u);
+            Ui.Ret(_aperte, 0, 0, bw, 128 * u);
             _aperte.Caber(84 * u, bw - 90 * u);
             _aperte.sombraDy = 3 * u;
             _aperteSub.Tamanho(34 * u);
@@ -910,7 +912,7 @@ namespace StrikeKids
                 Ui.Escala(_jogCartoes[_jogN - 1], 1.05f + Mathf.Sin(_tempo * 6f) * 0.015f);
                 Ui.Escala(_jogCartoes[2 - _jogN], 0.94f);
             }
-            if (Ui.Visivel(_selecao)) _selPlacas[_selDestaque].Realcar(0.7f + 0.3f * Mathf.Sin(_tempo * 6f));
+            if (Ui.Visivel(_selecao) && _selDestaque >= 0) _selPlacas[_selDestaque].Realcar(0.7f + 0.3f * Mathf.Sin(_tempo * 6f));
             if (Ui.Visivel(_replayPonto)) Ui.Alfa(_replayPonto, Mathf.Repeat(_tempo, 1f) < 0.6f ? 1f : 0.15f);
         }
     }
