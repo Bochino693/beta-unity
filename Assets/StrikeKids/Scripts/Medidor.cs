@@ -97,10 +97,10 @@ namespace StrikeKids
             string desenhos = _desenhos.Valid ? _desenhos.LastValue + " desenhos · " : "";
             string tri = _triangulos.Valid ? (_triangulos.LastValue / 1000) + " mil triângulos · " : "";
             var rt = _p != null ? _p.Tamanho3D : Vector2Int.zero;
-            _texto.text = string.Format("{0} QPS   ({1:0.0} ms, pior {2:0} ms)\n{3}{4}memória {5} MB\n3D {6}x{7} ({8}%) · {9} · {10}",
+            string como = _p != null && _p.Direto ? "direto na tela" : Mathf.RoundToInt((_p != null ? _p.Fator : 1f) * 100f) + "%";
+            _texto.text = string.Format("{0} QPS   ({1:0.0} ms, pior {2:0} ms)\n{3}{4}memória {5} MB\n3D {6}x{7} ({8}) · {9} · {10}",
                 Mathf.RoundToInt(qps), ms, _pior, desenhos, tri, (int)(GC.GetTotalMemory(false) / 1048576),
-                rt.x, rt.y, Mathf.RoundToInt((_p != null ? _p.Fator : 1f) * 100f), Nome(_p != null ? _p.Qualidade : ""),
-                SystemInfo.graphicsDeviceName);
+                rt.x, rt.y, como, Nome(_p != null ? _p.Qualidade : ""), SystemInfo.graphicsDeviceName);
             float w = Mathf.Min(T.x - 24f, 1000f);
             Ui.Ret(_painel, 12, 12, w, 132);
             Ui.Ret(_texto, 16, 6, w - 32, 120);

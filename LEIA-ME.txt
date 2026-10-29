@@ -22,12 +22,88 @@ rapido), refeito do zero na Unity para provar que o motor nao e o problema:
     Fundo do Mar, Selva dos Dinos): sombreado dos cantinhos assado nos
     modelos (profundidade de foto, custo zero), pinos e bola envernizados
     (refletem o ceu, as luzes e o neon da fase), REFLEXO dos pinos e da bola
-    no verniz da pista, vinheta leve na imagem.
+    no verniz da pista.
   * LEVE para a Mali-450: luz calculada nos vertices (sem luzes da Unity),
-    sombras "de adesivo", particulas numa malha so por tipo, imagem 3D em
-    720 linhas com antisserrilhado 4x (o da propria placa), cenario leve
-    automatico nas placas de video mais fracas, qualidade e nitidez
-    automaticas (medidas enquanto o jogo roda).
+    sombras "de adesivo", particulas numa malha so por tipo, desenho direto
+    na tela (720 linhas esticadas pela propria TV Box, com antisserrilhado
+    4x da placa), cenario leve automatico nas placas de video mais fracas,
+    qualidade, quadros por segundo e desenho automaticos (medidos enquanto
+    o jogo roda) - como na edicao Godot.
+
+
+NOVIDADE: A MAQUINA SEM BOTOES - A FICHA ABRE A TRAVA E A BOLA E O START
+-------------------------------------------------------------------------
+Igual a edicao Godot (o mesmo fluxo, os mesmos textos):
+  * MODO LIVRE (menu: "Modo livre (sem ficha e sem trava)" = SIM): SEM
+    TRAVA - a porta das bolas fica SEMPRE aberta e a bola rolada na espera
+    e o START. Outra bola logo depois (na tela "QUANTOS VAO JOGAR?", 7 s)
+    = 2 jogadores. O ajuste "Modo livre: comecar rolando a bola" saiu: no
+    modo livre a bola sempre comeca.
+  * MODO FICHAS (Modo livre = NAO): sem ficha a trava fica FECHADA e a
+    tela pede INSIRA FICHA. A FICHA ABRE A TRAVA na hora e a tela pede
+    ROLE A BOLA!; a 1a bola e o START:
+      - 1 FICHA = 1 JOGADOR: direto para a escolha do amigo;
+      - 2 FICHAS = 2 JOGADORES, BOB x MIA ("2 FICHAS: BOB x MIA!").
+    "Fichas por jogador" (antes "Fichas por partida") no menu. Ficha que
+    sobra fica para a proxima: no fim de jogo a trava continua aberta e a
+    bola comeca outra; sem ficha, a trava FECHA e o fim de jogo pede
+    INSIRA FICHA (uma ficha ali abre de novo).
+  * O AMIGO PELO LADO DA BOLA (1 jogador): bola na DIREITA (onde a MIA fica
+    na tela) = MIA; na ESQUERDA = BOB. Bola no MEIO: a tela pede "ROLE A
+    BOLA DO LADO DO SEU AMIGO"; a proxima bola de um lado escolhe, outra no
+    meio sorteia e, sem bola por 10 s, o jogo SORTEIA.
+  * O START continua valendo, mas nenhuma tela pede mais o botao.
+  * ARDUINO EM 2 VERSOES (o mesmo jogo para as duas - so o Arduino muda):
+      - arduino\strike_kids\strike_kids.ino: VERSAO DO RELE, sem ponte H,
+        como a primeira (trava pelo rele no D8 e/ou servo no D9). Desenho:
+        docs\ligacao_arduino.pdf;
+      - arduino\strike_kids_ponte_h\strike_kids_ponte_h.ino: VERSAO COM
+        PONTE H (motor DC ou atuador linear). Desenho:
+        docs\ligacao_arduino_ponte_h.pdf.
+    O codigo e o mesmo (firmware 3, so o USAR_PONTE_H muda) e o teste do PC
+    (tools/testes/arduino/testar_firmware.sh) confere e testa os dois. Com
+    o Arduino do rele o TESTE DA PORTA mostra "Arduino do RELE/SERVO (sem
+    ponte H): confirma a porta na hora".
+  * ACERTOS DA REVISAO: as placas BOB/MIA da escolha do amigo ficam embaixo
+    de cada podio tambem com a tela girada no desenho direto (e o som de
+    cada lado tambem); a CONFIGURACAO DOS BOTOES nao mistura mais as linhas
+    do menu; o botao segurado no fim de jogo nao abre mais a configuracao
+    quando a espera volta (e segurar 10 s vale tambem na demonstracao); o
+    desenho da tela trocado no menu vale na hora; o antisserrilhado segue a
+    qualidade quando ela cai sozinha; um erro ao ouvir a tela da TV nao
+    impede mais o jogo de abrir.
+
+NOVIDADE: IGUAL A EDICAO GODOT - TV, IMAGEM E PLACA ZERO DELAY
+---------------------------------------------------------------
+O que a edicao Godot tinha e a Unity ainda nao, agora tem - as duas sao
+iguais (o mesmo menu do operador, os mesmos ajustes, o mesmo Arduino):
+  * O JOGO ABRE SOZINHO AO LIGAR A TV: o jogo e uma TELA INICIAL do Android
+    (pede sozinho na tela de espera; no menu: "> ABRIR O JOGO AO LIGAR A
+    TV"), abre ao ligar na tomada e reinicia do zero ao voltar da espera
+    (TV desligada pelo controle). "> SAIR PARA A TELA DA TV" (ou HOME 5
+    vezes) abre o inicio da propria TV. GERAR_APK.bat -TelaInicial instala
+    e ja deixa como tela inicial. Passo a passo: "ABRIR O JOGO SOZINHO AO
+    LIGAR A TV", abaixo.
+  * TELA DA TV BOX, no menu do operador:
+      - "Resolucao da imagem (TV Box)": auto (720 linhas na Mali-400/450,
+        ate 1080 nas outras), 720p, 900p, 1080p ou a da propria tela - a
+        TV Box estica ate a tela inteira, de graca para a placa.
+      - "Quadros por segundo": auto (60; 30 travados se a TV Box nao
+        segurar 60 nas jogadas - ele mede e guarda), 60 ou 30.
+      - "Desenho da tela": DIRETO NA TELA (o normal: o 3D e as telas numa
+        passada so, sem imagem separada - o mais leve na Mali-450) ou
+        IMAGEM 3D (o compativel, com a nitidez automatica). No automatico
+        o jogo passa sozinho para a imagem 3D se nem na qualidade baixa o
+        direto tiver folego. Trocar monta o jogo de novo.
+      - "Antisserrilhado da tela (ao reabrir)": as bordas lisas (4x) no
+        desenho direto.
+      - "Nitidez do 3D" vale so no desenho imagem.
+  * PLACA ZERO DELAY: os botoes da maquina podem vir do ARDUINO e/ou da
+    Zero Delay (como joystick ou no modo teclado), com os botoes de fabrica
+    ou os gravados em "> CONFIGURAR BOTOES DA PLACA" (um botao de cada vez;
+    segurar qualquer botao 10 s na tela de espera tambem abre). Veja
+    "BOTOES DA MAQUINA", abaixo.
+  * O firmware do Arduino e o mesmo arquivo da edicao Godot (versao 3).
 
 
 NOVIDADE: O CENARIO DA EDICAO GODOT 7.6
@@ -193,28 +269,81 @@ arquivos da TV Box (ou: adb install -r StrikeKids-Unity.apk).
     mede a TV Box e escolhe a qualidade.
 
 
-BOTOES DA MAQUINA: SO O ARDUINO
--------------------------------
-Esta edicao NAO usa a placa Zero Delay: START, os 5 SENSORES da pista,
-FICHA (moedeiro) e CONFIGURACAO vem todos do ARDUINO, pelo cabo USB.
-O firmware esta em arduino\strike_kids\strike_kids.ino (o mesmo das
-edicoes Godot, versao 3) e o desenho da montagem em docs\ligacao_arduino.pdf
-(A3; tambem .png e .svg, feitos por tools\desenhar_ligacao.py):
+BOTOES DA MAQUINA: ARDUINO E/OU PLACA ZERO DELAY
+------------------------------------------------
+Como na edicao Godot: START, os 5 SENSORES da pista, FICHA (moedeiro) e
+CONFIGURACAO podem vir do ARDUINO (pelo cabo USB) e/ou da placa ZERO DELAY.
+ARDUINO: o firmware tem 2 versoes (os mesmos arquivos das edicoes Godot,
+versao 3): arduino\strike_kids\strike_kids.ino (RELE/SERVO, sem ponte H,
+desenho docs\ligacao_arduino.pdf) e arduino\strike_kids_ponte_h\
+strike_kids_ponte_h.ino (PONTE H, desenho docs\ligacao_arduino_ponte_h.pdf)
+- os desenhos em A3, tambem .png e .svg, feitos por tools\desenhar_ligacao.py:
   Sensores (esquerda -> direita, olhando da crianca para os pinos):
      S1 = D2   S2 = D3   S3 = D4 (centro)   S4 = D5   S5 = D7
   CONFIGURACAO = A0   START = A1   FICHA (moedeiro) = A2   (cada um e GND)
-  Porta das bolas: PONTE H (motor DC ou atuador linear) IN1 = D10,
-     IN2 = D12, ENA = D11 (opcional; Mega: D9), fins de curso opcionais
-     A3 (aberta) e A4 (fechada); e/ou servo no D9 (Mega: D11); e/ou rele
-     no D8 (veja "ARDUINO 3" e "ARDUINO 2" abaixo).
+  Porta das bolas: RELE no D8 (trava solenoide 12 V ou eletroima) e/ou
+     servo no D9 (Mega: D11); na versao da ponte H tambem o motor DC ou
+     atuador linear: IN1 = D10, IN2 = D12, ENA = D11 (opcional; Mega: D9),
+     fins de curso opcionais A3 (aberta) e A4 (fechada) (veja "ARDUINO 3"
+     e "ARDUINO 2" abaixo).
   Fita de LED WS2812 (opcional): D6.
-Sem moedeiro: deixe "Modo livre (sem ficha)" ligado no menu (padrao).
+ZERO DELAY: vale do jeito que o Android a enxergar - como joystick ou, no
+modo teclado, como teclas. De fabrica (sem configurar):
+  joystick: START = START, quadrado = jogada esquerda, X = meio esquerdo,
+     bolinha = centro, triangulo = meio direito, R1 = jogada direita,
+     SELECT = credito, R2 (ou L3) = configuracao;
+  modo teclado: 1/Espaco = START, A S D F G = jogadas, 5 = credito,
+     9 = configuracao.
+  Nao bate? No menu do operador: "> CONFIGURAR BOTOES DA PLACA" - o jogo
+  pede um botao de cada vez (START, as 5 jogadas, SELECT e R2; os dois
+  ultimos podem ser pulados esperando 4 s) e grava na TV Box. A linha
+  "SINAL RECEBIDO" mostra o que chegou (o diagnostico da placa). VOLTAR do
+  controle remoto sai sem mudar nada. Sem o menu: segure QUALQUER botao da
+  placa por 10 s na tela de espera.
+Sem moedeiro: deixe "Modo livre (sem ficha e sem trava)" ligado no menu
+(padrao): a bola e o START. Com moedeiro: a ficha abre a trava e a bola e
+o START (veja "A MAQUINA SEM BOTOES").
 O controle remoto da TV Box serve para o MENU DO OPERADOR (tecla MENU abre;
 setas andam e mudam; OK escolhe; VOLTAR sai).
 
+
+ABRIR O JOGO SOZINHO AO LIGAR A TV
+----------------------------------
+O jogo e uma TELA INICIAL do Android: escolhido uma vez, a TV (ou TV Box)
+abre o Strike Kids sozinha - ligando na tomada, pelo controle remoto
+(volta da espera) e a cada HOME. Nao precisa de outro app (o "Launch on
+Boot" pode ser DESLIGADO ou desinstalado: dois apps abrindo o jogo ao
+mesmo tempo so atrapalham).
+  1. Instale o APK (por cima do antigo: as configuracoes ficam) e abra o
+     jogo uma vez.
+  2. Na tela de espera o jogo pede sozinho: o Android pergunta qual e a
+     tela inicial (ou "Definir Strike Kids como app de tela inicial?").
+     Escolha STRIKE KIDS e aperte SEMPRE (ou "Definir como padrao").
+     Nao apareceu nada? Aperte HOME no controle remoto: escolha STRIKE
+     KIDS e SEMPRE.
+     Nao perguntou (abriu o inicio da TV de novo)? Abra o jogo, entre no
+     menu do operador e escolha "> ABRIR O JOGO AO LIGAR A TV": ele diz
+     SIM ou NAO e, com OK, abre a escolha do Android (a janela "Definir
+     como app de tela inicial", os ajustes da tela inicial ou a janela
+     "Sempre / So uma vez"). Se abrir a pagina do app do inicio da TV:
+     aperte LIMPAR PADROES (em "Abrir por padrao"), volte e aperte HOME >
+     STRIKE KIDS > SEMPRE.
+  3. Confira: tire a TV da tomada, ligue de novo - abre o jogo. Desligue
+     pelo controle, espere 15 s e ligue - abre o jogo (ele reinicia do
+     zero quando a tela fica 10 s ou mais apagada).
+  ULTIMO RECURSO, PELO PC (TV com a depuracao USB/rede ligada):
+     adb shell cmd package set-home-activity com.lazersport.strikekids.unity/com.lazersport.strikekids.StrikeInicioAtivo
+  ou gere e instale com: GERAR_APK.bat -TelaInicial
+PARA USAR A TV (ajustes, Wi-Fi, outros apps): no menu do operador,
+"> SAIR PARA A TELA DA TV" - ou aperte HOME 5 vezes seguidas no controle
+remoto. Um HOME volta ao jogo. Para a TV deixar de abrir o jogo: nos
+ajustes do Android, tela inicial (ou "Apps padrao") > o inicio da TV; ou
+desinstale o Strike Kids.
+
 ARDUINO 3: A PONTE H DA PORTA PELO MENU DO OPERADOR
 ---------------------------------------------------
-O mesmo firmware da edicao Godot, agora versao 3. A ponte H da porta das
+O mesmo firmware da edicao Godot, agora versao 3 (hoje na pasta
+arduino\strike_kids_ponte_h: veja "A MAQUINA SEM BOTOES"). A ponte H da porta das
 bolas (IN1 = D10, IN2 = D12, ENA = D11; Mega: ENA = D9; fins de curso A3 =
 aberta e A4 = fechada) e ajustada no MENU DO OPERADOR, sem regravar o
 Arduino:
@@ -234,7 +363,7 @@ Arduino:
     no modo novo.
   * O TESTE DA PORTA mostra como a ponte H esta andando e avisa se o
     Arduino ainda esta com o firmware 2 (que ignora esses comandos e usa os
-    PONTE_* do .ino: regrave o arduino\strike_kids).
+    PONTE_* do .ino: regrave o arduino\strike_kids_ponte_h).
   * O que esta ligado fica bem definido no comeco do .ino: USAR_PONTE_H,
     USAR_SERVO e USAR_RELE (1 = ligado; os ligados recebem o mesmo
     comando). Sem servo, o Timer1 e o D9 ficam livres; sem rele, o D8. O
@@ -286,9 +415,10 @@ O JOGO
 ------
   ATRACAO: Bob e Mia na frente da pista, a demonstracao jogando sozinha, o
   recorde e os MELHORES DE HOJE (com a foto de cada crianca).
-  START: 1 vez = 1 jogador; START de novo em 4 s = 2 jogadores (BOB x MIA).
-  1 jogador escolhe o amigo rolando a bola: esquerda = BOB, direita = MIA,
-  meio (ou START) confirma. Depois: "SORRIA!" (foto pela camera USB da
+  A BOLA E O START (no modo fichas, depois da ficha: 1 ficha = 1 jogador,
+  2 fichas = BOB x MIA; no modo livre, outra bola logo depois = 2).
+  1 jogador escolhe o amigo pelo lado da bola: esquerda = BOB, direita =
+  MIA; no meio (ou sem bola por 10 s), sorteio. Depois: "SORRIA!" (foto pela camera USB da
   maquina, se tiver), a partida (3 rodadas de 3 bolas, por padrao), cada
   rodada numa fase sorteada (Selva dos Dinos, Parque, Espaco, Fundo do Mar)
   com a roupinha da fase, o REPLAY do strike em camera lenta, a maquina
@@ -300,13 +430,18 @@ O JOGO
 MENU DO OPERADOR (botao CONFIGURACAO do Arduino ou MENU do controle)
 --------------------------------------------------------------------
 Navegacao pelos sensores: X sobe, V desce, Z diminui, B aumenta, C ou START
-escolhe, CONFIGURACAO volta ao jogo. Itens: rodadas, bolas por rodada,
-dificuldade, velocidade do jogo, para-choques, replay, demonstracao, modo
-livre, foto, giro/espelho da camera, fichas por partida, tempo de
-inatividade, volumes, QUALIDADE GRAFICA, CENARIO (auto/leve/completo),
-NITIDEZ do 3D, desempenho na tela, TESTE DE DESEMPENHO, GIRO DA TELA, teste
-dos sensores, calibrar sensores, sensores invertidos, teste da porta, porta
-invertida, teste da camera, zerar recordes, padrao de fabrica.
+escolhe, CONFIGURACAO volta ao jogo. Itens (os mesmos da edicao Godot):
+rodadas, bolas por rodada, dificuldade, velocidade do jogo, para-choques,
+replay, demonstracao, modo livre, modo livre comecando pela bola, foto,
+giro/espelho da camera, fichas por partida, tempo de inatividade, volumes,
+som na demonstracao, QUALIDADE GRAFICA, CENARIO (auto/leve/completo),
+detalhes extras, CENARIO 3D, RESOLUCAO DA IMAGEM (TV Box), QUADROS POR
+SEGUNDO, DESENHO DA TELA, ANTISSERRILHADO DA TELA, NITIDEZ do 3D, desempenho
+na tela, TESTE DE DESEMPENHO, GIRO DA TELA, teste dos sensores, calibrar
+sensores, sensores invertidos, teste da porta, porta invertida, porta:
+tempo do motor e fim de curso (ponte H), teste da camera, CONFIGURAR BOTOES
+DA PLACA, ABRIR O JOGO AO LIGAR A TV, SAIR PARA A TELA DA TV, zerar
+recordes, padrao de fabrica.
 
 
 PASTAS
@@ -321,11 +456,12 @@ PASTAS
                                 jogadas (Calibrar), importacao (Importacao)
   Assets\StrikeKids\Resources   malhas (.bytes), texturas, telas, sons,
                                 fontes, shaders (OpenGL ES 2.0), dados
-  Assets\Plugins\Android        Java: atividade (controle remoto), Arduino
-                                (USB serial) e camera USB + manifestos
+  Assets\Plugins\Android        Java: atividade (controle remoto e Zero
+                                Delay), Arduino (USB serial), camera USB,
+                                abrir ao ligar a TV + manifestos
   arduino\                      firmware do Arduino da maquina
   tools\testes\arduino\         o firmware testado no PC, sem placa
-  tools\desenhar_ligacao.py      o desenho da montagem (docs\ligacao_arduino.*)
+  tools\desenhar_ligacao.py      os desenhos da montagem (docs\ligacao_arduino*: rele e ponte H)
   tools\modelador\              o modelador 3D (Python) e as
                                 previas: python3 tools/modelador/gerar.py
   tools\verificar\              confere o C# e o Java sem a Unity (Linux)

@@ -1,12 +1,18 @@
-"""Desenha a MONTAGEM DO ARDUINO da maquina (docs/ligacao_arduino.svg), em
-fundo branco: os 5 sensores, a fita de LED, a PONTE H com o motor da porta
-das bolas, os fins de curso, o moedeiro, os botoes START e CONFIGURACAO, a
-TV Box e (opcionais) o servo e o rele - com os mesmos pinos do firmware
-arduino/strike_kids/strike_kids.ino. Edicao Unity: todos os botoes vem so
-do Arduino (sem a placa Zero Delay); o resto e o mesmo desenho da edicao
-Godot (strike-kids-gles2/tools/desenhar_ligacao.py).
+"""Desenha a MONTAGEM DO ARDUINO da maquina, em fundo branco, nas DUAS
+versoes do firmware (o jogo e o mesmo nas duas):
+  rele    -> docs/ligacao_arduino.svg: arduino/strike_kids, a porta pelo
+             RELE (trava solenoide / eletroima) e/ou SERVO, sem ponte H,
+             como a primeira versao;
+  ponte_h -> docs/ligacao_arduino_ponte_h.svg: arduino/strike_kids_ponte_h,
+             a PONTE H com o motor da porta e os fins de curso (e,
+             opcionais, o servo e o rele).
+Nas duas: os 5 sensores, a fita de LED, o moedeiro, os botoes START e
+CONFIGURACAO e a TV Box - com os mesmos pinos do firmware. O mesmo desenho
+da edicao Godot (strike-kids-gles2/tools/desenhar_ligacao.py), so a fonte
+vem da pasta da Unity.
 
-    python3 -I tools/desenhar_ligacao.py docs/ligacao_arduino.svg
+    python3 -I tools/desenhar_ligacao.py                 (as duas, em docs/)
+    python3 -I tools/desenhar_ligacao.py rele docs/ligacao_arduino.svg
 
 O PNG e o PDF saem do SVG por qualquer navegador (Chrome: abrir o SVG e
 imprimir em PDF, A3 deitado) - a fonte dos titulos (a Fredoka das telas do
@@ -29,7 +35,11 @@ COR = {
     "D6": "#0097a7", "IN1": "#e64a19", "IN2": "#3949ab", "ENA": "#78909c",
     "A4": "#6d4c41", "A3": "#00897b", "A2": "#546e7a", "A1": "#2e7d32", "A0": "#f57c00",
     "12V": "#d32f2f", "GND": "#212121", "USB": "#8a9399",
+    "D8": "#e64a19", "D9": "#3949ab",
 }
+# qual desenho: "rele" (arduino/strike_kids) ou "ponte_h" (arduino/strike_kids_ponte_h)
+VERSAO = "ponte_h"
+RELE_AZUL = "#1a5276"
 
 _saida = []
 
@@ -136,8 +146,15 @@ def secao(x, y, s, tam=32):
 # ======================================================================== desenho
 def cabecalho():
     texto(60, 108, "STRIKE KIDS · MONTAGEM DO ARDUINO", 88, "#0b1f45", "bold", fonte=TITULO)
-    texto(60, 162, "Arduino **Nano** visto de cima · no **Uno** e no **Pro Mini** os pinos têm os mesmos nomes · "
-          "no **Mega**: servo no D11 e ENA no D9 · firmware arduino/strike_kids (versão 3)", 30, "#33415c")
+    if VERSAO == "rele":
+        selo, cor, mega, pasta = "VERSÃO DO RELÉ (sem ponte H)", RELE_AZUL, "servo no D11", "arduino/strike_kids"
+    else:
+        selo, cor, mega, pasta = "VERSÃO COM PONTE H", "#c0392b", "servo no D11 e ENA no D9", \
+            "arduino/strike_kids_ponte_h"
+    rect(1790, 40, 870, 92, cor, rx=22)
+    texto(2225, 102, selo, 42, "white", "bold", "middle", TITULO)
+    texto(60, 162, "Arduino **Nano** visto de cima · no **Uno** e no **Pro Mini**: mesmos nomes de pinos · "
+          "no **Mega**: %s · firmware **%s** (versão 3)" % (mega, pasta), 28, "#33415c")
     cores = [COR["S1"], COR["S2"], COR["S3"], COR["S4"], COR["S5"]]
     for i, c in enumerate(cores):
         rect(i * W / 5, 190, W / 5 + 1, 12, c)
@@ -209,6 +226,11 @@ def nano():
                    "D10": COR["IN1"], "D11": COR["ENA"], "D12": COR["IN2"]}
     usados_baixo = {"GND": None, "5V": None, "A4": COR["A4"], "A3": COR["A3"], "A2": COR["A2"],
                     "A1": COR["A1"], "A0": COR["A0"]}
+    if VERSAO == "rele":   # D10-D12, A3 e A4 livres (sao da ponte H)
+        for nome in ("D10", "D11", "D12"):
+            del usados_topo[nome]
+        del usados_baixo["A3"], usados_baixo["A4"]
+        usados_topo["D8"], usados_topo["D9"] = COR["D8"], COR["D9"]
     for nome in TOPO:
         x = px(nome)
         pino_placa(x, Y_TOPO, usados_topo.get(nome))
@@ -467,7 +489,7 @@ def botoes():
         etiqueta(mx + 445, yy, et, fundo, tam=17)
     texto(mx + mw / 2, y0 + 362, "1 pulso = 1 ficha · moedeiro NA ou NF", 18, TXT, ancora="middle")
     _botao(1440, y0, 440, "BOTÃO START", COR["A1"], "#a5d6a7", "#66bb6a", "A1", 1530,
-           "começa a partida (só pelo Arduino)")
+           "começa a partida (o da Zero Delay também)")
     _botao(1900, y0, 440, "CONFIGURAÇÃO", COR["A0"], "#ffe0b2", "#ffa726", "A0", 1470,
            "entra e sai do menu do operador")
 
@@ -476,7 +498,7 @@ def opcionais():
     x0, y0, w, h = 2800, 1080, 960, 420
     rect(x0, y0, w, h, "white", "#9e9e9e", 4, 18, dash="18 10")
     texto(x0 + 24, y0 + 44, "OPCIONAL — TRAVA POR SERVO (D9) OU RELÉ (D8)", 25, "#616161", "bold")
-    texto(x0 + 24, y0 + 76, "no lugar da ponte H (ou junto: todos recebem o mesmo comando)", 20, CINZA)
+    texto(x0 + 24, y0 + 76, "junto com a ponte H (o mesmo comando) · sem ponte H: arduino/strike_kids", 20, CINZA)
     # servo
     sx, sy = x0 + 30, y0 + 110
     rect(sx, sy, 400, 280, "#f4f6f7", "#bdc3c7", 3, 12)
@@ -512,6 +534,146 @@ def opcionais():
     texto(rx + 240, ry + 168, "na trava)", 17, CINZA)
 
 
+# ---------------------------------------------------------------- versao do RELE
+# modulo rele (1 canal): IN, VCC e GND embaixo; NO, COM e NC do lado direito
+RX, RY, RW, RH = 2060, 430, 560, 360
+RL_PINOS = {"IN": RX + 80, "VCC": RX + 170, "GND": RX + 260}
+RL_BORNE = {"NO": RY + 70, "COM": RY + 140, "NC": RY + 210}
+
+
+def rele():
+    texto(2060, 398, "PORTA DAS BOLAS — MÓDULO RELÉ (D8) + TRAVA", 30, TXT, "bold")
+    rect(RX + 8, RY + 10, RW, RH, "#00000018", rx=18)
+    rect(RX, RY, RW, RH, RELE_AZUL, "#0e2f44", 4, 18)
+    # o rele (cubo azul) e o LED
+    rect(RX + 150, RY + 36, 240, 150, "#2e86c1", "#1b4f72", 3, 8)
+    texto(RX + 270, RY + 104, "relé", 34, "white", "bold", "middle")
+    texto(RX + 270, RY + 140, "SRD-05VDC", 17, "#d6eaf8", ancora="middle")
+    circ(RX + 70, RY + 60, 11, "#e74c3c", "white", 2)
+    texto(RX + 70, RY + 96, "LED", 16, "#d6eaf8", "bold", "middle")
+    texto(RX + 240, RY + 224, "MÓDULO RELÉ 5 V · 1 canal", 22, "white", "bold", "middle")
+    # borne do contato (direita)
+    rect(RX + RW - 60, RY + 40, 60, 200, "#1e8449", "#145a32", 2, 6)
+    for nome, y in RL_BORNE.items():
+        circ(RX + RW - 30, y, 11, "#bdc3c7", "#7f8c8d", 2)
+        texto(RX + RW - 72, y + 8, nome, 20, "white", "bold", "end")
+    texto(RX + RW - 8, RY + 268, "NC: solto", 16, "#d6eaf8", "bold", "end")
+    # pinos (embaixo)
+    rect(RX + 40, RY + RH - 70, 260, 50, "#17202a", rx=6)
+    for nome, x in RL_PINOS.items():
+        circ(x, RY + RH - 45, 10, OURO, "#7d6608", 2)
+        texto(x, RY + RH - 84, nome, 19, "white", "bold", "middle")
+    yp = RY + RH - 45
+    # D8 -> IN
+    fio([(px("D8"), Y_TOPO), (px("D8"), 840), (RL_PINOS["IN"], 840), (RL_PINOS["IN"], yp)], COR["D8"])
+    texto(px("D12") + 40, 829, "D8 → IN do relé", 22, COR["D8"], "bold")
+    # VCC no 5V e GND no GND
+    for nome, rot, cor in (("VCC", "5V", "#c62828"), ("GND", "GND", "#212121")):
+        x = RL_PINOS[nome]
+        linha(x, yp, x, yp + 70, cor, 6)
+        etiqueta(x, yp + 84, rot, cor, tam=19)
+    texto(RL_PINOS["GND"] + 50, yp + 92, "do Arduino", 19, CINZA, "bold")
+    texto(px("D12") + 40, 964, "D9 → servo (opcional)", 21, COR["D9"], "bold")
+
+
+def trava():
+    tx, ty, tw, th = 2800, 450, 420, 170
+    rect(tx + 6, ty + 8, tw, th, "#00000018", rx=14)
+    rect(tx, ty, tw, th, "#7f8c8d", "#566573", 4, 14)
+    texto(tx + tw / 2, ty + 70, "TRAVA SOLENOIDE 12 V", 26, "white", "bold", "middle")
+    texto(tx + tw / 2, ty + 104, "(fechadura elétrica)", 19, "#eaeded", ancora="middle")
+    rect(tx + tw / 2 - 40, ty + th, 80, 34, "#bdc3c7", "#7f8c8d", 3, 6)   # a lingueta
+    texto(tx + tw / 2 + 56, ty + th + 26, "lingueta", 17, CINZA)
+    texto(tx - 34, ty + 38, "+", 30, COR["12V"], "bold")
+    texto(tx + tw - 30, ty + 142, "−", 30, "white", "bold")
+    # fonte 12 V
+    fx, fy, fw, fh = 3380, 700, 360, 210
+    rect(fx + 6, fy + 8, fw, fh, "#00000018", rx=14)
+    rect(fx, fy, fw, fh, "#c0392b", "#7b241c", 4, 14)
+    texto(fx + fw / 2 + 20, fy + 80, "FONTE 12 V", 32, "white", "bold", "middle", TITULO)
+    texto(fx + fw / 2 + 20, fy + 112, "2 A ou mais", 20, "#fadbd8", ancora="middle")
+    texto(fx + fw / 2 + 20, fy + 140, "(trava + moedeiro)", 18, "#fadbd8", ancora="middle")
+    texto(fx + fw / 2 + 20, fy + 180, "tomada 127/220 V ~", 18, "#fadbd8", ancora="middle")
+    texto(fx + 22, fy + 90, "+", 30, "white", "bold")
+    texto(fx + 228, fy + 36, "−", 34, "white", "bold", "middle")
+    # NO -> + da trava · COM <- + da fonte · - da trava -> - da fonte
+    xb = RX + RW - 30
+    fio([(xb, RL_BORNE["NO"]), (tx, RL_BORNE["NO"])], COR["12V"])
+    fio([(xb, RL_BORNE["COM"]), (2700, RL_BORNE["COM"]), (2700, 780), (fx, 780)], COR["12V"])
+    fio([(tx + tw, ty + 120), (fx + 228, ty + 120), (fx + 228, fy)], COR["GND"])
+    texto(2712, 768, "COM ← + da fonte 12 V", 20, COR["12V"], "bold")
+    texto(tx + tw + 20, ty + 108, "− da trava → − da fonte", 19, TXT, "bold")
+    texto(tx, ty + th + 64, "diodo 1N4007 nos fios da trava (faixa no +)", 19, CINZA)
+    bloco(2790, 836, [
+        "**NO** → + da trava: o relé LIGA com a porta",
+        "ABERTA (RELE_LIGADO_ABERTA 1).",
+        "**Eletroímã** que segura a porta fechada:",
+        "use o **NC** no lugar do NO.",
+        "Trava solenoide **esquenta**: no .ino",
+        "**RELE_TEMPO_MAX_S 5** (liga 5 s e solta).",
+    ], 20, 1.38)
+    texto(fx, fy + fh + 40, "o − da fonte 12 V também", 20, CINZA)
+    texto(fx, fy + fh + 66, "vai no GND do Arduino", 20, CINZA)
+
+
+def servo_rele():
+    x0, y0, w, h = 2800, 1080, 960, 420
+    caixa(x0, y0, w, h, "SERVO NO D9 (opcional — junto com o relé ou no lugar)", COR["D9"], 24, tracejada=True)
+    # D9 -> sinal do servo (depois da caixa: por cima do fundo dela)
+    fio([(px("D9"), Y_TOPO), (px("D9"), 975), (2770, 975), (2770, 1190), (2900, 1190)], COR["D9"], dash="16 12")
+    sx, sy = 2900, 1150
+    rect(sx, sy, 190, 120, "#2c3e50", rx=10)
+    circ(sx + 95, sy + 60, 36, "#ecf0f1", "#95a5a6", 3)
+    rect(sx + 95, sy + 52, 95, 16, "white", "#95a5a6", 2, 8)
+    texto(sx + 95, sy + 152, "SERVO", 22, TXT, "bold", "middle")
+    texto(sx + 8, sy + 30, "sinal", 16, "#d6eaf8", "bold")
+    # + e - para a fonte do servo
+    fx, fy = 3300, 1160
+    fio([(sx + 190, sy + 60), (fx, sy + 60)], "#c62828", 7)
+    fio([(sx + 190, sy + 100), (fx, sy + 100)], "#4e342e", 7)
+    rect(fx, fy, 300, 140, "#1e8449", "#145a32", 3, 12)
+    texto(fx + 160, fy + 62, "FONTE 5–6 V", 26, "white", "bold", "middle", TITULO)
+    texto(fx + 160, fy + 94, "do servo", 18, "#d5f5e3", ancora="middle")
+    texto(fx + 14, fy + 58, "+", 24, "white", "bold")
+    texto(fx + 14, fy + 100, "−", 26, "white", "bold")
+    bloco(x0 + 30, y0 + 312, [
+        "**sinal → D9** (o fio laranja/amarelo do servo) · + e − na fonte",
+        "5-6 V própria; o − dela também no GND do Arduino.",
+        "SERVO_FECHADA 0° · SERVO_ABERTA 90° · sem servo: USAR_SERVO 0",
+    ], 19, 1.45)
+
+
+def versoes():
+    x0, y0, w, h = 40, 1560, 860, 410
+    caixa(x0, y0, w, h, "QUAL ARDUINO GRAVAR?", RELE_AZUL, 26)
+    bloco(x0 + 24, y0 + 100, [
+        "**ESTE DESENHO: RELÉ / SERVO** (sem ponte H)",
+        "grave **arduino/strike_kids/strike_kids.ino**",
+        "(como a primeira versão).",
+        "",
+        "**Porta com MOTOR ou ATUADOR (ponte H)?**",
+        "grave **arduino/strike_kids_ponte_h** e siga",
+        "o desenho **docs/ligacao_arduino_ponte_h.pdf**.",
+        "",
+        "**O JOGO É O MESMO** (o mesmo APK) para os dois:",
+        "o TESTE DA PORTA mostra qual está gravado.",
+    ], 22, 1.45)
+
+
+def travas():
+    x0, y0, w, h = 2360, 1580, 1400, 390
+    caixa(x0, y0, w, h, "TRAVAS QUE FUNCIONAM (o mesmo firmware, os mesmos pinos)", RELE_AZUL, 26)
+    bloco(x0 + 26, y0 + 100, [
+        "**Trava solenoide 12 V**: COM ← +12 V · NO → trava · no .ino **RELE_TEMPO_MAX_S 5**",
+        "**Eletroímã 12 V** que segura a porta fechada: COM ← +12 V · **NC** → eletroímã",
+        "**Servo** (MG996R e parecidos): sinal no D9 · fonte 5-6 V própria",
+        "**Módulo relé 5 V** (1 canal): IN = D8 · VCC = 5V · GND = GND",
+        "Módulo que liga com HIGH (jumper H/L no H): **RELE_LIGA_EM_LOW 0**",
+        "**Motor DC ou atuador linear** (abre E fecha pelo motor): só com a **PONTE H**",
+        "→ arduino/strike_kids_ponte_h e o desenho ligacao_arduino_ponte_h.pdf",
+    ], 23, 1.5)
+
+
 def tabela_pinos():
     x0, y0, w = 40, 760, 480
     rect(x0 + 6, y0 + 8, w, 640, "#00000012", rx=18)
@@ -520,6 +682,19 @@ def tabela_pinos():
     rect(x0, y0 + 30, w, 26, "#455a64")
     texto(x0 + 24, y0 + 39, "TABELA DE PINOS", 26, "white", "bold", fonte=TITULO)
     linhas = [
+        ("D2…D5, D7", "sensores S1…S5", COR["S3"]),
+        ("D6", "fita de LED (DIN)", COR["D6"]),
+        ("D8", "relé · IN (trava)", COR["D8"]),
+        ("D9", "servo (opcional)", COR["D9"]),
+        ("D10…D12", "livres (sem ponte H)", "#cfd8dc"),
+        ("D13", "LED da placa (pisca)", "#f5b041"),
+        ("A0", "CONFIGURAÇÃO", COR["A0"]),
+        ("A1", "START", COR["A1"]),
+        ("A2", "moedeiro (COIN)", COR["A2"]),
+        ("A3, A4", "livres", "#cfd8dc"),
+        ("5V", "sensores 5 V, relé (VCC)", "#c62828"),
+        ("GND", "GND de TUDO", "#212121"),
+    ] if VERSAO == "rele" else [
         ("D2…D5, D7", "sensores S1…S5", COR["S3"]),
         ("D6", "fita de LED (DIN)", COR["D6"]),
         ("D8", "relé (opcional)", "#9e9e9e"),
@@ -566,27 +741,25 @@ def paineis():
     ws = [900, 940, 940, 860]
     x = 40
     dados = [
-        ("A PORTA ABRE E FECHA COM O JOGO", "#1e8449", [
-            "**Ligou a máquina:** a porta FECHA.",
-            "",
+        ("A TRAVA E A BOLA (sem botões)", "#1e8449", [
             "**MODO FICHAS** (menu: Modo livre = NÃO):",
-            "ficha no moedeiro → **START** → a porta",
-            "ABRE e começa a partida.",
-            "**Fim da partida:** a porta FECHA.",
-            "Outra ficha + START → ABRE de novo.",
-            "Sem ficha, a espera pede INSIRA FICHA.",
+            "sem ficha a trava fica **FECHADA** e a tela",
+            "pede INSIRA FICHA.",
+            "**Ficha no moedeiro:** a trava **ABRE** e a",
+            "tela pede ROLE A BOLA! A 1ª bola é o START:",
+            "**1 ficha = 1 jogador** — o lado da bola",
+            "escolhe: esquerda BOB, direita MIA (no meio",
+            "ou sem bola: sorteio) · **2 fichas = BOB x MIA**.",
+            "**Fim da partida:** a trava FECHA (com",
+            "ficha sobrando, continua aberta).",
             "",
-            "**MODO LIVRE** (Modo livre = SIM):",
-            "só o **START** abre; no fim, FECHA.",
+            "**MODO LIVRE** (Modo livre = SIM): **sem",
+            "trava** — a porta fica sempre aberta e a",
+            "bola é o START (outra bola logo depois =",
+            "2 jogadores).",
             "",
-            "**Atenção:** com “Começar rolando a bola”",
-            "LIGADO (vem assim no modo livre), a porta",
-            "fica ABERTA na espera e no fim — a bola",
-            "é o START. Quer que feche? Desligue no",
-            "menu do operador.",
-            "",
-            "Jogo sumiu (cabo solto, TV desligada) com",
-            "a porta aberta: ela FECHA sozinha em 15 s.",
+            "Jogo sumiu (cabo solto) com a trava",
+            "aberta: ela FECHA sozinha em 15 s.",
         ]),
         ("PONTE H NO MENU DO OPERADOR", "#c0392b", [
             "**Porta: tempo do motor** (0,5 a 10 s; 1,5 s de",
@@ -599,9 +772,9 @@ def paineis():
             "avisa “A PORTA NÃO CHEGOU” e tenta de novo (3x).",
             "O jogo manda ao Arduino, que guarda na EEPROM.",
             "",
-            "**No começo do .ino:** USAR_PONTE_H 0 = sem ponte H",
-            "· USAR_SERVO / USAR_RELE 0 = sem servo / relé",
-            "· FC_NF 1 = micro-switch no NF.",
+            "**No começo do .ino:** USAR_SERVO / USAR_RELE 0",
+            "= sem servo / relé · FC_NF 1 = micro-switch no NF.",
+            "**Só relé/servo, sem motor?** arduino/strike_kids.",
             "**Abriu ao contrário?** Inverta os fios OUT1/OUT2",
             "ou PONTE_INVERTIDA 1.",
             "**PONTE_VELOCIDADE_ABRE / _FECHA** (0 a 255): só",
@@ -609,10 +782,10 @@ def paineis():
             "devagar (ex.: 180) protege as mãos das crianças.",
         ]),
         ("PRIMEIRA VEZ (passo a passo)", "#1f6fb2", [
-            "**1. Grave o strike_kids.ino** pela IDE do Arduino",
-            "(Nano clone: Processador “ATmega328P (Old",
-            "Bootloader)”; biblioteca Adafruit NeoPixel, ou",
-            "USAR_LEDS 0 sem a fita).",
+            "**1. Grave o strike_kids_ponte_h.ino** pela IDE",
+            "do Arduino (Nano clone: Processador “ATmega328P",
+            "(Old Bootloader)”; biblioteca Adafruit NeoPixel,",
+            "ou USAR_LEDS 0 sem a fita).",
             "**2. Monitor Serial a 9600:** OLA:STRIKE_KIDS:3",
             "e a porta FECHA (PORTA:FECHADA quando chega).",
             "Mande PORTA:ABRE e PORTA:FECHA para testar.",
@@ -625,7 +798,7 @@ def paineis():
             "(C ou START abre/fecha; “o Arduino confirmou”",
             "= a porta chegou).",
             "**5. Modo livre** SIM ou NÃO e **Fichas por",
-            "partida**. CONFIGURAÇÃO de novo → jogo. Pronto!",
+            "jogador**. CONFIGURAÇÃO de novo → jogo. Pronto!",
         ]),
         ("CUIDADOS", "#b03a2e", [
             "**Todos os GND juntos:** Arduino, ponte H,",
@@ -646,6 +819,66 @@ def paineis():
             "“Sensores invertidos”.",
         ]),
     ]
+    if VERSAO == "rele":
+        dados[1:] = [
+            ("RELÉ E SERVO (no começo do .ino)", RELE_AZUL, [
+                "**RELÉ (D8):** liga com a trava ABERTA",
+                "(RELE_LIGADO_ABERTA 1). Ao contrário:",
+                "ponha 0, ou use o NC do relé.",
+                "**Módulo que liga com HIGH:**",
+                "RELE_LIGA_EM_LOW 0.",
+                "**Trava solenoide esquenta** se fica",
+                "ligada: RELE_TEMPO_MAX_S 5 (liga 5 s e",
+                "solta; para o jogo ela segue aberta).",
+                "",
+                "**SERVO (D9):** SERVO_FECHADA 0 e",
+                "SERVO_ABERTA 90 (graus, de 0 a 180).",
+                "**Sem servo ou sem relé:** USAR_SERVO 0",
+                "ou USAR_RELE 0.",
+                "",
+                "**Menu do operador:** “Porta invertida”",
+                "troca aberta e fechada. “Tempo do motor” e",
+                "“fim de curso” são só da ponte H.",
+            ]),
+            ("PRIMEIRA VEZ (passo a passo)", "#1f6fb2", [
+                "**1. Grave o strike_kids.ino** (pasta",
+                "arduino/strike_kids) pela IDE do Arduino",
+                "(Nano clone: Processador “ATmega328P (Old",
+                "Bootloader)”; biblioteca Adafruit NeoPixel,",
+                "ou USAR_LEDS 0 sem a fita).",
+                "**2. Monitor Serial a 9600:** OLA:STRIKE_KIDS:3.",
+                "Mande PORTA:ABRE (o relé liga, o servo vai",
+                "a 90°) e PORTA:FECHA para testar.",
+                "**3. USB na TV Box** e abra o jogo: na janela",
+                "do USB marque “Usar por padrão” e OK.",
+                "**4. CONFIGURAÇÃO → menu do operador:**",
+                "TESTE DOS SENSORES (ao vivo) → CALIBRAR",
+                "SENSORES (pista vazia) → TESTE DA PORTA",
+                "(C ou START abre/fecha; aparece “Arduino",
+                "do RELÉ/SERVO” = esta versão gravada).",
+                "**5. Modo livre** SIM ou NÃO e **Fichas por",
+                "jogador**. CONFIGURAÇÃO de novo → jogo!",
+            ]),
+            ("CUIDADOS", "#b03a2e", [
+                "**Todos os GND juntos:** Arduino, relé,",
+                "fontes, moedeiro, sensores, botões.",
+                "**A trava NUNCA no Arduino:** só pelo",
+                "contato do relé, com a fonte de 12 V.",
+                "**Diodo 1N4007 na trava** (faixa no +):",
+                "protege o relé do pico da bobina.",
+                "**Servo:** fonte 5-6 V própria (nunca o",
+                "5 V do Arduino).",
+                "**Sensor com saída NPN — nunca PNP**",
+                "(o PNP manda 12 V no pino e queima).",
+                "**Moedeiro:** só o COIN no A2; se ele",
+                "manda 12 V no COIN, use optoacoplador.",
+                "**Antes de ligar:** meça cada fio de",
+                "sinal: nunca pode ter 12 V.",
+                "**Teste a trava sem crianças** perto.",
+                "**Esquerda e direita trocadas?** Menu:",
+                "“Sensores invertidos”.",
+            ]),
+        ]
     for (titulo, cor, linhas), w in zip(dados, ws):
         caixa(x, y0, w, h, titulo, cor, 28)
         bloco(x + 28, y0 + 108, linhas, 26, 1.48)
@@ -661,8 +894,10 @@ def fonte_titulos():
             '</style></defs>' % b64)
 
 
-def main():
-    destino = sys.argv[1] if len(sys.argv) > 1 else "docs/ligacao_arduino.svg"
+def desenhar(versao, destino):
+    global VERSAO
+    VERSAO = versao
+    del _saida[:]
     add('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">' % (W, H, W, H))
     add(fonte_titulos())
     rect(0, 0, W, H, "white")
@@ -671,13 +906,24 @@ def main():
     tabela_pinos()
     fios_sensores_e_fita()
     fita()
-    ponte_h()
-    porta()
-    opcionais()
+    if versao == "rele":
+        rele()
+        trava()
+        servo_rele()
+    else:
+        ponte_h()
+        porta()
+        opcionais()
     tv_box()
-    fins_de_curso()
+    if versao == "rele":
+        versoes()
+    else:
+        fins_de_curso()
     botoes()
-    outras_pontes()
+    if versao == "rele":
+        travas()
+    else:
+        outras_pontes()
     gnd_5v_placa()
     nano()
     paineis()
@@ -685,6 +931,15 @@ def main():
     with open(destino, "w", encoding="utf-8") as f:
         f.write("\n".join(_saida) + "\n")
     print("ok:", destino)
+
+
+def main():
+    if len(sys.argv) > 2:
+        assert sys.argv[1] in ("rele", "ponte_h"), "versão: rele ou ponte_h"
+        desenhar(sys.argv[1], sys.argv[2])
+        return
+    desenhar("rele", "docs/ligacao_arduino.svg")
+    desenhar("ponte_h", "docs/ligacao_arduino_ponte_h.svg")
 
 
 if __name__ == "__main__":

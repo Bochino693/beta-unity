@@ -31,9 +31,8 @@ namespace StrikeKids
                 ["velocidade"] = 130,         // ritmo do jogo (%): 130 = tudo 30% mais rápido (a física das jogadas não muda)
                 ["protecao_canaleta"] = true, // para-choques nas canaletas (bumpers)
                 ["replay_strike"] = true,
-                ["modo_livre"] = true,        // sem crédito: START sempre começa
-                ["inicio_bola"] = true,       // modo livre: rolar a bola começa (1 bola = 1 jogador, 2 = 2; o lado escolhe Bob/Mia)
-                ["creditos_por_partida"] = 1,
+                ["modo_livre"] = true,        // sem ficha e sem trava: a bola sempre começa
+                ["creditos_por_partida"] = 1, // fichas por JOGADOR (1 ficha = 1 jogador, 2 = Bob x Mia)
                 ["tempo_inatividade"] = 45,   // segundos sem jogar até o aviso
                 ["demo"] = true,
                 ["foto"] = true,              // foto das crianças com a câmera da máquina
@@ -61,6 +60,18 @@ namespace StrikeKids
                 ["cenario3d"] = "auto",          // nível do cenário 3D: auto (leve nas Mali-400/450), alto, leve
                 ["cenario3d_medido"] = "",       // o que o automático viu ("leve" = não segurou o alto)
                 ["detalhes"] = true,             // vento nas plantas, enfeites que se mexem, borboletas, sons de ambiente
+                // desenho da tela: "direto" (o 3D e as telas direto na tela, numa passada, na
+                // resolução da TV e com o antisserrilhado da própria tela), "imagem" (o 3D numa
+                // imagem separada, com a nitidez automática) ou "auto" (direto, a não ser que o jogo
+                // já tenha visto esta máquina sem fôlego nele)
+                ["desenho"] = "auto",
+                ["desenho_medido"] = "",         // o que o automático viu ("imagem" = sem fôlego no direto)
+                ["antisserrilhado"] = true,      // antisserrilhado 4x da tela no desenho direto (vale ao abrir o jogo)
+                // resolução da imagem na TV Box (a própria TV Box estica até a tela, de graça):
+                // auto (720 na Mali-400/450, até 1080 nas outras), 720p, 900p, 1080p ou tela
+                ["resolucao"] = "auto",
+                ["qps"] = "auto",                // quadros por segundo: auto, 60 ou 30 (travados)
+                ["qps_medido"] = 0,              // o que o automático viu (30 = não segurou 60)
                 ["nitidez"] = "auto",            // resolução do 3D: auto ou 100%/90%/80%/70%
                 ["fator"] = 1.0,                 // o último fator automático bom (começa dele ao ligar)
                 ["medidor"] = false,             // painel de desempenho na tela (F3 no PC)
@@ -126,8 +137,9 @@ namespace StrikeKids
         public static void Definir(string secao, string chave, object v)
         {
             Secao(secao, true)[chave] = v;
-            // escolher o nível do cenário à mão esquece o que o automático mediu
+            // escolher o nível do cenário (ou o desenho da tela) à mão esquece o que o automático mediu
             if (secao == "video" && chave == "cenario3d") Secao(secao, true)["cenario3d_medido"] = "";
+            if (secao == "video" && chave == "desenho") Secao(secao, true)["desenho_medido"] = "";
             Salvar();
             Mudaram?.Invoke();
         }
@@ -222,6 +234,14 @@ namespace StrikeKids
                 || g.Contains("adreno (tm) 3") || g.Contains("adreno (tm) 2");
         }
 
+        /// <summary>A placa de vídeo das TV Boxes mais simples: Mali-400/450 (e as Mali-200/300),
+        /// a "Utgard" (Ajustes.placa_utgard da edição Godot).</summary>
+        public static bool PlacaUtgard()
+        {
+            string g = (SystemInfo.graphicsDeviceName ?? "").ToLowerInvariant();
+            return g.Contains("mali-4") || g.Contains("mali-3") || g.Contains("mali-2");
+        }
+
         /// <summary>O cenário 3D no nível LEVE (um passo mais leve em cada peça)? "auto": nas placas
         /// bem fracas (a Mali-450), como na edição Godot; "Detalhes extras" desligado também.</summary>
         public static bool Cenario3dLeve()
@@ -249,11 +269,17 @@ namespace StrikeKids
             Contar("moedas");
         }
 
-        public static bool PodeComecar() => ModoLivre() || _creditos >= Int("jogo", "creditos_por_partida");
+        public static bool PodeComecar() => ModoLivre() || _creditos >= FichasPorJogador();
 
-        public static void GastarCreditos()
+        static int FichasPorJogador() => Mathf.Max(1, Int("jogo", "creditos_por_partida"));
+
+        /// <summary>Modo fichas: quantos jogadores as fichas pagam (0, 1 ou 2 - com 2 já é BOB x
+        /// MIA). Modo livre: 0 (quem diz é a bola).</summary>
+        public static int JogadoresPagos() => ModoLivre() ? 0 : Mathf.Min(2, _creditos / FichasPorJogador());
+
+        public static void GastarCreditos(int jogadores)
         {
-            if (!ModoLivre()) _creditos = Mathf.Max(0, _creditos - Int("jogo", "creditos_por_partida"));
+            if (!ModoLivre()) _creditos = Mathf.Max(0, _creditos - FichasPorJogador() * jogadores);
         }
 
         // ------------------------------------------------------------ recorde

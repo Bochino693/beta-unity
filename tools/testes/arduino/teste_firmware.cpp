@@ -263,6 +263,46 @@ int main(int argc, char **argv) {
     manda("INFO?");
     rodar(2);
     printf("  %s", pega().c_str());
+  } else if (c == "rele") {
+    // a versao do RELE (arduino/strike_kids) como ela e gravada: rele no
+    // D8 e servo no D9, sem ponte H (D10-D12, A3 e A4 livres)
+    setup(); pega();
+    CONFERE(USAR_PONTE_H == 0 && USAR_RELE && USAR_SERVO, "versao do rele: rele e servo, sem ponte H");
+    const int livres[5] = {PONTE_IN1, PONTE_IN2, PONTE_EN, FC_ABERTA_PINO, FC_FECHADA_PINO};
+    for (int p : livres) CONFERE(pinModeV[p] == INPUT, "pinos da ponte H livres");
+    bool desligado = RELE_LIGA_EM_LOW ? HIGH : LOW;
+    CONFERE(pinModeV[RELE_PINO] == OUTPUT && pinOut[RELE_PINO] == desligado, "ao ligar: rele desligado (porta fechada)");
+    manda("PORTA:ABRE");
+    rodar(2);
+    CONFERE(conta("PORTA:ABERTA") == 1, "abre: confirma na hora");
+    CONFERE(pinOut[RELE_PINO] != desligado, "abre: rele liga");
+    rodar(1000);
+    CONFERE(servoAtual10 == SERVO_ABERTA * 10, "abre: servo no angulo da porta aberta");
+    manda("PORTA:FECHA");
+    rodar(2);
+    CONFERE(conta("PORTA:FECHADA") == 1, "fecha: confirma na hora");
+    CONFERE(pinOut[RELE_PINO] == desligado, "fecha: rele desliga");
+    rodar(1000);
+    CONFERE(servoAtual10 == SERVO_FECHADA * 10, "fecha: servo no angulo da porta fechada");
+    manda("PONTE:TEMPO:800");
+    manda("PONTE:FC:1");
+    rodar(2);
+    CONFERE(conta("PONTE") == 0, "PONTE: do menu ignorado calado");
+    for (int p : livres) CONFERE(pinModeV[p] == INPUT && pinOut[p] == 0, "pinos da ponte H continuam livres");
+    manda("INFO?");
+    rodar(2);
+    CONFERE(conta(":RELE=8") == 1 && conta(":PONTE_H=0:") == 1, "INFO: rele no D8 e sem ponte H");
+    pega();
+    manda("PORTA:ABRE");
+    rodar(2);
+    if (RELE_TEMPO_MAX_S > 0) {
+      rodar(RELE_TEMPO_MAX_S * 1000UL + 100);
+      CONFERE(pinOut[RELE_PINO] == desligado, "trava solenoide: rele solta depois do RELE_TEMPO_MAX_S");
+      CONFERE(conta("PORTA:FECHADA") == 0, "trava solenoide: para o jogo a porta continua aberta");
+    }
+    rodar(SEM_JOGO_FECHA_MS + 100);
+    CONFERE(conta("AVISO:SEM_JOGO") == 1 && conta("PORTA:FECHADA") == 1, "jogo sumiu: fecha sozinha");
+    CONFERE(pinOut[RELE_PINO] == desligado, "jogo sumiu: rele desligado");
   } else {
     printf("cenario?\n");
     return 2;

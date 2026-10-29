@@ -9,9 +9,11 @@ using Debug = UnityEngine.Debug;
 namespace StrikeKids
 {
     /// <summary>
-    /// O ARDUINO DA MÁQUINA (firmware em strike-kids-gles2/arduino/strike_kids),
-    /// pelo cabo USB da TV Box (StrikeSerial.java, por UsbSerial.cs). A máquina
-    /// NÃO tem placa Zero Delay: TODO comando físico vem daqui —
+    /// O ARDUINO DA MÁQUINA (firmware em arduino/strike_kids - relé/servo - ou
+    /// arduino/strike_kids_ponte_h - ponte H; o jogo é o mesmo para os dois),
+    /// pelo cabo USB da TV Box (StrikeSerial.java, por UsbSerial.cs). O que está
+    /// ligado nele (a placa Zero Delay também vale, como na edição Godot —
+    /// Controles.cs):
     ///   * os 5 SENSORES da pista (S1 = esquerda ... S5 = direita) viram as
     ///     jogadas Z X C V B (Controles.Injetar) e o evento Sensor;
     ///   * START, FICHA (crédito) e o botão de CONFIGURAÇÃO (menu do operador);
@@ -652,6 +654,10 @@ namespace StrikeKids
             int.TryParse(Firmware.Substring(Firmware.IndexOf(':') + 1), out int v);
             return v;
         }
+
+        /// <summary>O Arduino é o da versão do RELÉ/SERVO (arduino/strike_kids, sem ponte H): confirma
+        /// a porta na hora e ignora o tempo do motor e o fim de curso.</summary>
+        public static bool SemPonte() => Completo() && Info.Contains(":PONTE_H=0:");
 
         /// <summary>A ponte H como o menu do operador escolheu, no jeito da resposta do Arduino ("TEMPO:1500:FC:0").</summary>
         public static string PontePedida() =>

@@ -15,8 +15,8 @@ namespace StrikeKids
     /// a partida (PRONTO -&gt; ARREMESSO -&gt; ROLANDO -&gt; RESULTADO, com REPLAY no
     /// strike) -&gt; FIM -&gt; ATRACAO.
     ///
-    /// Os botões e os 5 sensores vêm SÓ do Arduino (USB): START, sensores,
-    /// FICHA e CONFIGURAÇÃO (ArduinoBridge -&gt; Controles). Para testar no PC:
+    /// Os botões e os 5 sensores vêm do Arduino (USB) e/ou da placa Zero Delay:
+    /// START, sensores, FICHA e CONFIGURAÇÃO (ArduinoBridge e Controles). Para testar no PC:
     /// A S D F G = sensores, 1/Espaço = START, 5 = ficha, 9 = configuração; o
     /// controle remoto da TV Box (MENU) também abre o menu do operador.
     ///
@@ -32,17 +32,21 @@ namespace StrikeKids
         const float Z_INICIO = 3.15f;
         const float X_MAO = 0.28f;          // a mão direita fica 0,28 m à direita do corpo
         const float MESMA_BOLA = 1.2f;      // s: o mesmo sensor de novo logo depois = a mesma bola
-        /// <summary>o tempo da tela "QUANTOS VÃO JOGAR?" (START de novo dentro dele = 2 jogadores)</summary>
-        const float TEMPO_JOGADORES = 4f;
-        /// <summary>MODO LIVRE PELA BOLA (7.5, máquina sem botões): a bola rolada na espera começa a
-        /// partida e já escolhe o amigo pelo lado (esquerda = Bob, direita = Mia, meio = Bob); outra
-        /// bola na tela "QUANTOS VÃO JOGAR?" = 2 jogadores. A 2ª criança precisa pegar outra bola:
-        /// o tempo é maior.</summary>
+        /// <summary>A MÁQUINA SEM BOTÕES: a BOLA é o START.
+        /// MODO LIVRE: sem trava (a porta das bolas fica sempre aberta); a bola rolada na espera
+        /// começa e outra bola na tela "QUANTOS VÃO JOGAR?" = 2 jogadores (a 2ª criança precisa
+        /// pegar outra bola: o tempo é este).
+        /// MODO FICHAS: sem ficha a trava fica fechada; a ficha ABRE a trava e a bola começa:
+        /// 1 ficha = 1 jogador, 2 fichas = BOB x MIA ("Fichas por jogador" no menu do operador).
+        /// 1 jogador: o LADO da bola escolhe o amigo (esquerda = BOB, direita = MIA, onde cada um
+        /// fica na tela); bola no meio: rola de novo de um lado ou, demorando, o jogo sorteia.</summary>
         const float TEMPO_JOGADORES_BOLA = 7f;
         /// <summary>a mesma bola pode passar por 2 sensores (ou o sensor piscar): a 2ª só vale depois disto</summary>
         const float OUTRA_BOLA = 1.5f;
-        /// <summary>1 jogador pela bola: o amigo já vem escolhido e confirma sozinho neste tempo</summary>
-        const float TEMPO_AMIGO_BOLA = 6f;
+        /// <summary>o amigo escolhido pelo lado da bola aparece este tempo e a partida começa</summary>
+        const float TEMPO_AMIGO_BOLA = 1.6f;
+        /// <summary>sem lado escolhido (bola no meio, START): sorteia o amigo depois disto</summary>
+        const float TEMPO_SORTEIO = 10f;
         /// <summary>o tempo máximo esperando a câmera assentar na pista (segundos de tela)</summary>
         const float ASSENTAR_MAX = 2.2f;
         static readonly Vector3[] PODIOS = { Medidas.G(-0.62f, 0f, 2.5f), Medidas.G(0.62f, 0f, 2.5f) };
@@ -81,6 +85,8 @@ namespace StrikeKids
         /// <summary>a jogada só vale com o "ROLE A BOLA!" na tela (6.4: nem fica guardada para depois)</summary>
         bool _liberada;
         string _quemBola = "";
+        /// <summary>pediu (uma vez por abertura do jogo) para ser a tela inicial da TV</summary>
+        bool _telaInicialPedida;
         float _bolaT = -1000f;
         int _seqDesempate = -1;
         float _inativo, _modalInativo;
@@ -92,6 +98,7 @@ namespace StrikeKids
         float _velocidade = 1f;
         int _escolhaN = 1;
         float _escolhaT;
+        /// <summary>amigo escolhido na tela da escolha: 0 = Bob, 1 = Mia, -1 = nenhum ainda</summary>
         int _destaque;
         float _fimT, _demoT, _cameraT;
         int _demoVez;
@@ -107,6 +114,20 @@ namespace StrikeKids
         float _fator = 1f;
         bool _adaptar = true;
         RenderTexture _rt3d;
+        /// <summary>DESENHO DIRETO NA TELA (o normal, como na edição Godot): o 3D e as telas vão
+        /// direto para a tela da TV, numa passada só, na resolução da TV e com o antisserrilhado da
+        /// própria tela. Na Mali-400/450 cada passada de tela inteira custa caro: com o 3D numa
+        /// imagem separada (o modo "imagem", o compatível) o quadro passa pela imagem 3D e pela
+        /// cópia dela para a tela. ("Desenho da tela" no menu do operador; vale ao montar o jogo.)</summary>
+        bool _direto;
+        RenderTexture _foto3d;          // direto, com o 3D parado atrás de um modal: uma foto dele
+        Vector2Int _telaNativa;          // a tela da TV de verdade (antes de a resolução do jogo mudar)
+        // quadros por segundo (menu do operador: auto, 60 ou 30)
+        const int QPS_JANELA = 600;
+        int _qps = 60;
+        bool _qpsAuto;
+        int _qjQuadros, _qjAtrasos, _qjRuins;
+        double _qjUltimo;
         bool _parado3d;
         float _fpsT0 = -1f;
         int _fpsQ, _qLentos, _fpsRuins, _fpsBons;
@@ -120,7 +141,10 @@ namespace StrikeKids
         string _antesMenu = "";
         int _quadroFechou = -1;
 
-        public Vector2Int Tamanho3D => _rt3d != null ? new Vector2Int(_rt3d.width, _rt3d.height) : Vector2Int.zero;
+        public Vector2Int Tamanho3D => _direto ? new Vector2Int((int)Tela.Fisico.x, (int)Tela.Fisico.y)
+            : _rt3d != null ? new Vector2Int(_rt3d.width, _rt3d.height) : Vector2Int.zero;
+        /// <summary>O 3D vai direto para a tela (ou numa imagem separada)?</summary>
+        public bool Direto => _direto;
         public float Fator => _fator;
         public string Qualidade => _qualidade;
         public bool EmTeste => estado == E.TESTE;
@@ -141,6 +165,7 @@ namespace StrikeKids
             QualitySettings.realtimeReflectionProbes = false;
             QualitySettings.anisotropicFiltering = AnisotropicFiltering.Disable;
             if (GetComponent<AudioListener>() == null) gameObject.AddComponent<AudioListener>();
+            _telaNativa = new Vector2Int(Display.main.systemWidth, Display.main.systemHeight);
             Tela.Iniciar();
             Medidas.ConfigurarFisica();
             Sons.Criar();
@@ -153,6 +178,10 @@ namespace StrikeKids
             _velocidade = Ajustes.Velocidade();
             Ritmo(1f);
             _qualidade = QualidadeEscolhida();
+            _direto = DesenhoDireto();
+            Antisserrilhado();
+            ResolucaoDaTv();
+            QpsDoOperador();
             // contornos (a casca escura em volta dos bichinhos e dos pinos): na qualidade
             // BAIXA ficam desligados (cada peça com contorno é desenhada duas vezes)
             Personagem.contornos = _qualidade != "baixa";
@@ -178,6 +207,7 @@ namespace StrikeKids
             ArduinoBridge.JanelaAndroid -= hud.AvisoAndroid;
             Fotos.JanelaAndroid -= hud.AvisoAndroid;
             if (_rt3d != null) _rt3d.Release();
+            if (_foto3d != null) _foto3d.Release();
         }
 
         /// <summary>Qualidade gráfica valendo: a do operador (ou STRIKE_QUALIDADE nos testes);
@@ -252,7 +282,8 @@ namespace StrikeKids
             _camUi.cullingMask = 1 << CAMADA_UI;
             _camUi.depth = 10;
             _camUi.allowHDR = false;
-            _camUi.allowMSAA = false;
+            // no direto as telas vão na mesma tela antisserrilhada do 3D (sem imagem no meio)
+            _camUi.allowMSAA = _direto;
             _camUi.useOcclusionCulling = false;
             _camUi.nearClipPlane = 0.1f;
             _camUi.farClipPlane = 200f;
@@ -295,6 +326,25 @@ namespace StrikeKids
             int w = Mathf.Max(64, Mathf.RoundToInt(f.x * k)), h = Mathf.Max(64, Mathf.RoundToInt(f.y * k));
             int aa = _qualidade == "baixa" ? 2 : 4;
             if (reflexos != null) reflexos.ligado = _qualidade != "baixa";
+            if (_direto)
+            {
+                // direto na tela: sem imagem 3D (a câmera desenha na tela, com a projeção já girada)
+                if (_rt3d != null)
+                {
+                    cam.cam.targetTexture = null;
+                    _rt3d.Release();
+                    Destroy(_rt3d);
+                    _rt3d = null;
+                }
+                if (_foto3d == null)
+                {
+                    hud.tela3d.texture = null;
+                    hud.tela3d.SetVerticesDirty();
+                }
+                AjustarCamTelas();
+                hud.Layout();
+                return;
+            }
             if (_rt3d == null || _rt3d.width != w || _rt3d.height != h || _rt3d.antiAliasing != aa)
             {
                 var antiga = _rt3d;
@@ -332,14 +382,70 @@ namespace StrikeKids
         {
             if (_menu != null) return;
             _parado3d = sim;
-            cam.cam.enabled = !sim;
+            // no direto não há imagem 3D para deixar parada: uma FOTO dele fica no lugar
+            bool parar = sim && (!_direto || FotoDo3D(true));
+            if (!sim && _direto) FotoDo3D(false);
+            cam.cam.enabled = !parar;
+            AjustarCamTelas();
             if (sim) cam.Congelar();
+        }
+
+        /// <summary>Desenho direto com o 3D parado atrás de um modal: a câmera do jogo tira UMA foto
+        /// do 3D numa imagem pequena (1/3 da tela: atrás do véu escuro do modal a diferença não
+        /// aparece); a foto fica no lugar do 3D, por baixo das telas, e o 3D para de ser desenhado.
+        /// Ao fechar o modal a foto sai e o 3D volta. Com a TV de pé ligada deitada (giro) o 3D
+        /// continua vivo, como na edição Godot. Devolve se tirou a foto.</summary>
+        bool FotoDo3D(bool sim)
+        {
+            if (_foto3d != null)
+            {
+                hud.tela3d.texture = null;
+                hud.tela3d.SetVerticesDirty();
+                _foto3d.Release();
+                Destroy(_foto3d);
+                _foto3d = null;
+            }
+            if (!sim || Tela.Giro != 0) return false;
+            var f = Tela.Fisico;
+            _foto3d = new RenderTexture(Mathf.Max(64, Mathf.RoundToInt(f.x / 3f)), Mathf.Max(64, Mathf.RoundToInt(f.y / 3f)), 24,
+                RenderTextureFormat.Default)
+            {
+                name = "foto3d", filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp,
+            };
+            _foto3d.Create();
+            // (sem giro, a projeção da tela serve para a foto: a mesma proporção)
+            cam.cam.targetTexture = _foto3d;
+            cam.cam.Render();
+            cam.cam.targetTexture = null;
+            hud.tela3d.texture = _foto3d;
+            hud.tela3d.SetVerticesDirty();
+            return true;
+        }
+
+        /// <summary>No direto o 3D já está na tela: as telas desenham por cima, sem limpar. Sem o 3D
+        /// desenhando (menu, foto parada) ou com a imagem separada, a câmera das telas limpa.</summary>
+        void AjustarCamTelas()
+        {
+            if (_camUi == null || cam == null) return;
+            _camUi.clearFlags = _direto && cam.cam.enabled ? CameraClearFlags.Depth : CameraClearFlags.SolidColor;
         }
 
         // ================================================================ entrada
         void LerEntrada()
         {
             if (Input.GetKeyDown(KeyCode.F3)) medidor.Alternar();
+            // segurar qualquer botão da placa por 10 s na tela de espera (e na demonstração, que
+            // começa nela depois de 9 s) abre a CONFIGURAÇÃO DOS BOTÕES (a saída de emergência se o
+            // mapeamento da Zero Delay estiver errado). Fora da espera não conta: um botão segurado
+            // no fim de jogo não pode abrir a configuração assim que a espera voltar.
+            if (!PodeConfigurar()) Controles.EsquecerSegurados();
+            else if (Controles.SeguradoHa() >= Controles.SEGURAR_PARA_CONFIGURAR)
+            {
+                Controles.EsquecerSegurados();
+                AbrirMenu();
+                if (_menu != null) _menu.ConfigurarBotoes();
+                return;
+            }
             if (Controles.Apertou(Acao.Config) || Controles.Apertou(Remoto.Menu))
             {
                 AbrirMenu();
@@ -350,6 +456,9 @@ namespace StrikeKids
                 Ajustes.AdicionarCredito();
                 Sons.Tocar("moeda", 0.65f);
                 AtualizarAtracao();
+                // na espera e no fim a ficha já ABRE a trava: a bola começa
+                if (demo || estado == E.ABERTURA || estado == E.ATRACAO || estado == E.DEMO || estado == E.FIM)
+                    PortaDaEspera();
                 return;
             }
             if (Controles.Apertou(Acao.Start))
@@ -360,6 +469,9 @@ namespace StrikeKids
             string z = Controles.TeclaJogada();
             if (z != "") JogadaRecebida(z);
         }
+
+        /// <summary>Segurar um botão 10 s abre a configuração dos botões — só na espera.</summary>
+        bool PodeConfigurar() => estado == E.ATRACAO || estado == E.ABERTURA || estado == E.DEMO || demo;
 
         void ApertouStart()
         {
@@ -392,8 +504,9 @@ namespace StrikeKids
                     StartNaEspera();
                     break;
                 case E.JOGADORES:
-                    // como no Dragon Bowling: o 2º START = 2 jogadores (mostra e já começa)
-                    DoisJogadores();
+                    // modo livre: o 2º START = 2 jogadores, como a 2ª bola (no modo fichas quem diz
+                    // quantos jogam são as fichas)
+                    if (Ajustes.ModoLivre()) DoisJogadores();
                     break;
                 case E.PERSONAGEM:
                     StartCoroutine(ConfirmarPersonagem());
@@ -419,18 +532,37 @@ namespace StrikeKids
             ArduinoBridge.SendLed("RED");
         }
 
-        /// <summary>Modo livre começando pela bola (menu do operador: "Começar rolando a bola"): a
-        /// porta das bolas fica aberta também na espera.</summary>
-        bool InicioPelaBola() => Ajustes.ModoLivre() && Ajustes.Bool("jogo", "inicio_bola");
+        /// <summary>A bola começa a partida: no modo livre sempre; no modo fichas depois da ficha (a
+        /// trava já abriu).</summary>
+        bool BolaComeca() => Ajustes.PodeComecar();
 
-        float TempoJogadores() => InicioPelaBola() ? TEMPO_JOGADORES_BOLA : TEMPO_JOGADORES;
+        /// <summary>A TRAVA das bolas e o convite da espera (abertura, atração, demonstração, fim de
+        /// jogo): modo livre = sem trava (porta sempre aberta) e "ROLE A BOLA!"; modo fichas =
+        /// fechada e "INSIRA FICHA" até a ficha entrar, aí ABRE e pede a bola.</summary>
+        void PortaDaEspera()
+        {
+            bool pode = Ajustes.PodeComecar();
+            ArduinoBridge.Porta(pode);
+            if (Ajustes.ModoLivre()) hud.ModoEspera("livre");
+            else if (!pode) hud.ModoEspera("ficha");
+            else hud.ModoEspera(Ajustes.JogadoresPagos() == 2 ? "pago2" : "pago1");
+        }
+
+        /// <summary>O amigo pelo lado da bola: esquerda = BOB, direita = MIA (onde cada um fica na
+        /// tela); meio = "" (escolhe depois ou sorteia).</summary>
+        static string AmigoDaZona(string zona)
+        {
+            if (zona == "Z" || zona == "X") return "bob";
+            if (zona == "V" || zona == "B") return "mia";
+            return "";
+        }
 
         /// <summary>Bola rolada na espera (abertura, atração, demonstração, fim): começa a partida,
         /// como o START, e o lado dela já escolhe o amigo.</summary>
         void ComecarPelaBola(string zona)
         {
             hud.SensorAcendeu(zona);
-            _quemBola = zona == "V" || zona == "B" ? "mia" : "bob";
+            _quemBola = AmigoDaZona(zona);
             _bolaT = Time.realtimeSinceStartup;
             EscolherJogadores();
         }
@@ -451,8 +583,8 @@ namespace StrikeKids
         {
             _inativo = 0f;
             if (_modalInativo > 0f) FecharInatividade();
-            // modo livre pela bola: na demonstração inteira a bola de verdade começa, como o START
-            if (demo && EmDemo() && InicioPelaBola())
+            // na demonstração inteira a bola de verdade começa, como o START
+            if (demo && EmDemo() && BolaComeca())
             {
                 ComecarPelaBola(zona);
                 return;
@@ -463,32 +595,36 @@ namespace StrikeKids
                     if (_liberada) Arremessar(zona);
                     break;
                 case E.JOGADORES:
-                    // outra bola (não a mesma passando por 2 sensores) = 2 jogadores
-                    if (InicioPelaBola() && Time.realtimeSinceStartup - _bolaT > OUTRA_BOLA)
+                    // modo livre: outra bola (não a mesma passando por 2 sensores) = 2 jogadores (no
+                    // modo fichas, as fichas já disseram quantos)
+                    if (Ajustes.ModoLivre() && Time.realtimeSinceStartup - _bolaT > OUTRA_BOLA)
                     {
                         _bolaT = Time.realtimeSinceStartup;
                         DoisJogadores();
                     }
                     break;
                 case E.PERSONAGEM:
-                    if (Time.realtimeSinceStartup - _bolaT < OUTRA_BOLA) return;
-                    if (zona == "Z" || zona == "X") MarcarDestaque(0);
-                    else if (zona == "V" || zona == "B") MarcarDestaque(1);
-                    else StartCoroutine(ConfirmarPersonagem());
+                    // o lado da bola escolhe (esquerda = Bob, direita = Mia); bola no meio: sorteia
+                    if (Time.realtimeSinceStartup - _bolaT < OUTRA_BOLA || EscolheuAmigo()) return;
+                    _bolaT = Time.realtimeSinceStartup;
+                    string amigo = AmigoDaZona(zona);
+                    if (amigo == "") SortearAmigo();
+                    else AmigoEscolhido(amigo == "bob" ? 0 : 1);
                     break;
                 case E.ATRACAO:
                 case E.DEMO:
                 case E.ABERTURA:
-                    if (InicioPelaBola()) ComecarPelaBola(zona);
+                    if (BolaComeca()) ComecarPelaBola(zona);
                     else
                     {
-                        // rolar a bola no menu também convida a jogar
+                        // modo fichas sem ficha: a bola no sensor lembra da ficha
                         hud.SensorAcendeu(zona);
+                        hud.TextoGrande("INSIRA FICHA", Hud.CREME, 1f, 0.55f);
                         Sons.Tocar("selecao");
                     }
                     break;
                 case E.FIM:
-                    if (InicioPelaBola() && _fimT > 2.5f) ComecarPelaBola(zona);
+                    if (BolaComeca() && _fimT > 2.5f) ComecarPelaBola(zona);
                     break;
                 // (arremesso, bola rolando, resultado, replay, começo da vez: a jogada não vale —
                 // nem fica guardada para quando a pista abrir)
@@ -574,8 +710,8 @@ namespace StrikeKids
         IEnumerator Abertura()
         {
             estado = E.ABERTURA;
-            ArduinoBridge.Porta(InicioPelaBola());
-            hud.ModoBola(InicioPelaBola());
+            // (modo livre, ou com ficha: a porta fica aberta e a bola é o START)
+            PortaDaEspera();
             int s = NovoSeq();
             hud.Atracao(false);
             hud.MostrarSensores(false);
@@ -664,6 +800,17 @@ namespace StrikeKids
             }
         }
 
+        /// <summary>O JOGO ABRE SOZINHO AO LIGAR A TV: na espera, uma vez por abertura, se o jogo
+        /// ainda não é a tela inicial da TV, abre a escolha do Android (só as janelas de escolha;
+        /// o resto fica no menu do operador, > ABRIR O JOGO AO LIGAR A TV).</summary>
+        void PedirTelaInicial()
+        {
+            if (_telaInicialPedida || Application.platform != RuntimePlatform.Android) return;
+            if (Fotos.JanelaAberta() || ArduinoBridge.JanelaAberta()) return;   // uma janela do Android por vez
+            _telaInicialPedida = true;
+            if (AndroidPonte.TelaInicial() != "jogo") AndroidPonte.PedirTelaInicial();
+        }
+
         /// <summary>TESTE DE DESEMPENHO (pedido no menu do operador): pelas vistas mais pesadas;
         /// mostra a média de quadros por segundo e a qualidade recomendada.</summary>
         void TesteDesempenho()
@@ -694,10 +841,10 @@ namespace StrikeKids
                 _fatorSalvar = false;
                 Ajustes.Definir("video", "fator", Mathf.Round(_fator * 100f) / 100f);
             }
-            // a porta das bolas fica FECHADA na espera (no modo livre pela bola, aberta: a bola
-            // começa); o Arduino pode pedir a permissão USB aqui
-            ArduinoBridge.Porta(InicioPelaBola());
-            hud.ModoBola(InicioPelaBola());
+            // a trava das bolas na espera: FECHADA no modo fichas até a ficha entrar; aberta no modo
+            // livre (sem trava) e com ficha - rolar a bola é o START. O Arduino pode pedir a
+            // permissão USB aqui
+            PortaDaEspera();
             ArduinoBridge.NaEspera(true);
             demo = false;
             Sons.MudoDemo = false;
@@ -772,12 +919,10 @@ namespace StrikeKids
             hud.Marca(false, true);
             hud.Atracao(false);
             hud.TelaFim(false);
-            hud.Etapa(1);
-            Congelar3D(true);
             // a câmera pode ter sido ligada depois: procura de novo e já liga (imagem pronta no "SORRIA!")
             Fotos.Preparar();
             _escolhaN = 1;
-            _escolhaT = TempoJogadores();
+            _escolhaT = TEMPO_JOGADORES_BOLA;
             ArduinoBridge.SendLed("MENU");
             bola.Guardar();
             PararLenta();
@@ -787,6 +932,17 @@ namespace StrikeKids
             SortearTemas(Ajustes.Rodadas() + 1);
             _temasProntos = true;
             PedirRoupas(_temasPartida[0]);
+            // modo fichas: as fichas dizem quantos jogam - 1 ficha vai direto para a escolha do
+            // amigo; 2 fichas mostram "BOB x MIA!" e já começam
+            int pagos = Ajustes.JogadoresPagos();
+            if (pagos == 1)
+            {
+                EscolherPersonagem();
+                return;
+            }
+            hud.Etapa(1);
+            Congelar3D(true);
+            if (pagos == 2) DoisJogadores();
         }
 
         void ConfirmarJogadores()
@@ -797,26 +953,39 @@ namespace StrikeKids
             else EscolherPersonagem();
         }
 
+        /// <summary>1 jogador: BOB (esquerda) e MIA (direita) nos pódios. A bola que começou já
+        /// escolheu pelo lado; se foi no meio (ou START), os dois acenam, o lado da próxima bola
+        /// escolhe e, demorando, o jogo sorteia.</summary>
         void EscolherPersonagem()
         {
             estado = E.PERSONAGEM;
             NovoSeq();
             hud.Etapa(2);
-            // pela bola: o amigo do lado da bola já vem escolhido e confirma sozinho (quem não liga
-            // fica com o Bob; rolar de novo troca)
-            _escolhaT = _quemBola != "" ? TEMPO_AMIGO_BOLA : 8f;
             SubirNosPodios();
-            personagens["bob"].Tocar("acenar", 0.3f, true);
-            personagens["mia"].Tocar("parado", 0.3f, true);
             cam.Ir(G(0f, 1.05f, 6.1f), G(0f, 0.78f, 2.5f), 32, 52, 3f);
-            _destaque = _quemBola == "mia" ? 1 : 0;
-            MarcarDestaque(_destaque);
+            _destaque = -1;
+            if (_quemBola != "")
+            {
+                AmigoEscolhido(_quemBola == "bob" ? 0 : 1);
+                return;
+            }
+            _escolhaT = TEMPO_SORTEIO;
+            personagens["bob"].Tocar("acenar", 0.3f, true);
+            personagens["mia"].Tocar("acenar", 0.3f, true);
+            personagens["bob"].Destaque(0f);
+            personagens["mia"].Destaque(0f);
+            mundo.Podios(true, PODIOS, -1);
         }
 
-        void MarcarDestaque(int i)
+        /// <summary>Já tem amigo escolhido (a partida começa em seguida)?</summary>
+        bool EscolheuAmigo() => _destaque >= 0;
+
+        /// <summary>O amigo escolhido (0 = Bob, 1 = Mia) pelo lado da bola ou no sorteio: ele acena
+        /// no pódio aceso e a partida começa logo depois.</summary>
+        void AmigoEscolhido(int i)
         {
-            if (i != _destaque) Sons.Tocar("selecao");
             _destaque = i;
+            Sons.Tocar("selecao");
             var t = personagens["bob"];
             var r = personagens["mia"];
             t.Tocar(i == 0 ? "acenar" : "parado", 0.25f);
@@ -824,7 +993,15 @@ namespace StrikeKids
             t.Destaque(i == 0 ? 0.12f : 0f);
             r.Destaque(i == 1 ? 0.12f : 0f);
             mundo.Podios(true, PODIOS, i);
-            _escolhaT = Mathf.Max(_escolhaT, 3f);
+            _escolhaT = TEMPO_AMIGO_BOLA;
+        }
+
+        /// <summary>Ninguém escolheu um lado: o jogo sorteia o amigo.</summary>
+        void SortearAmigo()
+        {
+            int i = UnityEngine.Random.Range(0, 2);
+            hud.TextoGrande("SORTEIO: " + (i == 0 ? "BOB" : "MIA") + "!", Hud.CREME, 1.4f, 0.3f);
+            AmigoEscolhido(i);
         }
 
         /// <summary>Bob e Mia em cima dos pódios (escolha e foto).</summary>
@@ -841,7 +1018,7 @@ namespace StrikeKids
             var r = new Vector2[2];
             for (int i = 0; i < 2; i++)
             {
-                var vp = cam.cam.WorldToViewportPoint(PODIOS[i] + G(0f, 0f, 0.45f));
+                var vp = Tela.ViewportLogico(cam.cam, PODIOS[i] + G(0f, 0f, 0.45f));
                 r[i] = Tela.DeViewport(new Vector2(vp.x, vp.y));
             }
             return r;
@@ -850,6 +1027,11 @@ namespace StrikeKids
         IEnumerator ConfirmarPersonagem()
         {
             if (estado != E.PERSONAGEM) yield break;
+            if (!EscolheuAmigo())
+            {
+                SortearAmigo();   // START (ou o tempo) sem lado escolhido: sorteio
+                yield break;
+            }
             estado = E.RESULTADO;
             int s = NovoSeq();
             string escolhido = _destaque == 0 ? "bob" : "mia";
@@ -870,7 +1052,7 @@ namespace StrikeKids
         // ================================================================ partida
         IEnumerator Comecar(List<string> lista)
         {
-            Ajustes.GastarCreditos();
+            Ajustes.GastarCreditos(lista.Count);
             Ajustes.Contar("partidas");
             placar.Comecar(lista, Ajustes.Rodadas(), Ajustes.Tentativas());
             mundo.DefinirProtecao(Ajustes.ProtecaoCanaleta());
@@ -1216,6 +1398,7 @@ namespace StrikeKids
             if (_menu != null) return;
             if (Time.frameCount != _quadroFechou) LerEntrada();
             if (_menu != null) return;
+            MedirJogada();
             MedirFps();
             OrcamentoBichos();
             AndarLenta();
@@ -1241,14 +1424,14 @@ namespace StrikeKids
                     break;
                 case E.JOGADORES:
                     _escolhaT -= real;
-                    hud.Jogadores(true, _escolhaN, _escolhaT / TempoJogadores(), Mathf.CeilToInt(_escolhaT));
+                    hud.Jogadores(true, _escolhaN, _escolhaT / TEMPO_JOGADORES_BOLA, Mathf.CeilToInt(_escolhaT));
                     if (_escolhaT <= 0f) ConfirmarJogadores();
                     break;
                 case E.PERSONAGEM:
                     _escolhaT -= real;
-                    string dica = InicioPelaBola()
-                        ? "QUER O OUTRO AMIGO? ROLE A BOLA DO LADO DELE\nbola no MEIO = JOGAR JÁ · sem bola, começa em " + Mathf.CeilToInt(_escolhaT)
-                        : "ROLE A BOLA PARA ESCOLHER SEU AMIGO\nbola no MEIO ou START confirma   (" + Mathf.CeilToInt(_escolhaT) + ")";
+                    string dica = EscolheuAmigo()
+                        ? (_destaque == 0 ? "VOCÊ JOGA COM O BOB!" : "VOCÊ JOGA COM A MIA!")
+                        : "ROLE A BOLA DO LADO DO SEU AMIGO\nESQUERDA = BOB · DIREITA = MIA · sem bola, sorteio em " + Mathf.CeilToInt(_escolhaT);
                     hud.Selecao(true, _destaque, dica, PesNaTela());
                     if (_escolhaT <= 0f) StartCoroutine(ConfirmarPersonagem());
                     break;
@@ -1260,6 +1443,7 @@ namespace StrikeKids
                     {
                         _cameraT = 0f;
                         Fotos.NaEspera();
+                        PedirTelaInicial();
                     }
                     if (Ajustes.Bool("jogo", "demo") && _demoT > 9f)
                     {
@@ -1786,9 +1970,10 @@ namespace StrikeKids
         void FimDeJogo()
         {
             estado = E.FIM;
-            // fim da partida: a porta FECHA (as bolas da última jogada voltam e ficam); no modo
-            // livre pela bola fica aberta (a bola começa outra)
-            ArduinoBridge.Porta(InicioPelaBola());
+            // fim da partida: no modo fichas a trava FECHA (as bolas da última jogada voltam e
+            // ficam), a não ser que sobre ficha; no modo livre (sem trava) fica aberta - a bola
+            // começa outra
+            PortaDaEspera();
             NovoSeq();
             _fimT = 0f;
             hud.MostrarPlacar(false);
@@ -2016,6 +2201,7 @@ namespace StrikeKids
             _antesMenu = AjustesQueRemontam();
             Time.timeScale = 0f;
             cam.cam.enabled = false;
+            AjustarCamTelas();
             Ui.Ver(hud.Raiz, false);
             _menu = Operador.Abrir(_canvas.transform, this);
         }
@@ -2023,7 +2209,9 @@ namespace StrikeKids
         public void FecharMenu()
         {
             if (_menu == null) return;
-            if (AjustesQueRemontam() != _antesMenu)
+            // (o desenho da tela também quando o escolhido não é o que está valendo: a medida
+            // automática pode ter trocado o "auto" no meio, sem remontar)
+            if (AjustesQueRemontam() != _antesMenu || DesenhoDireto() != _direto)
             {
                 // o mundo é montado de outro jeito: monta de novo, com aviso na tela
                 StartCoroutine(Remontar());
@@ -2036,14 +2224,20 @@ namespace StrikeKids
             if (mundo != null && mundo.temas != null && Ajustes.Cenario3dLeve() != mundo.temas.cenarioLeve)
                 mundo.temas.NivelCenario(Ajustes.Cenario3dLeve());
             Ui.Ver(hud.Raiz, true);
+            if (_foto3d != null) FotoDo3D(false);
             cam.cam.enabled = true;
             _parado3d = false;
+            AjustarCamTelas();
             _fpsT0 = -1f;
+            // a resolução da TV Box e os quadros por segundo valem na hora
+            ResolucaoDaTv();
+            QpsDoOperador();
             // ajustes que valem na hora
             _velocidade = Ajustes.Velocidade();
             Ritmo(1f);
             string q = QualidadeEscolhida();
             if (q != _qualidade) _qualidade = q;
+            Antisserrilhado();
             LerNitidez();
             TelaMudou();
             if (Ajustes.Bool("video", "medidor") != medidor.Visivel) medidor.Mostrar(Ajustes.Bool("video", "medidor"));
@@ -2073,7 +2267,7 @@ namespace StrikeKids
         public bool MenuAberto => _menu != null;
 
         /// <summary>O que muda a MONTAGEM do jogo (e não dá para trocar com ele montado).</summary>
-        string AjustesQueRemontam() => "cenario=" + Ajustes.CenarioLeve() + "|detalhes=" + Ajustes.Detalhes();
+        string AjustesQueRemontam() => "cenario=" + Ajustes.CenarioLeve() + "|detalhes=" + Ajustes.Detalhes() + "|direto=" + DesenhoDireto();
 
         IEnumerator Remontar()
         {
@@ -2128,6 +2322,96 @@ namespace StrikeKids
             }
         }
 
+        // ================================================================ a tela da TV Box
+        /// <summary>Desenho direto ou com a imagem 3D separada: o do operador ("Desenho da tela" no
+        /// menu; STRIKE_DESENHO nos testes). Automático = direto, a não ser que o jogo já tenha visto
+        /// esta máquina sem fôlego nele, mesmo na qualidade baixa (então liga na imagem separada).</summary>
+        static bool DesenhoDireto()
+        {
+            string d = Ajustes.Texto("video", "desenho");
+            string amb = Environment.GetEnvironmentVariable("STRIKE_DESENHO");
+            if (!string.IsNullOrEmpty(amb)) d = amb;
+            if (d == "auto") d = Ajustes.Texto("video", "desenho_medido") == "imagem" ? "imagem" : "direto";
+            return d != "imagem";
+        }
+
+        /// <summary>RESOLUÇÃO DA IMAGEM NA TV BOX ("Resolução da imagem" no menu): o jogo desenha numa
+        /// imagem menor que a tela e a própria TV Box estica até a tela inteira, no hardware de vídeo
+        /// — de graça para a placa (TelaDaTv.java na edição Godot). Automática: 720 linhas na
+        /// Mali-400/450 e até 1080 nas outras (TV 4K não desenha em 4K).</summary>
+        void ResolucaoDaTv()
+        {
+            if (Application.platform != RuntimePlatform.Android || _telaNativa.x <= 0 || _telaNativa.y <= 0) return;
+            int linhas = LinhasDaTv();
+            int menor = Mathf.Min(_telaNativa.x, _telaNativa.y);
+            int w = _telaNativa.x, h = _telaNativa.y;
+            if (linhas > 0 && linhas < menor)
+            {
+                float k = (float)linhas / menor;
+                w = Mathf.RoundToInt(_telaNativa.x * k / 2f) * 2;
+                h = Mathf.RoundToInt(_telaNativa.y * k / 2f) * 2;
+            }
+            if (Screen.width != w || Screen.height != h) Screen.SetResolution(w, h, FullScreenMode.FullScreenWindow);
+        }
+
+        /// <summary>Quantas linhas a imagem do jogo tem na TV Box (0 = as da própria tela).</summary>
+        static int LinhasDaTv()
+        {
+            switch (Ajustes.Texto("video", "resolucao"))
+            {
+                case "720p": return 720;
+                case "900p": return 900;
+                case "1080p": return 1080;
+                case "tela": return 0;
+            }
+            return Ajustes.PlacaUtgard() ? 720 : 1080;
+        }
+
+        /// <summary>Os quadros por segundo do menu do operador (no automático, o que ele já mediu
+        /// nesta TV Box). Escolher 60 de propósito esquece a medida.</summary>
+        void QpsDoOperador()
+        {
+            string q = Ajustes.Texto("video", "qps");
+            if (q == "60" && Ajustes.Int("video", "qps_medido") != 0) Ajustes.Definir("video", "qps_medido", 0);
+            _qpsAuto = q == "auto";
+            _qjQuadros = _qjAtrasos = _qjRuins = 0;
+            DefinirQps(q == "30" || (_qpsAuto && Ajustes.Int("video", "qps_medido") == 30) ? 30 : 60);
+        }
+
+        /// <summary>60 ou 30 quadros. No Android o ritmo de 30 é o da própria tela (o "Optimized
+        /// Frame Pacing" do APK: um quadro a cada 2 batidas da TV, sem tremer).</summary>
+        void DefinirQps(int q)
+        {
+            _qps = q;
+            Application.targetFrameRate = q;
+            // (no PC o ritmo é o do monitor: 30 = um quadro a cada 2 batidas)
+            if (Application.platform != RuntimePlatform.Android) QualitySettings.vSyncCount = q >= 60 ? 1 : 2;
+        }
+
+        /// <summary>(automático) mede as jogadas: quadros que passaram de 1,5 vez o tempo de um quadro
+        /// de 60. Atrasou em mais de 10% dos quadros duas janelas seguidas: 30 travados (guardado).</summary>
+        void MedirJogada()
+        {
+            double agora = Time.realtimeSinceStartupAsDouble;
+            double antes = _qjUltimo;
+            _qjUltimo = agora;
+            if (!_qpsAuto || _qps < 60 || antes <= 0 || _menu != null) return;
+            if (!(estado == E.ARREMESSO || estado == E.ROLANDO || estado == E.RESULTADO || estado == E.DEMO)) return;
+            _qjQuadros++;
+            if (agora - antes > 0.025) _qjAtrasos++;
+            if (_qjQuadros < QPS_JANELA) return;
+            float parte = (float)_qjAtrasos / _qjQuadros;
+            _qjRuins = parte > 0.1f ? _qjRuins + 1 : 0;
+            _qjQuadros = 0;
+            _qjAtrasos = 0;
+            if (_qjRuins >= 2)
+            {
+                DefinirQps(30);
+                Ajustes.Definir("video", "qps_medido", 30);
+                Debug.Log($"Quadros automáticos: 30 travados ({parte * 100f:0}% dos quadros atrasados a 60)");
+            }
+        }
+
         // ================================================================ nitidez x lisura (sozinho)
         /// <summary>A cada 2 s mede os quadros por segundo de verdade E as travadinhas. Ruim duas
         /// vezes seguidas, alivia: na automática ALTA passa para a MÉDIA; depois a imagem 3D
@@ -2157,7 +2441,11 @@ namespace StrikeKids
 
         void MedirFps()
         {
-            const float alvo = 60f;
+            // o alvo: 60 (ou 30 travados) e nunca mais que a própria TV (a 50 Hz, 50)
+#pragma warning disable 0618
+            int hz = Screen.currentResolution.refreshRate;
+#pragma warning restore 0618
+            float alvo = Mathf.Min(Mathf.Clamp(hz > 0 ? hz : 60, 30, 60), _qps);
             float agora = Time.realtimeSinceStartup;
             if (_qUltimo > 0f && agora - _qUltimo > 1.5f / alvo) _qLentos++;
             _qUltimo = agora;
@@ -2200,7 +2488,7 @@ namespace StrikeKids
                     Debug.Log($"Cenário 3D automático: leve ({fps:0} quadros/s, {atrasados * 100f:0}% atrasados)");
                 }
                 else if (auto && _qualidade == "alta") _qualidadePendente = "media";
-                else if (_fator > FATOR_MIN + 0.01f)
+                else if (!_direto && _fator > FATOR_MIN + 0.01f)
                 {
                     _teto = _fator;
                     _tetoAte = agora + 90f;
@@ -2211,12 +2499,20 @@ namespace StrikeKids
                     _qualidadePendente = "baixa";
                     _fatorPendente = 1f;
                 }
+                else if (_direto && _qualidade == "baixa" && fps < alvo * 0.6f && Ajustes.Texto("video", "desenho") == "auto"
+                    && Ajustes.Texto("video", "desenho_medido") != "imagem")
+                {
+                    // nem na baixa o desenho direto tem fôlego (placa fraca demais para a resolução
+                    // da TV): da próxima vez que o jogo abrir, a imagem 3D separada
+                    Ajustes.Definir("video", "desenho_medido", "imagem");
+                    Debug.Log($"Desenho automático: imagem 3D separada na próxima abertura ({fps:0} quadros/s na baixa)");
+                }
             }
             else if (fps >= alvo * 0.97f && atrasados < 0.01f)
             {
                 _fpsRuins = 0;
                 _fpsBons++;
-                if (_fpsBons >= 4 && _fator < 1f)
+                if (_fpsBons >= 4 && !_direto && _fator < 1f)
                 {
                     _fpsBons = 0;
                     float limite = agora < _tetoAte ? _teto - 0.01f : 1f;
@@ -2231,6 +2527,15 @@ namespace StrikeKids
             }
         }
 
+        /// <summary>Antisserrilhado da própria tela no desenho direto: 4x (2x na qualidade baixa). Só
+        /// muda quando precisa (trocar refaz a imagem da tela: no começo, na saída do menu e debaixo
+        /// do clarão branco).</summary>
+        void Antisserrilhado()
+        {
+            int aa = _direto && Ajustes.Bool("video", "antisserrilhado") ? (_qualidade == "baixa" ? 2 : 4) : 0;
+            if (QualitySettings.antiAliasing != aa) QualitySettings.antiAliasing = aa;
+        }
+
         /// <summary>Um clarão branco cobre a tela agora: a troca de resolução pendente acontece aqui.</summary>
         void NoClarao()
         {
@@ -2240,6 +2545,7 @@ namespace StrikeKids
                 _qualidade = _qualidadePendente;
                 _qualidadePendente = "";
                 _qualidadeSalvar = Ajustes.Texto("video", "qualidade") == "auto";
+                Antisserrilhado();
                 mudou = true;
             }
             if (_fatorPendente > 0f)

@@ -74,8 +74,7 @@ namespace StrikeKids
             if (n != _jogN) Pular(_jogCartoes[n - 1]);
             _jogN = n;
             if (n != 1) _jogDica.text = "2 JOGADORES: BOB x MIA!\nPreparem-se...";
-            else if (_modoBola) _jogDica.text = "Vão jogar em 2? A outra criança rola uma bola agora!\nSe não, começa com 1 jogador em " + Mathf.Max(segundos, 1) + "...";
-            else _jogDica.text = "Vão jogar em 2? Aperte START de novo agora!\nSe não, começa com 1 jogador em " + Mathf.Max(segundos, 1) + "...";
+            else _jogDica.text = "Vão jogar em 2? A outra criança rola uma bola agora!\nSe não, começa com 1 jogador em " + Mathf.Max(segundos, 1) + "...";
             var tt = Ui.Tam(_jogTrilho);
             Ui.Ret(_jogBarra, 0, 0, Mathf.Max(tt.x * Mathf.Clamp01(fracao), tt.y), tt.y);
             Ui.Ver(_jogBarra, fracao > 0f);
@@ -199,7 +198,8 @@ namespace StrikeKids
             _selTexto.text = texto;
             if (!ligado) return;
             if (entrou) Pular(_selTitulo);
-            if (destaque != _selDestaque) Pular(_selPlacas[destaque]);
+            // destaque -1: ninguém escolhido ainda (as duas placas iguais)
+            if (destaque != _selDestaque && destaque >= 0) Pular(_selPlacas[destaque]);
             _selDestaque = destaque;
             for (int i = 0; i < 2; i++)
             {
@@ -210,9 +210,9 @@ namespace StrikeKids
                     Ui.Pos(p, Mathf.Clamp(pes[i].x - tam.x / 2, 12 * u, T.x - tam.x - 12 * u), pes[i].y + 30 * u);
                     _selPosta[i] = true;
                 }
-                float alvo = i == destaque ? 1.12f : 0.9f;
+                float alvo = i == destaque ? 1.12f : (destaque < 0 ? 1f : 0.9f);
                 Ui.Escala(p, Mathf.Lerp(Ui.Escala(p), alvo, 0.25f));
-                p.color = i == destaque ? Color.white : new Color(0.8f, 0.84f, 0.92f, 0.85f);
+                p.color = i == destaque || destaque < 0 ? Color.white : new Color(0.8f, 0.84f, 0.92f, 0.85f);
                 Ui.Alfa(p, i == destaque ? 1f : 0.85f);
                 if (i != destaque) p.Realcar(0f);
             }
@@ -459,20 +459,25 @@ namespace StrikeKids
             }
         }
 
-        string JogarDeNovo() => _modoBola ? "ROLE A BOLA PARA JOGAR DE NOVO" : "APERTE START PARA JOGAR DE NOVO";
+        string JogarDeNovo() => _modoBola ? "ROLE A BOLA PARA JOGAR DE NOVO" : "INSIRA FICHA PARA JOGAR DE NOVO";
 
-        /// <summary>MODO LIVRE PELA BOLA (7.5, máquina sem botões): "ROLE A BOLA!" (e o lado
-        /// escolhe o amigo) no lugar do START, na espera, no "QUANTOS VÃO JOGAR?" e no fim.</summary>
-        public void ModoBola(bool sim)
+        /// <summary>O que a espera pede (a bola é o START), na espera, no "QUANTOS VÃO JOGAR?" e no
+        /// fim de jogo: "livre" = modo livre (sem trava): "ROLE A BOLA!", o lado escolhe o amigo;
+        /// "ficha" = modo fichas sem ficha (trava fechada): "INSIRA FICHA"; "pago1" / "pago2" = com
+        /// 1 ou 2 fichas (trava aberta): "ROLE A BOLA!".</summary>
+        public void ModoEspera(string modo)
         {
-            if (sim == _modoBola) return;
-            _modoBola = sim;
-            _aperte.text = sim ? "ROLE A BOLA!" : "APERTE START";
-            Ui.Ver(_aperteSub, sim);
+            if (modo == _modoEspera) return;
+            _modoEspera = modo;
+            _modoBola = modo != "ficha";
+            _aperte.text = _modoBola ? "ROLE A BOLA!" : "INSIRA FICHA";
+            _aperteSub.text = modo == "ficha" ? "DEPOIS É SÓ ROLAR A BOLA!"
+                : modo == "pago2" ? "2 FICHAS: BOB x MIA!" : "ESQUERDA = BOB  ·  DIREITA = MIA";
+            bool fichas = modo != "livre";
             for (int i = 0; i < _jogPecas.Count; i++)
             {
-                _jogPecas[i].botaoTexto.text = sim ? "ROLE" : "START";
-                _jogPecas[i].vezes.text = sim ? (i == 0 ? "1 BOLA" : "2 BOLAS") : (i == 0 ? "1 VEZ" : "2 VEZES");
+                _jogPecas[i].botaoTexto.text = "ROLE";
+                _jogPecas[i].vezes.text = fichas ? (i == 0 ? "1 FICHA" : "2 FICHAS") : (i == 0 ? "1 BOLA" : "2 BOLAS");
             }
             _chaveMelhores = "";
             Layout();
